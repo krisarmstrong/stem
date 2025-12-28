@@ -19,14 +19,24 @@ var staticFiles embed.FS
 
 // Server represents the web server
 type Server struct {
-	port         int
-	mux          *http.ServeMux
-	stats        *Stats
-	statsMu      sync.RWMutex
-	testStatus   string
-	currentTest  string
-	startTime    time.Time
-	selectedIface string
+	port            int
+	mux             *http.ServeMux
+	stats           *Stats
+	statsMu         sync.RWMutex
+	testStatus      string
+	currentTest     string
+	startTime       time.Time
+	selectedIface   string
+	mode            string // "reflector" or "test_master"
+	reflectorConfig ReflectorConfig
+}
+
+// ReflectorConfig holds reflector-specific settings
+type ReflectorConfig struct {
+	Profile         string   `json:"profile"`          // netally, msn, all, custom
+	SignatureFilter []string `json:"signatureFilter"`
+	OUIFilter       string   `json:"ouiFilter"`
+	PortFilter      int      `json:"portFilter"`
 }
 
 // Stats holds runtime statistics
@@ -50,6 +60,12 @@ func NewServer(port int) *Server {
 		stats:      &Stats{},
 		testStatus: "idle",
 		startTime:  time.Now(),
+		mode:       "test_master",
+		reflectorConfig: ReflectorConfig{
+			Profile:    "all",
+			PortFilter: 3842,
+			OUIFilter:  "00:c0:17",
+		},
 	}
 	s.setupRoutes()
 	return s
@@ -64,6 +80,11 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/api/test/stop", s.handleTestStop)
 	s.mux.HandleFunc("/api/settings", s.handleSettings)
 	s.mux.HandleFunc("/api/health", s.handleHealth)
+
+	// Reflector-specific routes
+	s.mux.HandleFunc("/api/reflector/config", s.handleReflectorConfig)
+	s.mux.HandleFunc("/api/reflector/stats", s.handleReflectorStats)
+	s.mux.HandleFunc("/api/mode", s.handleMode)
 
 	// Static files (embedded UI)
 	staticFS, err := fs.Sub(staticFiles, "dist")
@@ -229,6 +250,141 @@ func (s *Server) UpdateStats(packetsRx, packetsTx, bytesRx, bytesTx uint64, pps,
 	s.stats.BytesSent = bytesTx
 	s.stats.CurrentPPS = pps
 	s.stats.CurrentMbps = mbps
+}
+
+// handleMode handles mode switching between reflector and test_master
+func (s *Server) handleMode(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	switch r.Method {
+	case http.MethodGet:
+		json.NewEncoder(w).Encode(map[string]string{"mode": s.mode})
+
+	case http.MethodPost:
+		var req struct {
+			Mode string `json:"mode"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
+
+		if req.Mode != "reflector" && req.Mode != "test_master" {
+			http.Error(w, "Invalid mode (must be 'reflector' or 'test_master')", http.StatusBadRequest)
+			return
+		}
+
+		s.mode = req.Mode
+		json.NewEncoder(w).Encode(map[string]string{"status": "updated", "mode": s.mode})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleReflectorConfig handles reflector configuration
+func (s *Server) handleReflectorConfig(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	switch r.Method {
+	case http.MethodGet:
+		json.NewEncoder(w).Encode(s.reflectorConfig)
+
+	case http.MethodPost:
+		var cfg ReflectorConfig
+		if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
+
+		// Validate profile
+		validProfiles := map[string]bool{"netally": true, "msn": true, "all": true, "custom": true}
+		if cfg.Profile != "" && !validProfiles[cfg.Profile] {
+			http.Error(w, "Invalid profile", http.StatusBadRequest)
+			return
+		}
+
+		// Update config
+		if cfg.Profile != "" {
+			s.reflectorConfig.Profile = cfg.Profile
+		}
+		if cfg.OUIFilter != "" {
+			s.reflectorConfig.OUIFilter = cfg.OUIFilter
+		}
+		if cfg.PortFilter > 0 {
+			s.reflectorConfig.PortFilter = cfg.PortFilter
+		}
+		if cfg.SignatureFilter != nil {
+			s.reflectorConfig.SignatureFilter = cfg.SignatureFilter
+		}
+
+		json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// ReflectorStats holds reflector-specific statistics
+type ReflectorStats struct {
+	Running          bool    `json:"running"`
+	PacketsReceived  uint64  `json:"packetsReceived"`
+	PacketsReflected uint64  `json:"packetsReflected"`
+	BytesReceived    uint64  `json:"bytesReceived"`
+	BytesReflected   uint64  `json:"bytesReflected"`
+	TxErrors         uint64  `json:"txErrors"`
+	RxInvalid        uint64  `json:"rxInvalid"`
+	RatePPS          float64 `json:"ratePps"`
+	RateMbps         float64 `json:"rateMbps"`
+	Signatures       struct {
+		ProbeOT uint64 `json:"probeot"`
+		DataOT  uint64 `json:"dataot"`
+		Latency uint64 `json:"latency"`
+		RFC2544 uint64 `json:"rfc2544"`
+		Y1564   uint64 `json:"y1564"`
+		MSN     uint64 `json:"msn"`
+	} `json:"signatures"`
+	Latency struct {
+		MinUs float64 `json:"minUs"`
+		AvgUs float64 `json:"avgUs"`
+		MaxUs float64 `json:"maxUs"`
+		Count uint64  `json:"count"`
+	} `json:"latency"`
+	Uptime float64 `json:"uptime"`
+}
+
+// handleReflectorStats returns reflector-specific statistics
+func (s *Server) handleReflectorStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	s.statsMu.RLock()
+	elapsed := time.Since(s.startTime).Seconds()
+
+	// Calculate rates
+	pps := float64(0)
+	mbps := float64(0)
+	if elapsed > 0 && s.stats.PacketsSent > 0 {
+		pps = float64(s.stats.PacketsSent) / elapsed
+		mbps = float64(s.stats.BytesSent) * 8.0 / (elapsed * 1000000.0)
+	}
+
+	reflectorStats := ReflectorStats{
+		Running:          s.mode == "reflector" && s.testStatus == "running",
+		PacketsReceived:  s.stats.PacketsReceived,
+		PacketsReflected: s.stats.PacketsSent,
+		BytesReceived:    s.stats.BytesReceived,
+		BytesReflected:   s.stats.BytesSent,
+		RatePPS:          pps,
+		RateMbps:         mbps,
+		Uptime:           elapsed,
+	}
+	s.statsMu.RUnlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(reflectorStats)
 }
 
 // Run starts the web server

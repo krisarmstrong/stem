@@ -14,7 +14,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/krisarmstrong/reflector-native/pkg/dataplane"
+	"github.com/krisarmstrong/seed-test-suite/pkg/reflector/dataplane"
 )
 
 //go:embed dist/*

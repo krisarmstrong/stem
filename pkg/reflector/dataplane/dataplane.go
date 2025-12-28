@@ -47,7 +47,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/krisarmstrong/reflector-native/pkg/config"
+	"github.com/krisarmstrong/seed-test-suite/pkg/reflector/config"
 )
 
 // Stats holds dataplane statistics
