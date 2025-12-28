@@ -1,0 +1,35 @@
+# Binaries
+seedtest
+rfc2544-linux
+*.o
+*.a
+*.so
+
+# Build artifacts
+build/
+dist/
+*.deb
+*.rpm
+
+# Go
+go.sum
+
+# Node
+ui/node_modules/
+ui/dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test coverage
+coverage.out
+coverage.html
