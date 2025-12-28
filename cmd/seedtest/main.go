@@ -13,6 +13,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+
+	"github.com/krisarmstrong/seed-test-suite/pkg/web"
 )
 
 const (
@@ -159,17 +161,18 @@ func webCmd(args []string) {
 	fs := flag.NewFlagSet("web", flag.ExitOnError)
 	port := fs.Int("port", 8080, "HTTP port")
 	fs.IntVar(port, "p", 8080, "HTTP port (shorthand)")
-	host := fs.String("host", "0.0.0.0", "Bind address")
+	_ = fs.String("host", "0.0.0.0", "Bind address")
 
 	if err := fs.Parse(args); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("Starting Seed WebUI at http://%s:%d\n", *host, *port)
-
-	// TODO: Start web server
-	fmt.Println("WebUI not yet implemented in unified binary")
+	server := web.NewServer(*port)
+	if err := server.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 func tuiCmd(args []string) {
