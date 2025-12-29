@@ -1,9 +1,9 @@
-/*
- * server.go - Embedded web server for Reflector 2.0
- *
- * Serves the React UI and provides JSON API endpoints.
- */
+// Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
 
+// Package web provides the embedded web server for the Reflector.
+//
+// Serves the React UI and provides JSON API endpoints for real-time
+// packet statistics, signature filter configuration, and interface status.
 package web
 
 import (
@@ -14,7 +14,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/krisarmstrong/seed-test-suite/pkg/reflector/dataplane"
+	"github.com/krisarmstrong/stem/pkg/reflector/dataplane"
 )
 
 //go:embed dist/*
@@ -117,41 +117,44 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stats := s.dp.GetStats()
 	elapsed := time.Since(s.startTime).Seconds()
-
-	pps := float64(0)
-	mbps := float64(0)
-	if elapsed > 0 {
-		pps = float64(stats.PacketsReflected) / elapsed
-		mbps = float64(stats.BytesReflected) * 8.0 / (elapsed * 1000000.0)
-	}
-
 	resp := StatsResponse{
-		Timestamp:        time.Now().UTC().Format(time.RFC3339),
-		Uptime:           elapsed,
-		Interface:        s.dp.Interface(),
-		Running:          s.dp.IsRunning(),
-		PacketsReceived:  stats.PacketsReceived,
-		PacketsReflected: stats.PacketsReflected,
-		BytesReceived:    stats.BytesReceived,
-		BytesReflected:   stats.BytesReflected,
-		TxErrors:         stats.TxErrors,
-		RxInvalid:        stats.RxInvalid,
-		RatePackets:      pps,
-		RateMbps:         mbps,
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		Uptime:    elapsed,
 	}
-	resp.Signatures.ProbeOT = stats.SigProbeOT
-	resp.Signatures.DataOT = stats.SigDataOT
-	resp.Signatures.Latency = stats.SigLatency
-	resp.Signatures.RFC2544 = stats.SigRFC2544
-	resp.Signatures.Y1564 = stats.SigY1564
-	resp.Signatures.MSN = stats.SigMSN
-	resp.Latency.MinUs = stats.LatencyMin
-	resp.Latency.AvgUs = stats.LatencyAvg
-	resp.Latency.MaxUs = stats.LatencyMax
-	resp.Latency.Count = stats.LatencyCount
-	resp.Latency.Enabled = stats.LatencyCount > 0
+
+	// Handle nil dataplane (for testing without CGO)
+	if s.dp != nil {
+		stats := s.dp.GetStats()
+		pps := float64(0)
+		mbps := float64(0)
+		if elapsed > 0 {
+			pps = float64(stats.PacketsReflected) / elapsed
+			mbps = float64(stats.BytesReflected) * 8.0 / (elapsed * 1000000.0)
+		}
+
+		resp.Interface = s.dp.Interface()
+		resp.Running = s.dp.IsRunning()
+		resp.PacketsReceived = stats.PacketsReceived
+		resp.PacketsReflected = stats.PacketsReflected
+		resp.BytesReceived = stats.BytesReceived
+		resp.BytesReflected = stats.BytesReflected
+		resp.TxErrors = stats.TxErrors
+		resp.RxInvalid = stats.RxInvalid
+		resp.RatePackets = pps
+		resp.RateMbps = mbps
+		resp.Signatures.ProbeOT = stats.SigProbeOT
+		resp.Signatures.DataOT = stats.SigDataOT
+		resp.Signatures.Latency = stats.SigLatency
+		resp.Signatures.RFC2544 = stats.SigRFC2544
+		resp.Signatures.Y1564 = stats.SigY1564
+		resp.Signatures.MSN = stats.SigMSN
+		resp.Latency.MinUs = stats.LatencyMin
+		resp.Latency.AvgUs = stats.LatencyAvg
+		resp.Latency.MaxUs = stats.LatencyMax
+		resp.Latency.Count = stats.LatencyCount
+		resp.Latency.Enabled = stats.LatencyCount > 0
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -170,6 +173,15 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	// Require dataplane for config operations
+	if s.dp == nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(ConfigResponse{Platform: struct {
+			Type string `json:"type"`
+		}{Type: "none"}})
+		return
+	}
 
 	if r.Method == http.MethodPost {
 		// Update configuration
@@ -229,7 +241,9 @@ func (s *Server) handleResetStats(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	s.dp.ResetStats()
+	if s.dp != nil {
+		s.dp.ResetStats()
+	}
 	s.startTime = time.Now() // Reset uptime too
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
@@ -239,9 +253,13 @@ func (s *Server) handleResetStats(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
+	running := false
+	if s.dp != nil {
+		running = s.dp.IsRunning()
+	}
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":  "ok",
-		"running": s.dp.IsRunning(),
+		"running": running,
 		"uptime":  time.Since(s.startTime).Seconds(),
 		"version": "2.0.0",
 	})
@@ -254,7 +272,23 @@ func (s *Server) handleFallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stats := s.dp.GetStats()
+	var iface, status = "N/A", "No dataplane"
+	var rxPkts, txPkts, rxBytes, txBytes uint64
+
+	if s.dp != nil {
+		stats := s.dp.GetStats()
+		iface = s.dp.Interface()
+		if s.dp.IsRunning() {
+			status = "Running"
+		} else {
+			status = "Stopped"
+		}
+		rxPkts = stats.PacketsReceived
+		txPkts = stats.PacketsReflected
+		rxBytes = stats.BytesReceived
+		txBytes = stats.BytesReflected
+	}
+
 	html := fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <head>
@@ -277,19 +311,7 @@ func (s *Server) handleFallback(w http.ResponseWriter, r *http.Request) {
     <hr>
     <p><small>Auto-refresh every 5 seconds. Build React UI for full dashboard.</small></p>
 </body>
-</html>`,
-		s.dp.Interface(),
-		func() string {
-			if s.dp.IsRunning() {
-				return "Running"
-			}
-			return "Stopped"
-		}(),
-		stats.PacketsReceived,
-		stats.PacketsReflected,
-		stats.BytesReceived,
-		stats.BytesReflected,
-	)
+</html>`, iface, status, rxPkts, txPkts, rxBytes, txBytes)
 
 	w.Header().Set("Content-Type", "text/html")
 	w.Write([]byte(html))

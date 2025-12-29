@@ -1,15 +1,16 @@
-/*
- * dataplane.go - CGO bindings to C dataplane
- *
- * This package provides a Go interface to the high-performance C dataplane.
- * The actual packet processing happens in C for maximum performance.
- */
+//go:build cgo && linux
 
+// Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
+
+// Package dataplane provides CGO bindings to the C reflector dataplane.
+//
+// This package wraps the high-performance C dataplane library, which uses
+// AF_PACKET, AF_XDP, or DPDK for line-rate packet reflection.
 package dataplane
 
 /*
-#cgo CFLAGS: -I${SRCDIR}/../../include
-#cgo LDFLAGS: -L${SRCDIR}/../../build -lreflector
+#cgo CFLAGS: -I${SRCDIR}/../../../include
+#cgo LDFLAGS: -L${SRCDIR}/../../../build -lreflector
 #cgo linux LDFLAGS: -lxdp -lbpf -lelf -lz
 
 #include "reflector.h"
@@ -47,7 +48,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/krisarmstrong/seed-test-suite/pkg/reflector/config"
+	"github.com/krisarmstrong/stem/pkg/reflector/config"
 )
 
 // Stats holds dataplane statistics

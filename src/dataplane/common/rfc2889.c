@@ -1,5 +1,7 @@
-/*
- * rfc2889.c - RFC 2889 LAN Switch Benchmarking Implementation
+/**
+ * @file rfc2889.c
+ * @brief RFC 2889 LAN Switch Benchmarking Implementation
+ * @copyright 2025 Mustard Seed Networks. All rights reserved.
  *
  * Implements methodology for benchmarking LAN switching devices:
  * - Forwarding Rate (Section 5.1)
@@ -10,7 +12,6 @@
  */
 
 #include "rfc2544.h"
-#include "rfc2544_internal.h"
 
 #include <errno.h>
 #include <inttypes.h>
@@ -19,11 +20,13 @@
 #include <string.h>
 #include <time.h>
 
+#include "rfc2544_internal.h"
+
 /* RFC 2889 constants */
-#define RFC2889_DEFAULT_DURATION_SEC   60
-#define RFC2889_DEFAULT_WARMUP_SEC     2
+#define RFC2889_DEFAULT_DURATION_SEC 60
+#define RFC2889_DEFAULT_WARMUP_SEC 2
 #define RFC2889_DEFAULT_RESOLUTION_PCT 1.0
-#define RFC2889_MAX_MAC_ADDRESSES      1000000
+#define RFC2889_MAX_MAC_ADDRESSES 1000000
 
 /**
  * Initialize default RFC 2889 configuration
@@ -38,7 +41,7 @@ void rfc2889_default_config(rfc2889_config_t *config)
 	config->test_type = RFC2889_FORWARDING_RATE;
 	config->pattern = TRAFFIC_FULLY_MESHED;
 	config->port_count = 2;
-	config->frame_size = 0;  /* 0 = test all standard sizes */
+	config->frame_size = 0; /* 0 = test all standard sizes */
 	config->trial_duration_sec = RFC2889_DEFAULT_DURATION_SEC;
 	config->warmup_sec = RFC2889_DEFAULT_WARMUP_SEC;
 	config->address_count = 8192;
@@ -79,15 +82,13 @@ int rfc2889_forwarding_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
 
 	while ((high - low) > RFC2889_DEFAULT_RESOLUTION_PCT && iterations < max_iterations &&
 	       !ctx->cancel_requested) {
-
 		double current_rate = (low + high) / 2.0;
 
 		rfc2544_log(LOG_DEBUG, "Iteration %u: testing %.2f%%", iterations, current_rate);
 
 		/* Run trial at current rate */
 		trial_result_t trial;
-		int ret = run_trial(ctx, frame_size, current_rate,
-		                    config->trial_duration_sec,
+		int ret = run_trial(ctx, frame_size, current_rate, config->trial_duration_sec,
 		                    config->warmup_sec, &trial);
 
 		if (ret < 0) {
@@ -102,8 +103,7 @@ int rfc2889_forwarding_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
 			/* Success - try higher rate */
 			best_rate = current_rate;
 			low = current_rate;
-			rfc2544_log(LOG_DEBUG, "  Pass: loss=%.6f%%, rate=%.2f%%",
-			            trial.loss_pct, best_rate);
+			rfc2544_log(LOG_DEBUG, "  Pass: loss=%.6f%%, rate=%.2f%%", trial.loss_pct, best_rate);
 		} else {
 			/* Failure - try lower rate */
 			high = current_rate;
@@ -124,8 +124,8 @@ int rfc2889_forwarding_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
 		result->loss_pct = 0.0;
 	}
 
-	rfc2544_log(LOG_INFO, "Forwarding Rate: %.2f%% (%.0f fps, %.2f Mbps)",
-	            result->max_rate_pct, result->max_rate_fps, result->aggregate_rate_mbps);
+	rfc2544_log(LOG_INFO, "Forwarding Rate: %.2f%% (%.0f fps, %.2f Mbps)", result->max_rate_pct,
+	            result->max_rate_fps, result->aggregate_rate_mbps);
 
 	return 0;
 }
@@ -165,9 +165,8 @@ int rfc2889_caching_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
 		/* Run a trial with traffic destined to test_count different MACs */
 		/* For caching test, we send at moderate rate to allow learning */
 		trial_result_t trial;
-		int ret = run_trial(ctx, frame_size, 50.0,  /* 50% rate */
-		                    config->trial_duration_sec,
-		                    config->warmup_sec, &trial);
+		int ret = run_trial(ctx, frame_size, 50.0, /* 50% rate */
+		                    config->trial_duration_sec, config->warmup_sec, &trial);
 
 		if (ret < 0) {
 			rfc2544_log(LOG_ERROR, "Trial failed: %d", ret);
@@ -192,7 +191,7 @@ int rfc2889_caching_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
 	result->addresses_tested = config->address_count ? config->address_count : 8192;
 	result->addresses_cached = best_count;
 	result->cache_capacity = best_count;
-	result->learning_time_ms = config->trial_duration_sec * 1000.0;  /* Approximate */
+	result->learning_time_ms = config->trial_duration_sec * 1000.0; /* Approximate */
 	result->overflow_loss_pct = (best_count < result->addresses_tested) ? 100.0 : 0.0;
 
 	rfc2544_log(LOG_INFO, "Address Caching Capacity: %u addresses", result->addresses_cached);
@@ -220,8 +219,8 @@ int rfc2889_learning_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
 	rfc2544_log(LOG_INFO, "=== RFC 2889 Address Learning Rate Test ===");
 
 	/* Binary search for maximum learning rate */
-	double low = 100.0;       /* 100 MACs/sec minimum */
-	double high = 100000.0;   /* 100K MACs/sec maximum */
+	double low = 100.0;     /* 100 MACs/sec minimum */
+	double high = 100000.0; /* 100K MACs/sec maximum */
 	double best_rate = 0.0;
 	uint32_t iterations = 0;
 	const uint32_t max_iterations = 15;
@@ -240,11 +239,11 @@ int rfc2889_learning_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
 		/* Calculate frame rate to achieve target MAC learning rate */
 		/* Each unique frame teaches one new MAC */
 		double rate_pct = (test_rate * (frame_size + 20) * 8.0 * 100.0) / (double)ctx->line_rate;
-		if (rate_pct > 100.0) rate_pct = 100.0;
+		if (rate_pct > 100.0)
+			rate_pct = 100.0;
 
 		trial_result_t trial;
-		int ret = run_trial(ctx, frame_size, rate_pct,
-		                    config->trial_duration_sec,
+		int ret = run_trial(ctx, frame_size, rate_pct, config->trial_duration_sec,
 		                    config->warmup_sec, &trial);
 
 		if (ret < 0) {
@@ -263,8 +262,8 @@ int rfc2889_learning_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
 			rfc2544_log(LOG_DEBUG, "  Pass: learned at %.0f MACs/sec", test_rate);
 		} else {
 			high = test_rate;
-			rfc2544_log(LOG_DEBUG, "  Fail: loss=%.2f%% at %.0f MACs/sec",
-			            trial.loss_pct, test_rate);
+			rfc2544_log(LOG_DEBUG, "  Fail: loss=%.2f%% at %.0f MACs/sec", trial.loss_pct,
+			            test_rate);
 		}
 
 		iterations++;
@@ -311,15 +310,13 @@ int rfc2889_broadcast_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
 
 	while ((high - low) > RFC2889_DEFAULT_RESOLUTION_PCT && iterations < max_iterations &&
 	       !ctx->cancel_requested) {
-
 		double current_rate = (low + high) / 2.0;
 
 		rfc2544_log(LOG_DEBUG, "Iteration %u: testing %.2f%%", iterations, current_rate);
 
 		/* Run trial with broadcast destination MAC */
 		trial_result_t trial;
-		int ret = run_trial(ctx, frame_size, current_rate,
-		                    config->trial_duration_sec,
+		int ret = run_trial(ctx, frame_size, current_rate, config->trial_duration_sec,
 		                    config->warmup_sec, &trial);
 
 		if (ret < 0) {
@@ -381,13 +378,12 @@ int rfc2889_congestion_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
 	rfc2544_log(LOG_INFO, "Frame size: %u bytes", frame_size);
 
 	/* Test at oversubscription level (simulated via max rate) */
-	result->overload_rate_pct = 110.0;  /* 110% offered load */
+	result->overload_rate_pct = 110.0; /* 110% offered load */
 
 	/* Run trial at maximum rate */
 	trial_result_t trial;
-	int ret = run_trial(ctx, frame_size, 100.0,  /* Max rate = 100% */
-	                    config->trial_duration_sec,
-	                    config->warmup_sec, &trial);
+	int ret = run_trial(ctx, frame_size, 100.0, /* Max rate = 100% */
+	                    config->trial_duration_sec, config->warmup_sec, &trial);
 
 	if (ret < 0) {
 		rfc2544_log(LOG_ERROR, "Trial failed: %d", ret);
@@ -397,8 +393,8 @@ int rfc2889_congestion_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
 	result->frames_tx = trial.packets_sent;
 	result->frames_rx = trial.packets_recv;
 	/* Guard against underflow when rx > tx */
-	result->frames_dropped = (trial.packets_recv < trial.packets_sent) ?
-	                         (trial.packets_sent - trial.packets_recv) : 0;
+	result->frames_dropped =
+	    (trial.packets_recv < trial.packets_sent) ? (trial.packets_sent - trial.packets_recv) : 0;
 
 	/* Calculate head-of-line blocking percentage */
 	if (trial.packets_sent > 0) {
@@ -407,10 +403,10 @@ int rfc2889_congestion_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
 
 	/* Backpressure detection based on loss pattern */
 	result->backpressure_observed = (trial.loss_pct > 0.1 && trial.loss_pct < 10.0);
-	result->pause_frames_rx = 0;  /* Would require hardware counter access */
+	result->pause_frames_rx = 0; /* Would require hardware counter access */
 
-	rfc2544_log(LOG_INFO, "Congestion: %.2f%% dropped, HOL blocking: %.2f%%",
-	            trial.loss_pct, result->head_of_line_blocking);
+	rfc2544_log(LOG_INFO, "Congestion: %.2f%% dropped, HOL blocking: %.2f%%", trial.loss_pct,
+	            result->head_of_line_blocking);
 	rfc2544_log(LOG_INFO, "Backpressure: %s",
 	            result->backpressure_observed ? "Detected" : "Not detected");
 
@@ -421,13 +417,12 @@ int rfc2889_congestion_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
  * Print Functions
  * ============================================================================ */
 
-void rfc2889_print_results(const void *result, rfc2889_test_type_t type,
-                           stats_format_t format)
+void rfc2889_print_results(const void *result, rfc2889_test_type_t type, stats_format_t format)
 {
 	if (!result)
 		return;
 
-	(void)format;  /* TODO: implement JSON/CSV output */
+	(void)format; /* TODO: implement JSON/CSV output */
 
 	switch (type) {
 	case RFC2889_FORWARDING_RATE: {
@@ -466,8 +461,8 @@ void rfc2889_print_results(const void *result, rfc2889_test_type_t type,
 		printf("Frame Size:       %u bytes\n", r->frame_size);
 		printf("Ingress Ports:    %u\n", r->ingress_ports);
 		printf("Egress Ports:     %u\n", r->egress_ports);
-		printf("Broadcast Rate:   %.0f fps (%.2f Mbps)\n",
-		       r->broadcast_rate_fps, r->broadcast_rate_mbps);
+		printf("Broadcast Rate:   %.0f fps (%.2f Mbps)\n", r->broadcast_rate_fps,
+		       r->broadcast_rate_mbps);
 		printf("Replication:      %.2f\n", r->replication_factor);
 		break;
 	}

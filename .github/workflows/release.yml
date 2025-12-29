@@ -1,0 +1,160 @@
+# Release Workflow
+# Mustard Seed Networks - The Stem
+#
+# Builds and publishes release artifacts when a new tag is pushed
+# Includes: binaries, SBOM, checksums, signatures
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            runner: ubuntu-latest
+            goos: linux
+            goarch: amd64
+          - os: linux
+            arch: arm64
+            runner: ubuntu-latest
+            goos: linux
+            goarch: arm64
+          - os: darwin
+            arch: amd64
+            runner: macos-latest
+            goos: darwin
+            goarch: amd64
+          - os: darwin
+            arch: arm64
+            runner: macos-latest
+            goos: darwin
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '25'
+          cache: 'npm'
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Build UI
+        working-directory: ui
+        run: |
+          npm ci
+          npm run build
+
+      - name: Copy UI dist
+        run: |
+          mkdir -p pkg/web/dist
+          cp -r ui/dist/* pkg/web/dist/
+
+      - name: Extract version from tag
+        id: version
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          COMMIT=$(git rev-parse --short HEAD)
+          BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          go build -trimpath -buildvcs=false \
+            -ldflags "-s -w \
+              -X github.com/krisarmstrong/stem/pkg/version.Version=${VERSION} \
+              -X github.com/krisarmstrong/stem/pkg/version.Commit=${COMMIT} \
+              -X github.com/krisarmstrong/stem/pkg/version.BuildTime=${BUILD_TIME}" \
+            -o stem-${{ matrix.os }}-${{ matrix.arch }} \
+            ./cmd/stem/
+
+      - name: Create archive
+        run: |
+          tar -czvf stem-${{ matrix.os }}-${{ matrix.arch }}.tar.gz \
+            stem-${{ matrix.os }}-${{ matrix.arch }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stem-${{ matrix.os }}-${{ matrix.arch }}
+          path: stem-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+          retention-days: 1
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Collect archives
+        run: |
+          mkdir -p release
+          find artifacts -name '*.tar.gz' -exec cp {} release/ \;
+          ls -la release/
+
+      - name: Generate checksums
+        working-directory: release
+        run: |
+          sha256sum *.tar.gz > checksums.txt
+          cat checksums.txt
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: release/sbom.spdx.json
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign checksums with Cosign
+        env:
+          COSIGN_EXPERIMENTAL: '1'
+        run: |
+          cd release
+          cosign sign-blob --yes checksums.txt --output-signature checksums.txt.sig
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/*.tar.gz
+            release/checksums.txt
+            release/checksums.txt.sig
+            release/sbom.spdx.json
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref, '-') }}

@@ -8,6 +8,7 @@
  */
 
 #include "rfc2544.h"
+
 #include "platform_config.h"
 
 #if HAVE_DPDK
@@ -22,7 +23,6 @@
 #include <rte_malloc.h>
 #include <rte_mbuf.h>
 #include <rte_mempool.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -172,22 +172,19 @@ static int dpdk_init_port(uint16_t port_id, uint16_t num_queues, struct rte_memp
 
 	/* Setup RX queues */
 	for (uint16_t q = 0; q < num_queues; q++) {
-		ret = rte_eth_rx_queue_setup(port_id, q, rx_size,
-		                             rte_eth_dev_socket_id(port_id), NULL, mbuf_pool);
+		ret = rte_eth_rx_queue_setup(port_id, q, rx_size, rte_eth_dev_socket_id(port_id), NULL,
+		                             mbuf_pool);
 		if (ret < 0) {
-			fprintf(stderr, "[dpdk] Failed to setup RX queue %u: %s\n", q,
-			        rte_strerror(-ret));
+			fprintf(stderr, "[dpdk] Failed to setup RX queue %u: %s\n", q, rte_strerror(-ret));
 			return ret;
 		}
 	}
 
 	/* Setup TX queues */
 	for (uint16_t q = 0; q < num_queues; q++) {
-		ret = rte_eth_tx_queue_setup(port_id, q, tx_size,
-		                             rte_eth_dev_socket_id(port_id), NULL);
+		ret = rte_eth_tx_queue_setup(port_id, q, tx_size, rte_eth_dev_socket_id(port_id), NULL);
 		if (ret < 0) {
-			fprintf(stderr, "[dpdk] Failed to setup TX queue %u: %s\n", q,
-			        rte_strerror(-ret));
+			fprintf(stderr, "[dpdk] Failed to setup TX queue %u: %s\n", q, rte_strerror(-ret));
 			return ret;
 		}
 	}
@@ -249,21 +246,18 @@ static int dpdk_init(rfc2544_ctx_t *ctx, worker_ctx_t *wctx)
 		dpdk_shared.num_tx_queues = 1;
 
 		/* Create mempool */
-		dpdk_shared.mbuf_pool = rte_pktmbuf_pool_create(
-		    "MBUF_POOL", NUM_MBUFS, MBUF_CACHE_SIZE, 0,
-		    RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
+		dpdk_shared.mbuf_pool = rte_pktmbuf_pool_create("MBUF_POOL", NUM_MBUFS, MBUF_CACHE_SIZE, 0,
+		                                                RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
 
 		if (!dpdk_shared.mbuf_pool) {
-			fprintf(stderr, "[dpdk] Failed to create mempool: %s\n",
-			        rte_strerror(rte_errno));
+			fprintf(stderr, "[dpdk] Failed to create mempool: %s\n", rte_strerror(rte_errno));
 			pthread_mutex_unlock(&dpdk_init_lock);
 			free(pctx);
 			return -ENOMEM;
 		}
 
 		/* Initialize port */
-		ret = dpdk_init_port(dpdk_shared.port_id, dpdk_shared.num_rx_queues,
-		                     dpdk_shared.mbuf_pool);
+		ret = dpdk_init_port(dpdk_shared.port_id, dpdk_shared.num_rx_queues, dpdk_shared.mbuf_pool);
 		if (ret < 0) {
 			rte_mempool_free(dpdk_shared.mbuf_pool);
 			pthread_mutex_unlock(&dpdk_init_lock);
@@ -281,8 +275,8 @@ static int dpdk_init(rfc2544_ctx_t *ctx, worker_ctx_t *wctx)
 			memcpy(ctx->local_mac, mac.addr_bytes, 6);
 		}
 
-		fprintf(stderr, "[dpdk] Initialized port %u with %u queues\n",
-		        dpdk_shared.port_id, dpdk_shared.num_rx_queues);
+		fprintf(stderr, "[dpdk] Initialized port %u with %u queues\n", dpdk_shared.port_id,
+		        dpdk_shared.num_rx_queues);
 	}
 
 	pthread_mutex_unlock(&dpdk_init_lock);

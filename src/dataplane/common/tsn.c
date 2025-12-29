@@ -1,5 +1,7 @@
-/*
- * tsn.c - IEEE 802.1Qbv Time-Sensitive Networking Implementation
+/**
+ * @file tsn.c
+ * @brief IEEE 802.1Qbv Time-Sensitive Networking Implementation
+ * @copyright 2025 Mustard Seed Networks. All rights reserved.
  *
  * Implements TSN testing for deterministic Ethernet:
  * - Gate Control List (GCL) validation
@@ -9,7 +11,6 @@
  */
 
 #include "rfc2544.h"
-#include "rfc2544_internal.h"
 
 #include <errno.h>
 #include <inttypes.h>
@@ -19,9 +20,11 @@
 #include <string.h>
 #include <time.h>
 
+#include "rfc2544_internal.h"
+
 /* TSN constants */
-#define TSN_DEFAULT_DURATION_SEC     30
-#define TSN_DEFAULT_WARMUP_SEC       2
+#define TSN_DEFAULT_DURATION_SEC 30
+#define TSN_DEFAULT_WARMUP_SEC 2
 
 /**
  * Initialize default TSN configuration
@@ -35,8 +38,8 @@ void tsn_default_config(tsn_config_t *config)
 
 	/* Default GCL - all gates open */
 	config->gcl.entry_count = 1;
-	config->gcl.entries[0].gate_states = 0xFF;  /* All gates open */
-	config->gcl.entries[0].time_interval_ns = 1000000;  /* 1ms cycle */
+	config->gcl.entries[0].gate_states = 0xFF;         /* All gates open */
+	config->gcl.entries[0].time_interval_ns = 1000000; /* 1ms cycle */
 	config->gcl.base_time_ns = 0;
 	config->gcl.cycle_time_ns = 1000000;
 	config->gcl.cycle_time_extension_ns = 0;
@@ -48,11 +51,11 @@ void tsn_default_config(tsn_config_t *config)
 	config->warmup_sec = TSN_DEFAULT_WARMUP_SEC;
 	config->frame_size = 128;
 
-	config->max_latency_ns = 1000000;  /* 1ms max latency */
-	config->max_jitter_ns = 100000;    /* 100us max jitter */
+	config->max_latency_ns = 1000000; /* 1ms max latency */
+	config->max_jitter_ns = 100000;   /* 100us max jitter */
 
 	config->require_ptp_sync = false;
-	config->max_sync_offset_ns = 100;  /* 100ns sync requirement */
+	config->max_sync_offset_ns = 100; /* 100ns sync requirement */
 	config->ptp_enabled = false;
 	config->preemption_enabled = false;
 	config->num_traffic_classes = 8;
@@ -67,8 +70,7 @@ void tsn_default_config(tsn_config_t *config)
 /**
  * Create exclusive GCL - each traffic class gets exclusive time slice
  */
-int tsn_create_exclusive_gcl(gate_control_list_t *gcl, uint32_t num_classes,
-                             uint32_t cycle_time_ns)
+int tsn_create_exclusive_gcl(gate_control_list_t *gcl, uint32_t num_classes, uint32_t cycle_time_ns)
 {
 	if (!gcl || num_classes == 0 || num_classes > TSN_MAX_GATES || cycle_time_ns == 0)
 		return -EINVAL;
@@ -91,8 +93,8 @@ int tsn_create_exclusive_gcl(gate_control_list_t *gcl, uint32_t num_classes,
 		gcl->entries[i].time_interval_ns = time_per_class + (i < remainder ? 1 : 0);
 	}
 
-	rfc2544_log(LOG_INFO, "Created exclusive GCL: %u classes, %u ns/class",
-	            num_classes, time_per_class);
+	rfc2544_log(LOG_INFO, "Created exclusive GCL: %u classes, %u ns/class", num_classes,
+	            time_per_class);
 
 	return 0;
 }
@@ -117,15 +119,15 @@ int tsn_create_priority_gcl(gate_control_list_t *gcl, uint32_t cycle_time_ns,
 	gcl->cycle_time_extension_ns = 0;
 
 	/* High priority window - gates 7,6,5 open (priorities 7,6,5) */
-	gcl->entries[0].gate_states = 0xE0;  /* 11100000 */
+	gcl->entries[0].gate_states = 0xE0; /* 11100000 */
 	gcl->entries[0].time_interval_ns = high_prio_time;
 
 	/* Low priority window - all gates open */
 	gcl->entries[1].gate_states = 0xFF;
 	gcl->entries[1].time_interval_ns = low_prio_time;
 
-	rfc2544_log(LOG_INFO, "Created priority GCL: high=%u ns (%u%%), low=%u ns",
-	            high_prio_time, high_prio_time_pct, low_prio_time);
+	rfc2544_log(LOG_INFO, "Created priority GCL: high=%u ns (%u%%), low=%u ns", high_prio_time,
+	            high_prio_time_pct, low_prio_time);
 
 	return 0;
 }
@@ -158,8 +160,8 @@ int tsn_verify_gcl(const gate_control_list_t *gcl)
 		            (unsigned long)total_time, gcl->cycle_time_ns);
 	}
 
-	rfc2544_log(LOG_INFO, "GCL verified: %u entries, cycle=%u ns",
-	            gcl->entry_count, gcl->cycle_time_ns);
+	rfc2544_log(LOG_INFO, "GCL verified: %u entries, cycle=%u ns", gcl->entry_count,
+	            gcl->cycle_time_ns);
 
 	return 0;
 }
@@ -179,8 +181,8 @@ int tsn_gate_timing_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
 	memset(result, 0, sizeof(*result));
 
 	rfc2544_log(LOG_INFO, "=== TSN Gate Timing Test ===");
-	rfc2544_log(LOG_INFO, "Cycle time: %u ns, Duration: %u sec",
-	            config->gcl.cycle_time_ns, config->duration_sec);
+	rfc2544_log(LOG_INFO, "Cycle time: %u ns, Duration: %u sec", config->gcl.cycle_time_ns,
+	            config->duration_sec);
 
 	/* Verify GCL first */
 	int ret = tsn_verify_gcl(&config->gcl);
@@ -194,9 +196,8 @@ int tsn_gate_timing_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
 
 	/* Run trial to measure timing */
 	trial_result_t trial;
-	ret = run_trial_custom(ctx, config->frame_size, 10.0,  /* Low rate */
-	                       config->duration_sec, config->warmup_sec,
-	                       TSN_SIGNATURE, 0, &trial);
+	ret = run_trial_custom(ctx, config->frame_size, 10.0, /* Low rate */
+	                       config->duration_sec, config->warmup_sec, TSN_SIGNATURE, 0, &trial);
 
 	if (ret < 0) {
 		rfc2544_log(LOG_ERROR, "Gate timing trial failed: %d", ret);
@@ -205,8 +206,8 @@ int tsn_gate_timing_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
 
 	/* Calculate cycles tested */
 	uint64_t test_time_ns = (uint64_t)config->duration_sec * 1000000000ULL;
-	result->cycles_tested = (config->gcl.cycle_time_ns > 0) ?
-	                        (uint32_t)(test_time_ns / config->gcl.cycle_time_ns) : 0;
+	result->cycles_tested =
+	    (config->gcl.cycle_time_ns > 0) ? (uint32_t)(test_time_ns / config->gcl.cycle_time_ns) : 0;
 
 	/* Gate deviation from latency jitter */
 	result->max_gate_deviation_ns = trial.latency.max_ns - trial.latency.min_ns;
@@ -215,7 +216,7 @@ int tsn_gate_timing_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
 	/* Count timing errors - frames outside expected window */
 	/* Error if deviation exceeds max_jitter_ns threshold */
 	if (result->max_gate_deviation_ns > config->max_jitter_ns) {
-		result->timing_errors = 1;  /* At least one timing error */
+		result->timing_errors = 1; /* At least one timing error */
 	} else {
 		result->timing_errors = 0;
 	}
@@ -223,10 +224,9 @@ int tsn_gate_timing_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
 	result->gate_timing_passed = (result->timing_errors == 0);
 
 	rfc2544_log(LOG_INFO, "Cycles tested: %u", result->cycles_tested);
-	rfc2544_log(LOG_INFO, "Gate deviation: avg=%.1f ns, max=%.1f ns",
-	            result->avg_gate_deviation_ns, result->max_gate_deviation_ns);
-	rfc2544_log(LOG_INFO, "Timing errors: %u - %s",
-	            result->timing_errors,
+	rfc2544_log(LOG_INFO, "Gate deviation: avg=%.1f ns, max=%.1f ns", result->avg_gate_deviation_ns,
+	            result->max_gate_deviation_ns);
+	rfc2544_log(LOG_INFO, "Timing errors: %u - %s", result->timing_errors,
 	            result->gate_timing_passed ? "PASS" : "FAIL");
 
 	return 0;
@@ -247,7 +247,8 @@ int tsn_isolation_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
 	memset(result, 0, sizeof(*result));
 
 	uint32_t num_classes = config->num_traffic_classes;
-	if (num_classes > 8) num_classes = 8;
+	if (num_classes > 8)
+		num_classes = 8;
 
 	rfc2544_log(LOG_INFO, "=== TSN Traffic Class Isolation Test ===");
 	rfc2544_log(LOG_INFO, "Testing %u traffic classes", num_classes);
@@ -266,10 +267,9 @@ int tsn_isolation_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
 
 		/* Run trial for this traffic class */
 		trial_result_t trial;
-		int ret = run_trial_custom(ctx, config->frame_size, 50.0,
-		                           config->duration_sec / num_classes,
-		                           config->warmup_sec,
-		                           TSN_SIGNATURE, tc, &trial);
+		int ret =
+		    run_trial_custom(ctx, config->frame_size, 50.0, config->duration_sec / num_classes,
+		                     config->warmup_sec, TSN_SIGNATURE, tc, &trial);
 
 		if (ret < 0) {
 			rfc2544_log(LOG_ERROR, "Class %u trial failed: %d", tc, ret);
@@ -287,8 +287,8 @@ int tsn_isolation_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
 		/* Frames that arrived outside expected timing window */
 		/* Approximated from jitter exceeding threshold */
 		if (jitter_ns > config->max_jitter_ns && trial.latency.max_ns > 0) {
-			cr->frames_interfered = (uint64_t)(trial.packets_recv *
-			                        jitter_ns / trial.latency.max_ns);
+			cr->frames_interfered =
+			    (uint64_t)(trial.packets_recv * jitter_ns / trial.latency.max_ns);
 		} else {
 			cr->frames_interfered = 0;
 		}
@@ -312,14 +312,12 @@ int tsn_isolation_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
 
 		rfc2544_log(LOG_INFO, "  Class %u: TX=%lu, RX=%lu, latency=%.1f ns, jitter=%.1f ns - %s",
 		            tc, (unsigned long)cr->frames_tx, (unsigned long)cr->frames_rx,
-		            cr->latency_avg_ns, jitter_ns,
-		            cr->passed ? "PASS" : "FAIL");
+		            cr->latency_avg_ns, jitter_ns, cr->passed ? "PASS" : "FAIL");
 	}
 
 	result->overall_passed = overall_pass;
 
-	rfc2544_log(LOG_INFO, "Isolation Test: %s",
-	            result->overall_passed ? "PASS" : "FAIL");
+	rfc2544_log(LOG_INFO, "Isolation Test: %s", result->overall_passed ? "PASS" : "FAIL");
 
 	return 0;
 }
@@ -331,8 +329,7 @@ int tsn_isolation_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
  * ============================================================================ */
 
 int tsn_scheduled_latency_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
-                               uint32_t traffic_class,
-                               tsn_latency_result_t *result)
+                               uint32_t traffic_class, tsn_latency_result_t *result)
 {
 	if (!ctx || !config || !result)
 		return -EINVAL;
@@ -351,9 +348,8 @@ int tsn_scheduled_latency_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
 
 	/* Run trial for this traffic class */
 	trial_result_t trial;
-	int ret = run_trial_custom(ctx, config->frame_size, 50.0,
-	                           config->duration_sec, config->warmup_sec,
-	                           TSN_SIGNATURE, traffic_class, &trial);
+	int ret = run_trial_custom(ctx, config->frame_size, 50.0, config->duration_sec,
+	                           config->warmup_sec, TSN_SIGNATURE, traffic_class, &trial);
 
 	if (ret < 0) {
 		rfc2544_log(LOG_ERROR, "Latency trial failed: %d", ret);
@@ -365,7 +361,7 @@ int tsn_scheduled_latency_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
 	result->latency_avg_ns = trial.latency.avg_ns;
 	result->latency_max_ns = trial.latency.max_ns;
 	result->latency_99_ns = trial.latency.p99_ns;
-	result->latency_999_ns = trial.latency.p99_ns * 1.1;  /* Approximate 99.9th */
+	result->latency_999_ns = trial.latency.p99_ns * 1.1; /* Approximate 99.9th */
 	result->jitter_ns = trial.latency.jitter_ns;
 
 	/* Check against thresholds */
@@ -373,11 +369,10 @@ int tsn_scheduled_latency_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
 	result->jitter_passed = (result->jitter_ns <= config->max_jitter_ns);
 
 	rfc2544_log(LOG_INFO, "Latency: min=%.1f, avg=%.1f, max=%.1f, p99=%.1f ns",
-	            result->latency_min_ns, result->latency_avg_ns,
-	            result->latency_max_ns, result->latency_99_ns);
+	            result->latency_min_ns, result->latency_avg_ns, result->latency_max_ns,
+	            result->latency_99_ns);
 	rfc2544_log(LOG_INFO, "Jitter: %.1f ns", result->jitter_ns);
-	rfc2544_log(LOG_INFO, "Latency: %s, Jitter: %s",
-	            result->latency_passed ? "PASS" : "FAIL",
+	rfc2544_log(LOG_INFO, "Latency: %s, Jitter: %s", result->latency_passed ? "PASS" : "FAIL",
 	            result->jitter_passed ? "PASS" : "FAIL");
 
 	return 0;
@@ -389,8 +384,7 @@ int tsn_scheduled_latency_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
  * Verifies PTP synchronization accuracy
  * ============================================================================ */
 
-int tsn_ptp_sync_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
-                      tsn_ptp_result_t *result)
+int tsn_ptp_sync_test(rfc2544_ctx_t *ctx, const tsn_config_t *config, tsn_ptp_result_t *result)
 {
 	if (!ctx || !config || !result)
 		return -EINVAL;
@@ -410,8 +404,8 @@ int tsn_ptp_sync_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
 
 	/* Run short trial to measure synchronization */
 	trial_result_t trial;
-	int ret = run_trial_custom(ctx, 128, 1.0,  /* Very low rate for sync test */
-	                           10, 2,  /* Short duration */
+	int ret = run_trial_custom(ctx, 128, 1.0, /* Very low rate for sync test */
+	                           10, 2,         /* Short duration */
 	                           TSN_SIGNATURE, 0, &trial);
 
 	if (ret < 0) {
@@ -431,11 +425,10 @@ int tsn_ptp_sync_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
 	result->sync_achieved = (result->offset_max_ns <= config->max_sync_offset_ns);
 
 	rfc2544_log(LOG_INFO, "Samples: %u", result->samples);
-	rfc2544_log(LOG_INFO, "Offset: avg=%.1f ns, max=%.1f ns, stddev=%.1f ns",
-	            result->offset_avg_ns, result->offset_max_ns, result->offset_stddev_ns);
+	rfc2544_log(LOG_INFO, "Offset: avg=%.1f ns, max=%.1f ns, stddev=%.1f ns", result->offset_avg_ns,
+	            result->offset_max_ns, result->offset_stddev_ns);
 	rfc2544_log(LOG_INFO, "Sync: %s (threshold: %u ns)",
-	            result->sync_achieved ? "ACHIEVED" : "NOT ACHIEVED",
-	            config->max_sync_offset_ns);
+	            result->sync_achieved ? "ACHIEVED" : "NOT ACHIEVED", config->max_sync_offset_ns);
 
 	return 0;
 }
@@ -444,8 +437,7 @@ int tsn_ptp_sync_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
  * Full TSN Test Suite
  * ============================================================================ */
 
-int tsn_full_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
-                  tsn_full_result_t *result)
+int tsn_full_test(rfc2544_ctx_t *ctx, const tsn_config_t *config, tsn_full_result_t *result)
 {
 	if (!ctx || !config || !result)
 		return -EINVAL;
@@ -491,8 +483,7 @@ int tsn_full_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
 
 	result->overall_passed = overall_pass;
 
-	rfc2544_log(LOG_INFO, "=== TSN Full Test: %s ===",
-	            result->overall_passed ? "PASS" : "FAIL");
+	rfc2544_log(LOG_INFO, "=== TSN Full Test: %s ===", result->overall_passed ? "PASS" : "FAIL");
 
 	return 0;
 }

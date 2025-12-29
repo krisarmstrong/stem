@@ -6,26 +6,31 @@
  */
 
 #include "rfc2544.h"
-#include "rfc2544_internal.h"
+
 #include "platform_config.h"
+
+#include "rfc2544_internal.h"
 
 #if PLATFORM_LINUX
 
-#include <arpa/inet.h>
-#include <errno.h>
 #include <linux/if_ether.h>
 #include <linux/if_packet.h>
 #include <linux/net_tstamp.h>
 #include <linux/sockios.h>
-#include <net/if.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
+
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <unistd.h>
+
+#include <arpa/inet.h>
+#include <net/if.h>
 
 /* worker_ctx_t and rfc2544_ctx_t are defined in rfc2544_internal.h */
 
@@ -39,10 +44,10 @@ typedef struct {
 
 /* Platform context */
 typedef struct {
-	int sock_fd;                /* Raw socket file descriptor */
-	int if_index;               /* Interface index */
-	uint8_t if_mac[6];          /* Interface MAC address */
-	struct sockaddr_ll addr;    /* Socket address */
+	int sock_fd;             /* Raw socket file descriptor */
+	int if_index;            /* Interface index */
+	uint8_t if_mac[6];       /* Interface MAC address */
+	struct sockaddr_ll addr; /* Socket address */
 
 	/* Packet buffers */
 	uint8_t *rx_buffer;
@@ -55,9 +60,9 @@ typedef struct {
 	size_t ring_size;
 
 	/* Hardware timestamping */
-	bool hw_timestamp_enabled;  /* HW timestamping available */
-	bool hw_timestamp_tx;       /* TX hardware timestamps */
-	bool hw_timestamp_rx;       /* RX hardware timestamps */
+	bool hw_timestamp_enabled; /* HW timestamping available */
+	bool hw_timestamp_tx;      /* TX hardware timestamps */
+	bool hw_timestamp_rx;      /* RX hardware timestamps */
 } platform_ctx_t;
 
 #define BUFFER_SIZE 65536
@@ -98,15 +103,12 @@ static int enable_hw_timestamping(platform_ctx_t *pctx, const char *ifname)
 	}
 
 	/* Enable socket-level timestamping */
-	int timestamping_flags = SOF_TIMESTAMPING_RX_HARDWARE |
-	                         SOF_TIMESTAMPING_TX_HARDWARE |
-	                         SOF_TIMESTAMPING_RAW_HARDWARE |
-	                         SOF_TIMESTAMPING_SOFTWARE |
-	                         SOF_TIMESTAMPING_RX_SOFTWARE |
-	                         SOF_TIMESTAMPING_TX_SOFTWARE;
+	int timestamping_flags = SOF_TIMESTAMPING_RX_HARDWARE | SOF_TIMESTAMPING_TX_HARDWARE |
+	                         SOF_TIMESTAMPING_RAW_HARDWARE | SOF_TIMESTAMPING_SOFTWARE |
+	                         SOF_TIMESTAMPING_RX_SOFTWARE | SOF_TIMESTAMPING_TX_SOFTWARE;
 
-	if (setsockopt(pctx->sock_fd, SOL_SOCKET, SO_TIMESTAMPING,
-	               &timestamping_flags, sizeof(timestamping_flags)) < 0) {
+	if (setsockopt(pctx->sock_fd, SOL_SOCKET, SO_TIMESTAMPING, &timestamping_flags,
+	               sizeof(timestamping_flags)) < 0) {
 		fprintf(stderr, "[packet] SO_TIMESTAMPING failed: %s\n", strerror(errno));
 		return -1;
 	}
@@ -116,8 +118,7 @@ static int enable_hw_timestamping(platform_ctx_t *pctx, const char *ifname)
 	pctx->hw_timestamp_rx = (hwconfig.rx_filter != HWTSTAMP_FILTER_NONE);
 
 	fprintf(stderr, "[packet] Hardware timestamping enabled (TX=%s, RX=%s)\n",
-	        pctx->hw_timestamp_tx ? "yes" : "no",
-	        pctx->hw_timestamp_rx ? "yes" : "no");
+	        pctx->hw_timestamp_tx ? "yes" : "no", pctx->hw_timestamp_rx ? "yes" : "no");
 
 	return 0;
 }
@@ -244,10 +245,12 @@ static int packet_init(rfc2544_ctx_t *ctx, worker_ctx_t *wctx)
 		enable_hw_timestamping(pctx, ctx->config.interface);
 	}
 
-	fprintf(stderr, "[packet] Initialized on %s (ifindex=%d, MAC=%02x:%02x:%02x:%02x:%02x:%02x, HW-TS=%s)\n",
-	        ctx->config.interface, pctx->if_index, pctx->if_mac[0], pctx->if_mac[1],
-	        pctx->if_mac[2], pctx->if_mac[3], pctx->if_mac[4], pctx->if_mac[5],
-	        pctx->hw_timestamp_enabled ? "enabled" : "disabled");
+	fprintf(
+	    stderr,
+	    "[packet] Initialized on %s (ifindex=%d, MAC=%02x:%02x:%02x:%02x:%02x:%02x, HW-TS=%s)\n",
+	    ctx->config.interface, pctx->if_index, pctx->if_mac[0], pctx->if_mac[1], pctx->if_mac[2],
+	    pctx->if_mac[3], pctx->if_mac[4], pctx->if_mac[5],
+	    pctx->hw_timestamp_enabled ? "enabled" : "disabled");
 
 	return 0;
 }

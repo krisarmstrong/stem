@@ -1,5 +1,5 @@
-# Seed Test Suite Makefile
-# Mustard Seed Networks - Part of The Seed ecosystem
+# The Stem Makefile
+# Mustard Seed Networks - Network Performance Testing
 #
 # Targets:
 #   make           - Build everything (UI + Go binary)
@@ -9,16 +9,22 @@
 #   make dev       - Run development servers
 #   make test      - Run all tests
 
-# Version
-VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "v3.0.0-dev")
-COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+# Version (injected via ldflags at build time)
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_TIME ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 
 # Go settings
 GO := go
-GOFLAGS := -ldflags "-X main.Version=$(VERSION) -X main.Commit=$(COMMIT)"
+VERSION_PKG := github.com/krisarmstrong/stem/pkg/version
+LDFLAGS := -s -w \
+	-X $(VERSION_PKG).Version=$(VERSION) \
+	-X $(VERSION_PKG).Commit=$(COMMIT) \
+	-X $(VERSION_PKG).BuildTime=$(BUILD_TIME)
+GOFLAGS := -trimpath -buildvcs=false -ldflags "$(LDFLAGS)"
 
 # Binary name
-BINARY := seedtest
+BINARY := stem
 
 # Platform detection
 UNAME := $(shell uname -s)
@@ -59,14 +65,14 @@ ui: ui-deps
 go:
 	@echo "Building $(BINARY)..."
 	mkdir -p bin
-	$(GO) build $(GOFLAGS) -o $(BINARY_NAME) ./cmd/seedtest/
+	$(GO) build $(GOFLAGS) -o $(BINARY_NAME) ./cmd/stem/
 	@echo "Built: $(BINARY_NAME)"
 
 # Quick build (Go only, assumes UI is already built)
 quick:
 	@echo "Quick build (Go only)..."
 	mkdir -p bin
-	$(GO) build $(GOFLAGS) -o $(BINARY_NAME) ./cmd/seedtest/
+	$(GO) build $(GOFLAGS) -o $(BINARY_NAME) ./cmd/stem/
 
 # Clean build artifacts
 clean:
@@ -88,7 +94,7 @@ ui-dev:
 
 # Run Go backend
 go-dev:
-	$(GO) run ./cmd/seedtest/ web -p 8080
+	$(GO) run ./cmd/stem/ web -p 8080
 
 # Development mode (run both)
 dev:
@@ -142,34 +148,99 @@ uninstall:
 # C compiler settings
 CC := gcc
 CFLAGS := -Wall -Wextra -O3 -march=native -pthread -Iinclude
-LDFLAGS := -pthread -lm
+C_LDFLAGS := -pthread -lm
 
-# Common C sources
-C_SRCS := $(wildcard src/dataplane/common/*.c)
-C_OBJS := $(C_SRCS:.c=.o)
+# C sources - both dataplane and reflector (excluding main.c)
+C_DATAPLANE_SRCS := $(wildcard src/dataplane/common/*.c)
+C_REFLECTOR_SRCS := $(filter-out src/reflector/main.c,$(wildcard src/reflector/*.c))
+C_ALL_SRCS := $(C_DATAPLANE_SRCS) $(C_REFLECTOR_SRCS)
+C_ALL_OBJS := $(C_ALL_SRCS:.c=.o)
 
-# Build C dataplane (Linux only)
+# Build C dataplane library (Linux only)
 dataplane:
 ifeq ($(UNAME),Linux)
-	@echo "Building C dataplane..."
-	$(CC) $(CFLAGS) -c $(C_SRCS)
-	ar rcs librfc2544.a $(C_OBJS)
-	@echo "Built: librfc2544.a"
+	@echo "Building C dataplane + reflector library..."
+	@for src in $(C_ALL_SRCS); do \
+		$(CC) $(CFLAGS) -c $$src -o $${src%.c}.o; \
+	done
+	mkdir -p build
+	ar rcs build/libreflector.a $(C_ALL_OBJS)
+	cp build/libreflector.a librfc2544.a
+	@echo "Built: build/libreflector.a"
 else
 	@echo "Dataplane requires Linux (uses AF_PACKET/AF_XDP)"
 endif
+
+# ============================================================================
+# C Tests (Linux only)
+# ============================================================================
+
+# C test sources
+C_TEST_SRCS := $(wildcard tests/c/*.c)
+C_TEST_BINS := $(patsubst tests/c/%.c,bin/test_%,$(C_TEST_SRCS))
+
+# Sources for pacing unit tests (minimal dependencies)
+C_PACING_SRCS := src/dataplane/common/pacing.c
+
+# Sources for protocol tests (with stub dependencies)
+C_PROTO_SRCS := src/dataplane/common/pacing.c \
+	src/dataplane/common/y1564.c \
+	src/dataplane/common/y1731.c \
+	src/dataplane/common/tsn.c \
+	src/dataplane/common/mef.c \
+	src/dataplane/common/rfc2889.c \
+	src/dataplane/common/rfc6349.c \
+	tests/c/test_stubs.c
+
+# Build C tests
+c-test:
+ifeq ($(UNAME),Linux)
+	@echo "Building C tests..."
+	mkdir -p bin
+	$(CC) $(CFLAGS) -o bin/test_pacing tests/c/test_pacing.c $(C_PACING_SRCS) $(C_LDFLAGS)
+	$(CC) $(CFLAGS) -o bin/test_protocols tests/c/test_protocols.c $(C_PROTO_SRCS) $(C_LDFLAGS)
+	@echo "Running C tests..."
+	./bin/test_pacing
+	./bin/test_protocols
+else
+	@echo "C tests require Linux"
+endif
+
+# Run smoke tests (requires root)
+smoke-test:
+ifeq ($(UNAME),Linux)
+	@echo "Running smoke tests..."
+	sudo tests/smoke/run_smoke_tests.sh
+else
+	@echo "Smoke tests require Linux"
+endif
+
+# ============================================================================
+# Combined Build Targets
+# ============================================================================
+
+# Build binary (creates symlink for convenience)
+build: go
+	mkdir -p bin
+	ln -sf $(notdir $(BINARY_NAME)) bin/stem 2>/dev/null || cp $(BINARY_NAME) bin/stem
+
+# Full test suite
+test-all: test c-test
+	@echo "All tests complete"
 
 # ============================================================================
 # Help
 # ============================================================================
 
 help:
-	@echo "Seed Test Suite - Mustard Seed Networks"
+	@echo "The Stem - Mustard Seed Networks"
+	@echo "Copyright (c) 2025 Mustard Seed Networks"
 	@echo ""
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Main targets:"
 	@echo "  all            Build everything (UI + Go binary)"
+	@echo "  build          Build Go binary with symlink"
 	@echo "  ui             Build React WebUI"
 	@echo "  go             Build Go binary"
 	@echo "  quick          Quick build (Go only, skip UI)"
@@ -183,6 +254,9 @@ help:
 	@echo "Testing:"
 	@echo "  test           Run Go unit tests"
 	@echo "  test-coverage  Run tests with coverage report"
+	@echo "  c-test         Build and run C unit tests (Linux)"
+	@echo "  smoke-test     Run smoke tests with veth (Linux, root)"
+	@echo "  test-all       Run all tests (Go + C)"
 	@echo ""
 	@echo "Installation:"
 	@echo "  install        Install to /usr/local/bin"

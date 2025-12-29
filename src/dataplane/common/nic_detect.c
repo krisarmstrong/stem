@@ -9,8 +9,11 @@
  */
 
 #include "rfc2544.h"
-#include "rfc2544_internal.h"
+
 #include "platform_config.h"
+
+#include <sys/ioctl.h>
+#include <sys/socket.h>
 
 #include <dirent.h>
 #include <errno.h>
@@ -18,8 +21,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
+
+#include "rfc2544_internal.h"
 #include <net/if.h>
 
 #ifdef __linux__
@@ -81,10 +84,9 @@ static bool check_xdp_support(const char *interface)
 		return false;
 
 	/* Known XDP-capable drivers */
-	static const char *xdp_drivers[] = {
-		"i40e", "ixgbe", "mlx4_en", "mlx5_core", "nfp", "virtio_net",
-		"veth", "tun", "bnxt_en", "qede", "igb", "e1000e", NULL
-	};
+	static const char *xdp_drivers[] = {"i40e",       "ixgbe",  "mlx4_en", "mlx5_core", "nfp",
+	                                    "virtio_net", "veth",   "tun",     "bnxt_en",   "qede",
+	                                    "igb",        "e1000e", NULL};
 
 	char driver_link[512];
 	ssize_t len = readlink(path, driver_link, sizeof(driver_link) - 1);
@@ -129,8 +131,7 @@ static bool check_hw_timestamp_support(const char *interface)
 	if (ioctl(fd, SIOCETHTOOL, &ifr) >= 0) {
 		/* Check for hardware TX/RX timestamps */
 		supported = (ts_info.so_timestamping &
-		             (SOF_TIMESTAMPING_TX_HARDWARE |
-		              SOF_TIMESTAMPING_RX_HARDWARE)) != 0;
+		             (SOF_TIMESTAMPING_TX_HARDWARE | SOF_TIMESTAMPING_RX_HARDWARE)) != 0;
 	}
 
 	close(fd);
@@ -183,8 +184,8 @@ int rfc2544_detect_nic(const char *interface, nic_info_t *info)
 	char mac_str[32];
 	if (read_sysfs(path, mac_str, sizeof(mac_str)) == 0) {
 		unsigned int mac[6];
-		if (sscanf(mac_str, "%x:%x:%x:%x:%x:%x",
-		           &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]) == 6) {
+		if (sscanf(mac_str, "%x:%x:%x:%x:%x:%x", &mac[0], &mac[1], &mac[2], &mac[3], &mac[4],
+		           &mac[5]) == 6) {
 			for (int i = 0; i < 6; i++)
 				info->mac[i] = (uint8_t)mac[i];
 		}
@@ -224,12 +225,9 @@ int rfc2544_detect_nic(const char *interface, nic_info_t *info)
 	}
 #endif
 
-	rfc2544_log(LOG_INFO, "NIC %s: %s, speed=%lu Mbps, MTU=%u, XDP=%s, HW-TS=%s",
-	            info->name, info->is_up ? "UP" : "DOWN",
-	            info->link_speed / 1000000,
-	            info->mtu,
-	            info->supports_xdp ? "yes" : "no",
-	            info->supports_hw_ts ? "yes" : "no");
+	rfc2544_log(LOG_INFO, "NIC %s: %s, speed=%lu Mbps, MTU=%u, XDP=%s, HW-TS=%s", info->name,
+	            info->is_up ? "UP" : "DOWN", info->link_speed / 1000000, info->mtu,
+	            info->supports_xdp ? "yes" : "no", info->supports_hw_ts ? "yes" : "no");
 
 	return 0;
 }

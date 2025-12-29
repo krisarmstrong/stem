@@ -1,0 +1,288 @@
+# The Stem CI Pipeline
+# Mustard Seed Networks - Network Performance Testing
+#
+# Runs on: push to main, pull requests to main
+# Jobs: backend, frontend, c-lint, security, quality, build
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================================================
+  # Backend (Go)
+  # ============================================================================
+  backend:
+    name: Backend (Go)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+      - name: Run tests
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./pkg/...
+
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          echo "Coverage: ${COVERAGE}%"
+          if (( $(echo "$COVERAGE < 40" | bc -l) )); then
+            echo "Coverage ${COVERAGE}% is below 40% threshold"
+            exit 1
+          fi
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.out
+          flags: backend
+          fail_ci_if_error: false
+
+  # ============================================================================
+  # Frontend (TypeScript)
+  # ============================================================================
+  frontend:
+    name: Frontend (TypeScript)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '25'
+          cache: 'npm'
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Biome lint
+        run: npx @biomejs/biome check src/
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+
+  # ============================================================================
+  # C Lint (Linux only)
+  # ============================================================================
+  c-lint:
+    name: C Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-tidy and cppcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-tidy cppcheck
+
+      - name: Run clang-tidy
+        run: |
+          if [ -d "src" ]; then
+            find src -name '*.c' -o -name '*.h' | xargs clang-tidy -p . 2>/dev/null || true
+          else
+            echo "No C sources found, skipping clang-tidy"
+          fi
+
+      - name: Run cppcheck
+        run: |
+          if [ -d "src" ]; then
+            cppcheck --error-exitcode=1 --enable=warning,style,performance \
+              --suppress=missingIncludeSystem \
+              -I include src/ 2>&1 || true
+          else
+            echo "No C sources found, skipping cppcheck"
+          fi
+
+  # ============================================================================
+  # Security
+  # ============================================================================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Run govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+      - name: Run gosec
+        uses: securego/gosec@master
+        with:
+          args: ./...
+
+      - name: Run npm audit
+        working-directory: ui
+        run: npm audit --audit-level=high || true
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '0'
+
+  # ============================================================================
+  # Quality
+  # ============================================================================
+  quality:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for sensitive files
+        run: |
+          SENSITIVE_FILES=$(find . -type f \( \
+            -name "*.env" -o \
+            -name "*.pem" -o \
+            -name "*.key" -o \
+            -name "*secret*" -o \
+            -name "*credential*" \
+          \) ! -path "./.git/*" ! -name "*.example" ! -name "*.sample" 2>/dev/null || true)
+          if [ -n "$SENSITIVE_FILES" ]; then
+            echo "Sensitive files found:"
+            echo "$SENSITIVE_FILES"
+            exit 1
+          fi
+          echo "No sensitive files found"
+
+      - name: Check for TODO/FIXME in critical paths
+        run: |
+          if grep -rn "TODO\|FIXME" --include="*.go" pkg/ cmd/ 2>/dev/null | head -20; then
+            echo "Note: TODOs found in Go code (info only)"
+          fi
+
+  # ============================================================================
+  # Build
+  # ============================================================================
+  build:
+    name: Build (${{ matrix.os }}-${{ matrix.arch }})
+    needs: [backend, frontend]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            runner: ubuntu-latest
+            goos: linux
+            goarch: amd64
+          - os: linux
+            arch: arm64
+            runner: ubuntu-latest
+            goos: linux
+            goarch: arm64
+          - os: darwin
+            arch: amd64
+            runner: macos-latest
+            goos: darwin
+            goarch: amd64
+          - os: darwin
+            arch: arm64
+            runner: macos-latest
+            goos: darwin
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '25'
+          cache: 'npm'
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Build UI
+        working-directory: ui
+        run: |
+          npm ci
+          npm run build
+
+      - name: Copy UI dist
+        run: |
+          mkdir -p pkg/web/dist
+          cp -r ui/dist/* pkg/web/dist/
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: |
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+          COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+          BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          go build -trimpath -buildvcs=false \
+            -ldflags "-s -w \
+              -X github.com/krisarmstrong/stem/pkg/version.Version=${VERSION} \
+              -X github.com/krisarmstrong/stem/pkg/version.Commit=${COMMIT} \
+              -X github.com/krisarmstrong/stem/pkg/version.BuildTime=${BUILD_TIME}" \
+            -o bin/stem-${{ matrix.os }}-${{ matrix.arch }} \
+            ./cmd/stem/
+
+      - name: Verify binary
+        if: matrix.os == 'linux' && matrix.arch == 'amd64' || matrix.os == 'darwin'
+        run: |
+          ./bin/stem-${{ matrix.os }}-${{ matrix.arch }} version || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stem-${{ matrix.os }}-${{ matrix.arch }}
+          path: bin/stem-${{ matrix.os }}-${{ matrix.arch }}
+          retention-days: 7

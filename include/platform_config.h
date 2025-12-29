@@ -1,5 +1,7 @@
-/*
- * platform_config.h - Platform detection for RFC2544 Test Master
+/**
+ * @file platform_config.h
+ * @brief Platform detection for RFC2544 Test Master
+ * @copyright 2025 Mustard Seed Networks. All rights reserved.
  *
  * Detects available packet I/O mechanisms:
  * - AF_XDP (Linux, high performance)

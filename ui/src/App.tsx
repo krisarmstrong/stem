@@ -1,18 +1,28 @@
-import { useState, useEffect } from 'react';
+/**
+ * @fileoverview The Stem - Main Application Component
+ * @description The primary React component that renders the test suite dashboard.
+ *              Handles connection state, test execution, and real-time statistics display.
+ * @copyright 2025 Mustard Seed Networks. All rights reserved.
+ * @license Proprietary
+ */
+
 import {
   Activity,
-  Gauge,
-  Clock,
   AlertTriangle,
-  Settings,
+  Clock,
+  Gauge,
+  HelpCircle,
+  Moon,
   Play,
-  Square,
   RefreshCw,
+  Settings,
+  Square,
+  Sun,
   Wifi,
   WifiOff,
-  Sun,
-  Moon
 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { HelpDrawer } from './components/HelpDrawer';
 import { SettingsDrawer } from './components/SettingsDrawer';
 
 interface Stats {
@@ -40,8 +50,157 @@ interface InterfaceInfo {
   score: number;
 }
 
-function App() {
+const initialStats: Stats = {
+  packetsReceived: 0,
+  packetsSent: 0,
+  bytesReceived: 0,
+  bytesSent: 0,
+  currentPps: 0,
+  currentMbps: 0,
+  uptime: 0,
+  testStatus: 'idle',
+  currentTest: null,
+};
+
+function formatNumber(num: number): string {
+  if (num >= 1e9) return `${(num / 1e9).toFixed(2)}B`;
+  if (num >= 1e6) return `${(num / 1e6).toFixed(2)}M`;
+  if (num >= 1e3) return `${(num / 1e3).toFixed(2)}K`;
+  return num.toString();
+}
+
+function formatUptime(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+function getStatusClassName(status: Stats['testStatus']): string {
+  switch (status) {
+    case 'running':
+      return 'text-[var(--color-status-success)]';
+    case 'error':
+      return 'text-[var(--color-status-error)]';
+    case 'completed':
+      return 'text-[var(--color-status-info)]';
+    default:
+      return 'text-[var(--color-text-muted)]';
+  }
+}
+
+interface StatsCardProps {
+  icon: React.ReactNode;
+  title: string;
+  value: string;
+  subvalue: string;
+}
+
+function StatsCard({ icon, title, value, subvalue }: StatsCardProps): JSX.Element {
+  return (
+    <div className="card">
+      <div className="card-header">
+        {icon}
+        {title}
+      </div>
+      <div className="card-value">{value}</div>
+      <div className="card-subvalue">{subvalue}</div>
+    </div>
+  );
+}
+
+interface InterfaceDetailsProps {
+  iface: InterfaceInfo;
+}
+
+function InterfaceDetails({ iface }: InterfaceDetailsProps): JSX.Element {
+  const stateClassName =
+    iface.state === 'up'
+      ? 'text-[var(--color-status-success)]'
+      : 'text-[var(--color-status-error)]';
+
+  return (
+    <div className="card mb-6">
+      <div className="card-header">
+        <Wifi className="w-4 h-4" />
+        Interface Details
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div>
+          <div className="text-[var(--color-text-muted)]">Name</div>
+          <div className="font-medium">{iface.name}</div>
+        </div>
+        <div>
+          <div className="text-[var(--color-text-muted)]">MAC</div>
+          <div className="font-mono">{iface.mac}</div>
+        </div>
+        <div>
+          <div className="text-[var(--color-text-muted)]">Speed</div>
+          <div>
+            {iface.speed} Mbps / {iface.duplex}
+          </div>
+        </div>
+        <div>
+          <div className="text-[var(--color-text-muted)]">Driver</div>
+          <div>{iface.driver}</div>
+        </div>
+        <div>
+          <div className="text-[var(--color-text-muted)]">State</div>
+          <div className={stateClassName}>{iface.state}</div>
+        </div>
+        <div>
+          <div className="text-[var(--color-text-muted)]">XDP Support</div>
+          <div>{iface.xdp ? 'Yes' : 'No'}</div>
+        </div>
+        <div>
+          <div className="text-[var(--color-text-muted)]">DPDK Support</div>
+          <div>{iface.dpdk ? 'Yes' : 'No'}</div>
+        </div>
+        <div>
+          <div className="text-[var(--color-text-muted)]">Score</div>
+          <div>{iface.score}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface TestResultsProps {
+  testStatus: Stats['testStatus'];
+}
+
+function TestResults({ testStatus }: TestResultsProps): JSX.Element {
+  let message: string;
+  switch (testStatus) {
+    case 'idle':
+      message = 'No tests running. Configure tests in Settings and click Start.';
+      break;
+    case 'running':
+      message = 'Test in progress... Results will appear here when complete.';
+      break;
+    case 'completed':
+      message = 'Test completed. Detailed results coming soon.';
+      break;
+    default:
+      message = 'An error occurred during the test.';
+  }
+
+  return (
+    <div className="card">
+      <div className="card-header">
+        <AlertTriangle className="w-4 h-4" />
+        Test Results
+      </div>
+      <div className="text-center py-12 text-[var(--color-text-muted)]">
+        <p>{message}</p>
+      </div>
+    </div>
+  );
+}
+
+function App(): JSX.Element {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       return window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -49,24 +208,40 @@ function App() {
     return false;
   });
   const [connected, setConnected] = useState(false);
-  const [stats, setStats] = useState<Stats>({
-    packetsReceived: 0,
-    packetsSent: 0,
-    bytesReceived: 0,
-    bytesSent: 0,
-    currentPps: 0,
-    currentMbps: 0,
-    uptime: 0,
-    testStatus: 'idle',
-    currentTest: null,
-  });
+  const [stats, setStats] = useState<Stats>(initialStats);
   const [interfaces, setInterfaces] = useState<InterfaceInfo[]>([]);
   const [selectedInterface, setSelectedInterface] = useState<string>('');
   const [mode, setMode] = useState<'reflector' | 'test_master'>('test_master');
   const [selectedTests, setSelectedTests] = useState<string[]>([
-    'rfc2544_throughput', 'rfc2544_latency', 'rfc2544_frame_loss', 'rfc2544_back_to_back'
+    'rfc2544_throughput',
+    'rfc2544_latency',
+    'rfc2544_frame_loss',
+    'rfc2544_back_to_back',
   ]);
   const [reflectorProfile, setReflectorProfile] = useState<string>('all');
+
+  const fetchInterfaces = useCallback(async () => {
+    try {
+      const response = await fetch('/api/interfaces');
+      if (response.ok) {
+        const data = await response.json();
+        setInterfaces(data);
+        // Auto-select highest scored interface
+        if (data.length > 0) {
+          setSelectedInterface((prev) => {
+            if (prev) return prev;
+            const best = data.reduce((a: InterfaceInfo, b: InterfaceInfo) =>
+              a.score > b.score ? a : b,
+            );
+            return best.name;
+          });
+        }
+        setConnected(true);
+      }
+    } catch (_error) {
+      setConnected(false);
+    }
+  }, []);
 
   // Toggle dark mode
   useEffect(() => {
@@ -80,28 +255,7 @@ function App() {
   // Fetch interfaces on mount
   useEffect(() => {
     fetchInterfaces();
-  }, []);
-
-  const fetchInterfaces = async () => {
-    try {
-      const response = await fetch('/api/interfaces');
-      if (response.ok) {
-        const data = await response.json();
-        setInterfaces(data);
-        // Auto-select highest scored interface
-        if (data.length > 0 && !selectedInterface) {
-          const best = data.reduce((a: InterfaceInfo, b: InterfaceInfo) =>
-            a.score > b.score ? a : b
-          );
-          setSelectedInterface(best.name);
-        }
-        setConnected(true);
-      }
-    } catch (error) {
-      console.error('Failed to fetch interfaces:', error);
-      setConnected(false);
-    }
-  };
+  }, [fetchInterfaces]);
 
   // Poll stats when connected
   useEffect(() => {
@@ -114,43 +268,43 @@ function App() {
           const data = await response.json();
           setStats(data);
         }
-      } catch (error) {
-        console.error('Failed to fetch stats:', error);
+      } catch (_error) {
+        // Silently ignore polling errors
       }
     }, 1000);
 
     return () => clearInterval(interval);
   }, [connected]);
 
-  const formatNumber = (num: number): string => {
-    if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
-    if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
-    if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
-    return num.toString();
-  };
-
-  const formatUptime = (seconds: number): string => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
-
-  const handleStartTest = async () => {
+  const handleStartTest = async (): Promise<void> => {
     try {
       await fetch('/api/test/start', { method: 'POST' });
-    } catch (error) {
-      console.error('Failed to start test:', error);
+    } catch (_error) {
+      // Silently ignore test start errors
     }
   };
 
-  const handleStopTest = async () => {
+  const handleStopTest = async (): Promise<void> => {
     try {
       await fetch('/api/test/stop', { method: 'POST' });
-    } catch (error) {
-      console.error('Failed to stop test:', error);
+    } catch (_error) {
+      // Silently ignore test stop errors
     }
   };
+
+  const toggleDarkMode = (): void => {
+    setDarkMode(!darkMode);
+  };
+
+  const openHelp = (): void => {
+    setHelpOpen(true);
+  };
+
+  const openSettings = (): void => {
+    setSettingsOpen(true);
+  };
+
+  const selectedIface = interfaces.find((i) => i.name === selectedInterface);
 
   return (
     <div className="min-h-screen bg-[var(--color-surface-base)]">
@@ -159,25 +313,25 @@ function App() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-[var(--color-seed-green)] flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-[var(--color-stem-green)] flex items-center justify-center">
                 <Activity className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                  Seed Test Suite
-                </h1>
-                <p className="text-xs text-[var(--color-text-muted)]">
-                  Mustard Seed Networks
-                </p>
+                <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">The Stem</h1>
+                <p className="text-xs text-[var(--color-text-muted)]">Mustard Seed Networks</p>
               </div>
             </div>
 
             {/* Connection Status */}
             <div className={`status-badge ${connected ? 'success' : 'error'}`}>
               {connected ? (
-                <><Wifi className="w-3 h-3" /> Connected</>
+                <>
+                  <Wifi className="w-3 h-3" /> Connected
+                </>
               ) : (
-                <><WifiOff className="w-3 h-3" /> Disconnected</>
+                <>
+                  <WifiOff className="w-3 h-3" /> Disconnected
+                </>
               )}
             </div>
           </div>
@@ -185,7 +339,8 @@ function App() {
           <div className="flex items-center gap-2">
             {/* Theme Toggle */}
             <button
-              onClick={() => setDarkMode(!darkMode)}
+              type="button"
+              onClick={toggleDarkMode}
               className="btn btn-ghost"
               title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
             >
@@ -194,6 +349,7 @@ function App() {
 
             {/* Refresh */}
             <button
+              type="button"
               onClick={fetchInterfaces}
               className="btn btn-ghost"
               title="Refresh interfaces"
@@ -201,11 +357,18 @@ function App() {
               <RefreshCw className="w-5 h-5" />
             </button>
 
-            {/* Settings */}
+            {/* Help */}
             <button
-              onClick={() => setSettingsOpen(true)}
-              className="btn btn-secondary"
+              type="button"
+              onClick={openHelp}
+              className="btn btn-ghost"
+              title="Help & Documentation"
             >
+              <HelpCircle className="w-5 h-5" />
+            </button>
+
+            {/* Settings */}
+            <button type="button" onClick={openSettings} className="btn btn-secondary">
               <Settings className="w-4 h-4" />
               Settings
             </button>
@@ -232,12 +395,13 @@ function App() {
             </select>
 
             {stats.testStatus === 'running' ? (
-              <button onClick={handleStopTest} className="btn btn-secondary">
+              <button type="button" onClick={handleStopTest} className="btn btn-secondary">
                 <Square className="w-4 h-4" />
                 Stop Test
               </button>
             ) : (
               <button
+                type="button"
                 onClick={handleStartTest}
                 className="btn btn-primary"
                 disabled={!selectedInterface}
@@ -249,45 +413,30 @@ function App() {
           </div>
 
           {stats.currentTest && (
-            <div className="status-badge warning">
-              Running: {stats.currentTest}
-            </div>
+            <div className="status-badge warning">Running: {stats.currentTest}</div>
           )}
         </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {/* Packets Received */}
-          <div className="card">
-            <div className="card-header">
-              <Activity className="w-4 h-4" />
-              Packets Received
-            </div>
-            <div className="card-value">{formatNumber(stats.packetsReceived)}</div>
-            <div className="card-subvalue">{formatNumber(stats.bytesReceived)} bytes</div>
-          </div>
-
-          {/* Packets Sent */}
-          <div className="card">
-            <div className="card-header">
-              <Activity className="w-4 h-4" />
-              Packets Sent
-            </div>
-            <div className="card-value">{formatNumber(stats.packetsSent)}</div>
-            <div className="card-subvalue">{formatNumber(stats.bytesSent)} bytes</div>
-          </div>
-
-          {/* Current Rate */}
-          <div className="card">
-            <div className="card-header">
-              <Gauge className="w-4 h-4" />
-              Current Rate
-            </div>
-            <div className="card-value">{formatNumber(stats.currentPps)} pps</div>
-            <div className="card-subvalue">{stats.currentMbps.toFixed(2)} Mbps</div>
-          </div>
-
-          {/* Uptime */}
+          <StatsCard
+            icon={<Activity className="w-4 h-4" />}
+            title="Packets Received"
+            value={formatNumber(stats.packetsReceived)}
+            subvalue={`${formatNumber(stats.bytesReceived)} bytes`}
+          />
+          <StatsCard
+            icon={<Activity className="w-4 h-4" />}
+            title="Packets Sent"
+            value={formatNumber(stats.packetsSent)}
+            subvalue={`${formatNumber(stats.bytesSent)} bytes`}
+          />
+          <StatsCard
+            icon={<Gauge className="w-4 h-4" />}
+            title="Current Rate"
+            value={`${formatNumber(stats.currentPps)} pps`}
+            subvalue={`${stats.currentMbps.toFixed(2)} Mbps`}
+          />
           <div className="card">
             <div className="card-header">
               <Clock className="w-4 h-4" />
@@ -295,85 +444,17 @@ function App() {
             </div>
             <div className="card-value font-mono">{formatUptime(stats.uptime)}</div>
             <div className="card-subvalue">
-              Status: <span className={
-                stats.testStatus === 'running' ? 'text-[var(--color-status-success)]' :
-                stats.testStatus === 'error' ? 'text-[var(--color-status-error)]' :
-                stats.testStatus === 'completed' ? 'text-[var(--color-status-info)]' :
-                'text-[var(--color-text-muted)]'
-              }>{stats.testStatus}</span>
+              Status:{' '}
+              <span className={getStatusClassName(stats.testStatus)}>{stats.testStatus}</span>
             </div>
           </div>
         </div>
 
         {/* Interface Details */}
-        {selectedInterface && interfaces.find(i => i.name === selectedInterface) && (
-          <div className="card mb-6">
-            <div className="card-header">
-              <Wifi className="w-4 h-4" />
-              Interface Details
-            </div>
-            {(() => {
-              const iface = interfaces.find(i => i.name === selectedInterface)!;
-              return (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <div className="text-[var(--color-text-muted)]">Name</div>
-                    <div className="font-medium">{iface.name}</div>
-                  </div>
-                  <div>
-                    <div className="text-[var(--color-text-muted)]">MAC</div>
-                    <div className="font-mono">{iface.mac}</div>
-                  </div>
-                  <div>
-                    <div className="text-[var(--color-text-muted)]">Speed</div>
-                    <div>{iface.speed} Mbps / {iface.duplex}</div>
-                  </div>
-                  <div>
-                    <div className="text-[var(--color-text-muted)]">Driver</div>
-                    <div>{iface.driver}</div>
-                  </div>
-                  <div>
-                    <div className="text-[var(--color-text-muted)]">State</div>
-                    <div className={iface.state === 'up' ? 'text-[var(--color-status-success)]' : 'text-[var(--color-status-error)]'}>
-                      {iface.state}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[var(--color-text-muted)]">XDP Support</div>
-                    <div>{iface.xdp ? 'Yes' : 'No'}</div>
-                  </div>
-                  <div>
-                    <div className="text-[var(--color-text-muted)]">DPDK Support</div>
-                    <div>{iface.dpdk ? 'Yes' : 'No'}</div>
-                  </div>
-                  <div>
-                    <div className="text-[var(--color-text-muted)]">Score</div>
-                    <div>{iface.score}</div>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        )}
+        {selectedIface && <InterfaceDetails iface={selectedIface} />}
 
-        {/* Results Area (placeholder) */}
-        <div className="card">
-          <div className="card-header">
-            <AlertTriangle className="w-4 h-4" />
-            Test Results
-          </div>
-          <div className="text-center py-12 text-[var(--color-text-muted)]">
-            {stats.testStatus === 'idle' ? (
-              <p>No tests running. Configure tests in Settings and click Start.</p>
-            ) : stats.testStatus === 'running' ? (
-              <p>Test in progress... Results will appear here when complete.</p>
-            ) : stats.testStatus === 'completed' ? (
-              <p>Test completed. Detailed results coming soon.</p>
-            ) : (
-              <p>An error occurred during the test.</p>
-            )}
-          </div>
-        </div>
+        {/* Results Area */}
+        <TestResults testStatus={stats.testStatus} />
       </main>
 
       {/* Settings Drawer */}
@@ -390,6 +471,9 @@ function App() {
         reflectorProfile={reflectorProfile}
         setReflectorProfile={setReflectorProfile}
       />
+
+      {/* Help Drawer */}
+      <HelpDrawer isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );
 }

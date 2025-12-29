@@ -1,7 +1,9 @@
-/*
- * config.go - YAML configuration support for Reflector 2.0
- */
+// Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
 
+// Package config provides YAML configuration support for the Reflector.
+//
+// Defines configuration structures for interface settings, signature filtering,
+// web UI options, platform-specific settings, and statistics collection.
 package config
 
 import (

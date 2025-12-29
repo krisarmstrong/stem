@@ -6,40 +6,28 @@
  */
 
 #include "rfc2544.h"
-#include "rfc2544_internal.h"
 
 #include <errno.h>
 #include <string.h>
 
+#include "rfc2544_internal.h"
+
 /* Predefined IMIX profiles */
 
 /* Simple IMIX: 7:4:1 ratio (58.33% small, 33.33% medium, 8.33% large) */
-static const imix_entry_t imix_simple[] = {
-	{64, 58.33},
-	{570, 33.33},
-	{1518, 8.34}
-};
+static const imix_entry_t imix_simple[] = {{64, 58.33}, {570, 33.33}, {1518, 8.34}};
 
 /* Cisco IMIX: Similar to simple but with 594 byte medium frames */
-static const imix_entry_t imix_cisco[] = {
-	{64, 58.33},
-	{594, 33.33},
-	{1518, 8.34}
-};
+static const imix_entry_t imix_cisco[] = {{64, 58.33}, {594, 33.33}, {1518, 8.34}};
 
 /* Tolly IMIX: Broader distribution */
-static const imix_entry_t imix_tolly[] = {
-	{64, 55.0},
-	{78, 5.0},
-	{576, 17.0},
-	{1500, 23.0}
-};
+static const imix_entry_t imix_tolly[] = {{64, 55.0}, {78, 5.0}, {576, 17.0}, {1500, 23.0}};
 
 /* IPSec IMIX: Larger frames typical of encrypted traffic */
 static const imix_entry_t imix_ipsec[] = {
-	{90, 30.0},    /* Small encrypted packets */
-	{594, 40.0},   /* Medium encrypted */
-	{1418, 30.0}   /* Large encrypted (1500 - IPSec overhead) */
+    {90, 30.0},  /* Small encrypted packets */
+    {594, 40.0}, /* Medium encrypted */
+    {1418, 30.0} /* Large encrypted (1500 - IPSec overhead) */
 };
 
 /**
@@ -152,8 +140,7 @@ int rfc2544_imix_throughput(rfc2544_ctx_t *ctx, const imix_config_t *imix_config
 		uint32_t result_count;
 		int ret = rfc2544_throughput_test(ctx, entry->frame_size, &per_size_result, &result_count);
 		if (ret < 0) {
-			rfc2544_log(LOG_WARN, "IMIX: Failed frame size %u: %d",
-			            entry->frame_size, ret);
+			rfc2544_log(LOG_WARN, "IMIX: Failed frame size %u: %d", entry->frame_size, ret);
 			continue;
 		}
 
@@ -181,8 +168,7 @@ int rfc2544_imix_throughput(rfc2544_ctx_t *ctx, const imix_config_t *imix_config
 
 	/* Calculate frame rate and loss */
 	if (result->avg_frame_size > 0) {
-		result->frame_rate_fps = (result->throughput_mbps * 1e6) /
-		                         (result->avg_frame_size * 8);
+		result->frame_rate_fps = (result->throughput_mbps * 1e6) / (result->avg_frame_size * 8);
 	}
 
 	if (result->total_frames_tx > 0) {
@@ -190,8 +176,7 @@ int rfc2544_imix_throughput(rfc2544_ctx_t *ctx, const imix_config_t *imix_config
 		if (result->total_frames_rx >= result->total_frames_tx) {
 			result->loss_pct = 0.0;
 		} else {
-			result->loss_pct = 100.0 *
-			                   (double)(result->total_frames_tx - result->total_frames_rx) /
+			result->loss_pct = 100.0 * (double)(result->total_frames_tx - result->total_frames_rx) /
 			                   result->total_frames_tx;
 		}
 	}

@@ -1,4 +1,5 @@
-// Package web tests for RFC2544 Test Master web server and API
+// Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
+
 package web
 
 import (
@@ -103,13 +104,13 @@ func TestHandleStats(t *testing.T) {
 
 	// Set some stats
 	s.UpdateStats(Stats{
-		TestType:   "throughput",
-		FrameSize:  1518,
-		State:      StatusRunning,
-		Progress:   50.0,
-		TxPackets:  1000000,
-		RxPackets:  999000,
-		LossPct:    0.1,
+		TestType:  "throughput",
+		FrameSize: 1518,
+		State:     StatusRunning,
+		Progress:  50.0,
+		TxPackets: 1000000,
+		RxPackets: 999000,
+		LossPct:   0.1,
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/stats", nil)
@@ -744,20 +745,20 @@ func TestY1564ConfigSerialization(t *testing.T) {
 
 func TestY1564StepResultSerialization(t *testing.T) {
 	result := Y1564StepResult{
-		Step:            1,
-		OfferedRatePct:  25.0,
+		Step:             1,
+		OfferedRatePct:   25.0,
 		AchievedRateMbps: 2.5,
-		FramesTx:        100000,
-		FramesRx:        99990,
-		FLRPct:          0.01,
-		FDAvgMs:         5.0,
-		FDMinMs:         1.0,
-		FDMaxMs:         10.0,
-		FDVMs:           9.0,
-		FLRPass:         true,
-		FDPass:          true,
-		FDVPass:         false,
-		StepPass:        false,
+		FramesTx:         100000,
+		FramesRx:         99990,
+		FLRPct:           0.01,
+		FDAvgMs:          5.0,
+		FDMinMs:          1.0,
+		FDMaxMs:          10.0,
+		FDVMs:            9.0,
+		FLRPass:          true,
+		FDPass:           true,
+		FDVPass:          false,
+		StepPass:         false,
 	}
 
 	data, err := json.Marshal(result)

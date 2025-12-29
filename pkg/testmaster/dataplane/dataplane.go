@@ -1,9 +1,16 @@
-// Package dataplane provides CGO bindings to the C dataplane library
+//go:build cgo && linux
+
+// Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
+
+// Package dataplane provides CGO bindings to the C test master dataplane.
+//
+// This package wraps the high-performance C library for test execution,
+// handling packet generation, timing, and result collection.
 package dataplane
 
 /*
-#cgo CFLAGS: -I${SRCDIR}/../../include
-#cgo LDFLAGS: -L${SRCDIR}/../.. -lrfc2544 -lpthread -lm
+#cgo CFLAGS: -I${SRCDIR}/../../../include
+#cgo LDFLAGS: -L${SRCDIR}/../../../build -lreflector -lpthread -lm
 #cgo linux LDFLAGS: -lxdp -lbpf
 
 #include <stdlib.h>
@@ -343,11 +350,11 @@ type RecoveryResult struct {
 
 // ResetResult from RFC 2544 Section 26.6 Reset test
 type ResetResult struct {
-	FrameSize    uint32
-	ResetTimeMs  float64
-	FramesLost   uint64
-	Trials       uint32
-	ManualReset  bool
+	FrameSize   uint32
+	ResetTimeMs float64
+	FramesLost  uint64
+	Trials      uint32
+	ManualReset bool
 }
 
 // Y1564SLA contains SLA parameters for Y.1564 testing
@@ -373,20 +380,20 @@ type Y1564Service struct {
 
 // Y1564StepResult from a Y.1564 configuration test step
 type Y1564StepResult struct {
-	Step            uint32
-	OfferedRatePct  float64
+	Step             uint32
+	OfferedRatePct   float64
 	AchievedRateMbps float64
-	FramesTx        uint64
-	FramesRx        uint64
-	FLRPct          float64
-	FDAvgMs         float64
-	FDMinMs         float64
-	FDMaxMs         float64
-	FDVMs           float64
-	FLRPass         bool
-	FDPass          bool
-	FDVPass         bool
-	StepPass        bool
+	FramesTx         uint64
+	FramesRx         uint64
+	FLRPct           float64
+	FDAvgMs          float64
+	FDMinMs          float64
+	FDMaxMs          float64
+	FDVMs            float64
+	FLRPass          bool
+	FDPass           bool
+	FDVPass          bool
+	StepPass         bool
 }
 
 // Y1564ConfigResult from Y.1564 service configuration test
@@ -715,20 +722,20 @@ func (c *Context) RunY1564ConfigTest(service *Y1564Service) (*Y1564ConfigResult,
 
 	for i := 0; i < 4; i++ {
 		result.Steps[i] = Y1564StepResult{
-			Step:            uint32(cResult.steps[i].step),
-			OfferedRatePct:  float64(cResult.steps[i].offered_rate_pct),
+			Step:             uint32(cResult.steps[i].step),
+			OfferedRatePct:   float64(cResult.steps[i].offered_rate_pct),
 			AchievedRateMbps: float64(cResult.steps[i].achieved_rate_mbps),
-			FramesTx:        uint64(cResult.steps[i].frames_tx),
-			FramesRx:        uint64(cResult.steps[i].frames_rx),
-			FLRPct:          float64(cResult.steps[i].flr_pct),
-			FDAvgMs:         float64(cResult.steps[i].fd_avg_ms),
-			FDMinMs:         float64(cResult.steps[i].fd_min_ms),
-			FDMaxMs:         float64(cResult.steps[i].fd_max_ms),
-			FDVMs:           float64(cResult.steps[i].fdv_ms),
-			FLRPass:         bool(cResult.steps[i].flr_pass),
-			FDPass:          bool(cResult.steps[i].fd_pass),
-			FDVPass:         bool(cResult.steps[i].fdv_pass),
-			StepPass:        bool(cResult.steps[i].step_pass),
+			FramesTx:         uint64(cResult.steps[i].frames_tx),
+			FramesRx:         uint64(cResult.steps[i].frames_rx),
+			FLRPct:           float64(cResult.steps[i].flr_pct),
+			FDAvgMs:          float64(cResult.steps[i].fd_avg_ms),
+			FDMinMs:          float64(cResult.steps[i].fd_min_ms),
+			FDMaxMs:          float64(cResult.steps[i].fd_max_ms),
+			FDVMs:            float64(cResult.steps[i].fdv_ms),
+			FLRPass:          bool(cResult.steps[i].flr_pass),
+			FDPass:           bool(cResult.steps[i].fd_pass),
+			FDVPass:          bool(cResult.steps[i].fdv_pass),
+			StepPass:         bool(cResult.steps[i].step_pass),
 		}
 	}
 

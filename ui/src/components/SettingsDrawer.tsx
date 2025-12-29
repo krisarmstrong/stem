@@ -1,5 +1,18 @@
-import { X, Monitor, Zap, Network, Activity, Radio, Settings2, Cpu } from 'lucide-react';
+/**
+ * @fileoverview The Stem - Settings Drawer Component
+ * @description The main configuration panel for the test suite. Allows users to:
+ *              - Select operating mode (Reflector vs Test Master)
+ *              - Configure network interfaces
+ *              - Select and configure test suites (RFC 2544, Y.1564, RFC 2889, etc.)
+ *              - Manage license activation
+ * @copyright 2025 Mustard Seed Networks. All rights reserved.
+ * @license Proprietary
+ */
+
+import { Activity, Cpu, Monitor, Network, Radio, Settings2, X, Zap } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
+import { HelpIcon } from './HelpIcon';
+import { LicenseSection } from './LicenseSection';
 
 interface InterfaceInfo {
   name: string;
@@ -43,20 +56,22 @@ export function SettingsDrawer({
 
   const toggleTest = (test: string) => {
     if (selectedTests.includes(test)) {
-      setSelectedTests(selectedTests.filter(t => t !== test));
+      setSelectedTests(selectedTests.filter((t) => t !== test));
     } else {
       setSelectedTests([...selectedTests, test]);
     }
   };
 
-  const maxScore = Math.max(...interfaces.map(i => i.score), 0);
+  const maxScore = Math.max(...interfaces.map((i) => i.score), 0);
 
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/50 z-40"
+      <button
+        type="button"
+        className="fixed inset-0 bg-black/50 z-40 cursor-default"
         onClick={onClose}
+        aria-label="Close settings drawer"
       />
 
       {/* Drawer */}
@@ -65,6 +80,7 @@ export function SettingsDrawer({
         <div className="sticky top-0 bg-[var(--color-surface-raised)] border-b border-[var(--color-surface-border)] px-4 py-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Settings</h2>
           <button
+            type="button"
             onClick={onClose}
             className="p-2 hover:bg-[var(--color-surface-hover)] rounded-lg transition-colors"
           >
@@ -74,6 +90,9 @@ export function SettingsDrawer({
 
         {/* Content */}
         <div className="p-4 space-y-4">
+          {/* License Section */}
+          <LicenseSection />
+
           {/* Mode Selection */}
           <CollapsibleSection
             title={
@@ -91,11 +110,13 @@ export function SettingsDrawer({
                   name="mode"
                   checked={mode === 'reflector'}
                   onChange={() => setMode('reflector')}
-                  className="w-4 h-4 accent-[var(--color-seed-green)]"
+                  className="w-4 h-4 accent-[var(--color-stem-green)]"
                 />
                 <div>
                   <div className="font-medium text-sm">Reflector Mode</div>
-                  <div className="text-xs text-[var(--color-text-muted)]">Packet reflection (Tier 1)</div>
+                  <div className="text-xs text-[var(--color-text-muted)]">
+                    Packet reflection (Tier 1)
+                  </div>
                 </div>
               </label>
               <label className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]">
@@ -104,11 +125,13 @@ export function SettingsDrawer({
                   name="mode"
                   checked={mode === 'test_master'}
                   onChange={() => setMode('test_master')}
-                  className="w-4 h-4 accent-[var(--color-seed-green)]"
+                  className="w-4 h-4 accent-[var(--color-stem-green)]"
                 />
                 <div>
                   <div className="font-medium text-sm">Test Master Mode</div>
-                  <div className="text-xs text-[var(--color-text-muted)]">Network testing (Tier 2)</div>
+                  <div className="text-xs text-[var(--color-text-muted)]">
+                    Network testing (Tier 2)
+                  </div>
                 </div>
               </label>
             </div>
@@ -130,21 +153,21 @@ export function SettingsDrawer({
                 onChange={(e) => setSelectedInterface(e.target.value)}
                 className="w-full"
               >
-                {interfaces.map(iface => (
+                {interfaces.map((iface) => (
                   <option key={iface.name} value={iface.name}>
                     {iface.name} ({iface.speed}Mbps)
                     {iface.score === maxScore && ' ★'}
                   </option>
                 ))}
               </select>
-              {interfaces.find(i => i.name === selectedInterface) && (
+              {interfaces.find((i) => i.name === selectedInterface) && (
                 <div className="text-xs text-[var(--color-text-muted)] space-y-1">
-                  <div>Driver: {interfaces.find(i => i.name === selectedInterface)?.driver}</div>
+                  <div>Driver: {interfaces.find((i) => i.name === selectedInterface)?.driver}</div>
                   <div className="flex gap-2">
-                    {interfaces.find(i => i.name === selectedInterface)?.xdp && (
+                    {interfaces.find((i) => i.name === selectedInterface)?.xdp && (
                       <span className="status-badge success">XDP</span>
                     )}
-                    {interfaces.find(i => i.name === selectedInterface)?.physical && (
+                    {interfaces.find((i) => i.name === selectedInterface)?.physical && (
                       <span className="status-badge success">Physical</span>
                     )}
                   </div>
@@ -162,28 +185,71 @@ export function SettingsDrawer({
                   <div className="flex items-center gap-2">
                     <Zap className="w-4 h-4" />
                     <span>RFC 2544 Tests</span>
-                    <span className="text-xs text-[var(--color-text-muted)]">({selectedTests.filter(t => t.startsWith('rfc2544')).length}/6)</span>
+                    <span className="text-xs text-[var(--color-text-muted)]">
+                      ({selectedTests.filter((t) => t.startsWith('rfc2544')).length}/6)
+                    </span>
                   </div>
                 }
               >
                 <div className="space-y-2">
                   {[
-                    { id: 'rfc2544_throughput', name: 'Throughput', desc: 'Max rate with 0% loss' },
-                    { id: 'rfc2544_latency', name: 'Latency', desc: 'Round-trip time' },
-                    { id: 'rfc2544_frame_loss', name: 'Frame Loss', desc: 'Loss vs offered load' },
-                    { id: 'rfc2544_back_to_back', name: 'Back-to-Back', desc: 'Burst capacity' },
-                    { id: 'rfc2544_system_recovery', name: 'System Recovery', desc: 'Recovery after overload' },
-                    { id: 'rfc2544_reset', name: 'Reset', desc: 'Device reset recovery' },
-                  ].map(test => (
-                    <label key={test.id} className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]">
+                    {
+                      id: 'rfc2544_throughput',
+                      name: 'Throughput',
+                      desc: 'Max rate with 0% loss',
+                      tooltip:
+                        'Find the maximum rate at which the DUT can forward frames with zero packet loss using binary search.',
+                    },
+                    {
+                      id: 'rfc2544_latency',
+                      name: 'Latency',
+                      desc: 'Round-trip time',
+                      tooltip: 'Measure round-trip packet delay at various loads and frame sizes.',
+                    },
+                    {
+                      id: 'rfc2544_frame_loss',
+                      name: 'Frame Loss',
+                      desc: 'Loss vs offered load',
+                      tooltip:
+                        'Measure packet loss percentage across different offered load levels.',
+                    },
+                    {
+                      id: 'rfc2544_back_to_back',
+                      name: 'Back-to-Back',
+                      desc: 'Burst capacity',
+                      tooltip:
+                        'Test maximum burst capacity - how many frames at line rate before drops occur.',
+                    },
+                    {
+                      id: 'rfc2544_system_recovery',
+                      name: 'System Recovery',
+                      desc: 'Recovery after overload',
+                      tooltip:
+                        'Measure time to recover normal forwarding after sustained overload condition.',
+                    },
+                    {
+                      id: 'rfc2544_reset',
+                      name: 'Reset',
+                      desc: 'Device reset recovery',
+                      tooltip:
+                        'Measure time from device restart to when it resumes forwarding traffic.',
+                    },
+                  ].map((test) => (
+                    <label
+                      key={test.id}
+                      className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]"
+                    >
                       <input
                         type="checkbox"
                         checked={selectedTests.includes(test.id)}
                         onChange={() => toggleTest(test.id)}
-                        className="mt-0.5 w-4 h-4 accent-[var(--color-seed-green)]"
+                        className="mt-0.5 w-4 h-4 accent-[var(--color-stem-green)]"
                       />
-                      <div>
-                        <div className="font-medium text-sm">{test.name}</div>
+                      <div className="flex-1">
+                        <div className="font-medium text-sm flex items-center gap-1">
+                          {test.name}
+                          <HelpIcon tooltip={test.tooltip} />
+                        </div>
                         <div className="text-xs text-[var(--color-text-muted)]">{test.desc}</div>
                       </div>
                     </label>
@@ -202,19 +268,43 @@ export function SettingsDrawer({
               >
                 <div className="space-y-2">
                   {[
-                    { id: 'y1564_config', name: 'Configuration Test', desc: 'Service config validation' },
-                    { id: 'y1564_perf', name: 'Performance Test', desc: 'Sustained 15+ min test' },
-                    { id: 'y1564_full', name: 'Full Test', desc: 'Both config and perf' },
-                  ].map(test => (
-                    <label key={test.id} className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]">
+                    {
+                      id: 'y1564_config',
+                      name: 'Configuration Test',
+                      desc: 'Service config validation',
+                      tooltip:
+                        'Validate service at step loads (25%, 50%, 75%, 100% of CIR) with quick pass/fail.',
+                    },
+                    {
+                      id: 'y1564_perf',
+                      name: 'Performance Test',
+                      desc: 'Sustained 15+ min test',
+                      tooltip:
+                        'Extended duration test at full CIR to verify SLA compliance over time.',
+                    },
+                    {
+                      id: 'y1564_full',
+                      name: 'Full Test',
+                      desc: 'Both config and perf',
+                      tooltip:
+                        'Complete Service Activation Test combining both configuration and performance phases.',
+                    },
+                  ].map((test) => (
+                    <label
+                      key={test.id}
+                      className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]"
+                    >
                       <input
                         type="checkbox"
                         checked={selectedTests.includes(test.id)}
                         onChange={() => toggleTest(test.id)}
-                        className="mt-0.5 w-4 h-4 accent-[var(--color-seed-green)]"
+                        className="mt-0.5 w-4 h-4 accent-[var(--color-stem-green)]"
                       />
-                      <div>
-                        <div className="font-medium text-sm">{test.name}</div>
+                      <div className="flex-1">
+                        <div className="font-medium text-sm flex items-center gap-1">
+                          {test.name}
+                          <HelpIcon tooltip={test.tooltip} />
+                        </div>
                         <div className="text-xs text-[var(--color-text-muted)]">{test.desc}</div>
                       </div>
                     </label>
@@ -233,21 +323,54 @@ export function SettingsDrawer({
               >
                 <div className="space-y-2">
                   {[
-                    { id: 'rfc2889_forwarding', name: 'Forwarding Rate', desc: 'Switch forwarding capacity' },
-                    { id: 'rfc2889_caching', name: 'Address Caching', desc: 'MAC table capacity' },
-                    { id: 'rfc2889_learning', name: 'Address Learning', desc: 'Learning rate' },
-                    { id: 'rfc2889_broadcast', name: 'Broadcast', desc: 'Broadcast forwarding' },
-                    { id: 'rfc2889_congestion', name: 'Congestion Control', desc: 'Backpressure handling' },
-                  ].map(test => (
-                    <label key={test.id} className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]">
+                    {
+                      id: 'rfc2889_forwarding',
+                      name: 'Forwarding Rate',
+                      desc: 'Switch forwarding capacity',
+                      tooltip:
+                        'Measure aggregate forwarding rate across all ports of a LAN switch.',
+                    },
+                    {
+                      id: 'rfc2889_caching',
+                      name: 'Address Caching',
+                      desc: 'MAC table capacity',
+                      tooltip:
+                        'Determine maximum number of MAC addresses the switch can learn and forward.',
+                    },
+                    {
+                      id: 'rfc2889_learning',
+                      name: 'Address Learning',
+                      desc: 'Learning rate',
+                      tooltip: 'Measure how quickly the switch learns new MAC addresses.',
+                    },
+                    {
+                      id: 'rfc2889_broadcast',
+                      name: 'Broadcast',
+                      desc: 'Broadcast forwarding',
+                      tooltip: 'Test how the switch handles broadcast traffic flooding.',
+                    },
+                    {
+                      id: 'rfc2889_congestion',
+                      name: 'Congestion Control',
+                      desc: 'Backpressure handling',
+                      tooltip: 'Verify backpressure and flow control under congestion.',
+                    },
+                  ].map((test) => (
+                    <label
+                      key={test.id}
+                      className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]"
+                    >
                       <input
                         type="checkbox"
                         checked={selectedTests.includes(test.id)}
                         onChange={() => toggleTest(test.id)}
-                        className="mt-0.5 w-4 h-4 accent-[var(--color-seed-green)]"
+                        className="mt-0.5 w-4 h-4 accent-[var(--color-stem-green)]"
                       />
-                      <div>
-                        <div className="font-medium text-sm">{test.name}</div>
+                      <div className="flex-1">
+                        <div className="font-medium text-sm flex items-center gap-1">
+                          {test.name}
+                          <HelpIcon tooltip={test.tooltip} />
+                        </div>
                         <div className="text-xs text-[var(--color-text-muted)]">{test.desc}</div>
                       </div>
                     </label>
@@ -266,18 +389,36 @@ export function SettingsDrawer({
               >
                 <div className="space-y-2">
                   {[
-                    { id: 'rfc6349_throughput', name: 'TCP Throughput', desc: 'BDP analysis' },
-                    { id: 'rfc6349_path', name: 'Path Analysis', desc: 'RTT/Bandwidth' },
-                  ].map(test => (
-                    <label key={test.id} className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]">
+                    {
+                      id: 'rfc6349_throughput',
+                      name: 'TCP Throughput',
+                      desc: 'BDP analysis',
+                      tooltip:
+                        'Measure real TCP performance with Bandwidth-Delay Product optimization.',
+                    },
+                    {
+                      id: 'rfc6349_path',
+                      name: 'Path Analysis',
+                      desc: 'RTT/Bandwidth',
+                      tooltip:
+                        'Characterize network path properties including RTT, loss, and capacity.',
+                    },
+                  ].map((test) => (
+                    <label
+                      key={test.id}
+                      className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]"
+                    >
                       <input
                         type="checkbox"
                         checked={selectedTests.includes(test.id)}
                         onChange={() => toggleTest(test.id)}
-                        className="mt-0.5 w-4 h-4 accent-[var(--color-seed-green)]"
+                        className="mt-0.5 w-4 h-4 accent-[var(--color-stem-green)]"
                       />
-                      <div>
-                        <div className="font-medium text-sm">{test.name}</div>
+                      <div className="flex-1">
+                        <div className="font-medium text-sm flex items-center gap-1">
+                          {test.name}
+                          <HelpIcon tooltip={test.tooltip} />
+                        </div>
                         <div className="text-xs text-[var(--color-text-muted)]">{test.desc}</div>
                       </div>
                     </label>
@@ -296,20 +437,47 @@ export function SettingsDrawer({
               >
                 <div className="space-y-2">
                   {[
-                    { id: 'y1731_delay', name: 'Delay (DMM/DMR)', desc: 'Frame delay measurement' },
-                    { id: 'y1731_loss', name: 'Loss (LMM/LMR)', desc: 'Frame loss measurement' },
-                    { id: 'y1731_slm', name: 'Synthetic Loss', desc: 'SLM measurement' },
-                    { id: 'y1731_loopback', name: 'Loopback', desc: 'LBM/LBR test' },
-                  ].map(test => (
-                    <label key={test.id} className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]">
+                    {
+                      id: 'y1731_delay',
+                      name: 'Delay (DMM/DMR)',
+                      desc: 'Frame delay measurement',
+                      tooltip:
+                        'Measure one-way and two-way frame delay using DMM/DMR OAM messages.',
+                    },
+                    {
+                      id: 'y1731_loss',
+                      name: 'Loss (LMM/LMR)',
+                      desc: 'Frame loss measurement',
+                      tooltip: 'Measure frame loss ratio using LMM/LMR OAM messages.',
+                    },
+                    {
+                      id: 'y1731_slm',
+                      name: 'Synthetic Loss',
+                      desc: 'SLM measurement',
+                      tooltip: 'Synthetic loss measurement using SLM/SLR frames.',
+                    },
+                    {
+                      id: 'y1731_loopback',
+                      name: 'Loopback',
+                      desc: 'LBM/LBR test',
+                      tooltip: 'Verify connectivity using OAM loopback messages (LBM/LBR).',
+                    },
+                  ].map((test) => (
+                    <label
+                      key={test.id}
+                      className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]"
+                    >
                       <input
                         type="checkbox"
                         checked={selectedTests.includes(test.id)}
                         onChange={() => toggleTest(test.id)}
-                        className="mt-0.5 w-4 h-4 accent-[var(--color-seed-green)]"
+                        className="mt-0.5 w-4 h-4 accent-[var(--color-stem-green)]"
                       />
-                      <div>
-                        <div className="font-medium text-sm">{test.name}</div>
+                      <div className="flex-1">
+                        <div className="font-medium text-sm flex items-center gap-1">
+                          {test.name}
+                          <HelpIcon tooltip={test.tooltip} />
+                        </div>
                         <div className="text-xs text-[var(--color-text-muted)]">{test.desc}</div>
                       </div>
                     </label>
@@ -328,19 +496,41 @@ export function SettingsDrawer({
               >
                 <div className="space-y-2">
                   {[
-                    { id: 'mef_config', name: 'Configuration', desc: 'Service step test' },
-                    { id: 'mef_perf', name: 'Performance', desc: 'Sustained test' },
-                    { id: 'mef_full', name: 'Full Test', desc: 'Both phases' },
-                  ].map(test => (
-                    <label key={test.id} className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]">
+                    {
+                      id: 'mef_config',
+                      name: 'Configuration',
+                      desc: 'Service step test',
+                      tooltip: 'MEF service configuration test - validates service at step loads.',
+                    },
+                    {
+                      id: 'mef_perf',
+                      name: 'Performance',
+                      desc: 'Sustained test',
+                      tooltip: 'MEF service performance test - verifies SLA compliance over time.',
+                    },
+                    {
+                      id: 'mef_full',
+                      name: 'Full Test',
+                      desc: 'Both phases',
+                      tooltip:
+                        'Complete MEF validation including both configuration and performance.',
+                    },
+                  ].map((test) => (
+                    <label
+                      key={test.id}
+                      className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]"
+                    >
                       <input
                         type="checkbox"
                         checked={selectedTests.includes(test.id)}
                         onChange={() => toggleTest(test.id)}
-                        className="mt-0.5 w-4 h-4 accent-[var(--color-seed-green)]"
+                        className="mt-0.5 w-4 h-4 accent-[var(--color-stem-green)]"
                       />
-                      <div>
-                        <div className="font-medium text-sm">{test.name}</div>
+                      <div className="flex-1">
+                        <div className="font-medium text-sm flex items-center gap-1">
+                          {test.name}
+                          <HelpIcon tooltip={test.tooltip} />
+                        </div>
                         <div className="text-xs text-[var(--color-text-muted)]">{test.desc}</div>
                       </div>
                     </label>
@@ -359,20 +549,46 @@ export function SettingsDrawer({
               >
                 <div className="space-y-2">
                   {[
-                    { id: 'tsn_timing', name: 'Gate Timing', desc: 'GCL accuracy' },
-                    { id: 'tsn_isolation', name: 'Traffic Isolation', desc: 'Class isolation' },
-                    { id: 'tsn_latency', name: 'Scheduled Latency', desc: 'Deterministic delay' },
-                    { id: 'tsn_full', name: 'Full Suite', desc: 'All TSN tests' },
-                  ].map(test => (
-                    <label key={test.id} className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]">
+                    {
+                      id: 'tsn_timing',
+                      name: 'Gate Timing',
+                      desc: 'GCL accuracy',
+                      tooltip: 'Verify Time-Aware Shaper (TAS) gate control list timing accuracy.',
+                    },
+                    {
+                      id: 'tsn_isolation',
+                      name: 'Traffic Isolation',
+                      desc: 'Class isolation',
+                      tooltip: 'Verify traffic class separation and priority enforcement.',
+                    },
+                    {
+                      id: 'tsn_latency',
+                      name: 'Scheduled Latency',
+                      desc: 'Deterministic delay',
+                      tooltip: 'Measure deterministic latency for scheduled traffic flows.',
+                    },
+                    {
+                      id: 'tsn_full',
+                      name: 'Full Suite',
+                      desc: 'All TSN tests',
+                      tooltip: 'Complete TSN validation including timing, isolation, and latency.',
+                    },
+                  ].map((test) => (
+                    <label
+                      key={test.id}
+                      className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]"
+                    >
                       <input
                         type="checkbox"
                         checked={selectedTests.includes(test.id)}
                         onChange={() => toggleTest(test.id)}
-                        className="mt-0.5 w-4 h-4 accent-[var(--color-seed-green)]"
+                        className="mt-0.5 w-4 h-4 accent-[var(--color-stem-green)]"
                       />
-                      <div>
-                        <div className="font-medium text-sm">{test.name}</div>
+                      <div className="flex-1">
+                        <div className="font-medium text-sm flex items-center gap-1">
+                          {test.name}
+                          <HelpIcon tooltip={test.tooltip} />
+                        </div>
                         <div className="text-xs text-[var(--color-text-muted)]">{test.desc}</div>
                       </div>
                     </label>
@@ -399,14 +615,17 @@ export function SettingsDrawer({
                   { id: 'msn', name: 'MSN', desc: 'Mustard Seed signatures' },
                   { id: 'all', name: 'All', desc: 'All signature types' },
                   { id: 'custom', name: 'Custom', desc: 'Manual configuration' },
-                ].map(profile => (
-                  <label key={profile.id} className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]">
+                ].map((profile) => (
+                  <label
+                    key={profile.id}
+                    className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]"
+                  >
                     <input
                       type="radio"
                       name="profile"
                       checked={reflectorProfile === profile.id}
                       onChange={() => setReflectorProfile(profile.id)}
-                      className="w-4 h-4 accent-[var(--color-seed-green)]"
+                      className="w-4 h-4 accent-[var(--color-stem-green)]"
                     />
                     <div>
                       <div className="font-medium text-sm">{profile.name}</div>

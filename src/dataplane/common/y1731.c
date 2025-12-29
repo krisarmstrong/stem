@@ -1,5 +1,7 @@
-/*
- * y1731.c - ITU-T Y.1731 OAM Performance Monitoring Implementation
+/**
+ * @file y1731.c
+ * @brief ITU-T Y.1731 OAM Performance Monitoring Implementation
+ * @copyright 2025 Mustard Seed Networks. All rights reserved.
  *
  * Implements Ethernet OAM performance monitoring:
  * - Delay Measurement (DM)
@@ -10,7 +12,6 @@
  */
 
 #include "rfc2544.h"
-#include "rfc2544_internal.h"
 
 #include <errno.h>
 #include <inttypes.h>
@@ -20,10 +21,12 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "rfc2544_internal.h"
+
 /* Y.1731 constants */
-#define Y1731_DEFAULT_DURATION_SEC   60
-#define Y1731_DEFAULT_WARMUP_SEC     2
-#define Y1731_SIGNATURE_LOCAL        "Y.1731 "
+#define Y1731_DEFAULT_DURATION_SEC 60
+#define Y1731_DEFAULT_WARMUP_SEC 2
+#define Y1731_SIGNATURE_LOCAL "Y.1731 "
 
 /**
  * Initialize default MEP configuration
@@ -52,15 +55,14 @@ int y1731_session_init(rfc2544_ctx_t *ctx, const y1731_mep_config_t *config,
 	if (!ctx || !config || !session)
 		return -EINVAL;
 
-	(void)ctx;  /* Context used for future extensions */
+	(void)ctx; /* Context used for future extensions */
 
 	memset(session, 0, sizeof(*session));
 
 	session->local_mep = *config;
 	session->state = Y1731_STATE_INIT;
 
-	rfc2544_log(LOG_INFO, "Y.1731 session initialized: MEP %u",
-	            config->mep_id);
+	rfc2544_log(LOG_INFO, "Y.1731 session initialized: MEP %u", config->mep_id);
 
 	return 0;
 }
@@ -71,9 +73,8 @@ int y1731_session_init(rfc2544_ctx_t *ctx, const y1731_mep_config_t *config,
  * Measures one-way and two-way frame delay using timestamps
  * ============================================================================ */
 
-int y1731_delay_measurement(rfc2544_ctx_t *ctx, y1731_session_t *session,
-                            uint32_t count, uint32_t interval_ms,
-                            y1731_delay_result_t *result)
+int y1731_delay_measurement(rfc2544_ctx_t *ctx, y1731_session_t *session, uint32_t count,
+                            uint32_t interval_ms, y1731_delay_result_t *result)
 {
 	if (!ctx || !session || !result)
 		return -EINVAL;
@@ -99,17 +100,17 @@ int y1731_delay_measurement(rfc2544_ctx_t *ctx, y1731_session_t *session,
 	/* Calculate rate based on interval */
 	/* interval_ms determines probe rate: 1000ms interval = 1 pps */
 	double probes_per_sec = 1000.0 / (double)interval_ms;
-	uint64_t max_pps = calc_max_pps(ctx->line_rate, 128);  /* DMM frames ~128 bytes */
+	uint64_t max_pps = calc_max_pps(ctx->line_rate, 128); /* DMM frames ~128 bytes */
 	double rate_pct = (max_pps > 0) ? ((probes_per_sec * 100.0) / (double)max_pps) : 0.001;
-	if (rate_pct > 100.0) rate_pct = 100.0;
-	if (rate_pct < 0.001) rate_pct = 0.001;
+	if (rate_pct > 100.0)
+		rate_pct = 100.0;
+	if (rate_pct < 0.001)
+		rate_pct = 0.001;
 
 	/* Run delay measurement trial */
 	trial_result_t trial;
-	int ret = run_trial_custom(ctx, 128, rate_pct,
-	                           duration_sec, Y1731_DEFAULT_WARMUP_SEC,
-	                           Y1731_SIGNATURE_LOCAL, session->local_mep.mep_id,
-	                           &trial);
+	int ret = run_trial_custom(ctx, 128, rate_pct, duration_sec, Y1731_DEFAULT_WARMUP_SEC,
+	                           Y1731_SIGNATURE_LOCAL, session->local_mep.mep_id, &trial);
 
 	if (ret < 0) {
 		rfc2544_log(LOG_ERROR, "Delay measurement trial failed: %d", ret);
@@ -131,8 +132,8 @@ int y1731_delay_measurement(rfc2544_ctx_t *ctx, y1731_session_t *session,
 
 	session->state = Y1731_STATE_STOPPED;
 
-	rfc2544_log(LOG_INFO, "Two-way Delay: avg=%.1f, min=%.1f, max=%.1f us",
-	            result->delay_avg_us, result->delay_min_us, result->delay_max_us);
+	rfc2544_log(LOG_INFO, "Two-way Delay: avg=%.1f, min=%.1f, max=%.1f us", result->delay_avg_us,
+	            result->delay_min_us, result->delay_max_us);
 	rfc2544_log(LOG_INFO, "Delay Variation: %.1f us", result->delay_variation_us);
 
 	return 0;
@@ -144,8 +145,8 @@ int y1731_delay_measurement(rfc2544_ctx_t *ctx, y1731_session_t *session,
  * Measures near-end and far-end frame loss
  * ============================================================================ */
 
-int y1731_loss_measurement(rfc2544_ctx_t *ctx, y1731_session_t *session,
-                           uint32_t duration_sec, y1731_loss_result_t *result)
+int y1731_loss_measurement(rfc2544_ctx_t *ctx, y1731_session_t *session, uint32_t duration_sec,
+                           y1731_loss_result_t *result)
 {
 	if (!ctx || !session || !result)
 		return -EINVAL;
@@ -158,10 +159,9 @@ int y1731_loss_measurement(rfc2544_ctx_t *ctx, y1731_session_t *session,
 
 	/* Run at moderate rate for loss measurement */
 	trial_result_t trial;
-	int ret = run_trial_custom(ctx, 128, 50.0,  /* 50% rate */
-	                           duration_sec, Y1731_DEFAULT_WARMUP_SEC,
-	                           Y1731_SIGNATURE_LOCAL, session->local_mep.mep_id,
-	                           &trial);
+	int ret = run_trial_custom(ctx, 128, 50.0, /* 50% rate */
+	                           duration_sec, Y1731_DEFAULT_WARMUP_SEC, Y1731_SIGNATURE_LOCAL,
+	                           session->local_mep.mep_id, &trial);
 
 	if (ret < 0) {
 		rfc2544_log(LOG_ERROR, "Loss measurement trial failed: %d", ret);
@@ -191,10 +191,10 @@ int y1731_loss_measurement(rfc2544_ctx_t *ctx, y1731_session_t *session,
 
 	session->state = Y1731_STATE_STOPPED;
 
-	rfc2544_log(LOG_INFO, "Near-end Loss: %" PRIu64 " frames (%.4f%%)",
-	            result->near_end_loss, result->near_end_loss_ratio * 100.0);
-	rfc2544_log(LOG_INFO, "Far-end Loss: %" PRIu64 " frames (%.4f%%)",
-	            result->far_end_loss, result->far_end_loss_ratio * 100.0);
+	rfc2544_log(LOG_INFO, "Near-end Loss: %" PRIu64 " frames (%.4f%%)", result->near_end_loss,
+	            result->near_end_loss_ratio * 100.0);
+	rfc2544_log(LOG_INFO, "Far-end Loss: %" PRIu64 " frames (%.4f%%)", result->far_end_loss,
+	            result->far_end_loss_ratio * 100.0);
 
 	return 0;
 }
@@ -205,9 +205,8 @@ int y1731_loss_measurement(rfc2544_ctx_t *ctx, y1731_session_t *session,
  * Proactive loss measurement using synthetic frames
  * ============================================================================ */
 
-int y1731_synthetic_loss(rfc2544_ctx_t *ctx, y1731_session_t *session,
-                         uint32_t count, uint32_t interval_ms,
-                         y1731_loss_result_t *result)
+int y1731_synthetic_loss(rfc2544_ctx_t *ctx, y1731_session_t *session, uint32_t count,
+                         uint32_t interval_ms, y1731_loss_result_t *result)
 {
 	if (!ctx || !session || !result)
 		return -EINVAL;
@@ -230,14 +229,13 @@ int y1731_synthetic_loss(rfc2544_ctx_t *ctx, y1731_session_t *session,
 	double probes_per_sec = 1000.0 / (double)interval_ms;
 	uint64_t max_pps = calc_max_pps(ctx->line_rate, 128);
 	double rate_pct = (max_pps > 0) ? ((probes_per_sec * 100.0) / (double)max_pps) : 1.0;
-	if (rate_pct > 100.0) rate_pct = 100.0;
+	if (rate_pct > 100.0)
+		rate_pct = 100.0;
 
 	/* Run synthetic loss trial */
 	trial_result_t trial;
-	int ret = run_trial_custom(ctx, 128, rate_pct,
-	                           duration_sec, Y1731_DEFAULT_WARMUP_SEC,
-	                           Y1731_SIGNATURE_LOCAL, session->local_mep.mep_id,
-	                           &trial);
+	int ret = run_trial_custom(ctx, 128, rate_pct, duration_sec, Y1731_DEFAULT_WARMUP_SEC,
+	                           Y1731_SIGNATURE_LOCAL, session->local_mep.mep_id, &trial);
 
 	if (ret < 0) {
 		rfc2544_log(LOG_ERROR, "Synthetic loss trial failed: %d", ret);
@@ -267,8 +265,7 @@ int y1731_synthetic_loss(rfc2544_ctx_t *ctx, y1731_session_t *session,
 	session->state = Y1731_STATE_STOPPED;
 
 	rfc2544_log(LOG_INFO, "Synthetic Loss: %" PRIu64 "/%" PRIu64 " frames lost (%.4f%%)",
-	            result->near_end_loss, result->frames_tx,
-	            result->near_end_loss_ratio * 100.0);
+	            result->near_end_loss, result->frames_tx, result->near_end_loss_ratio * 100.0);
 
 	return 0;
 }
@@ -279,14 +276,13 @@ int y1731_synthetic_loss(rfc2544_ctx_t *ctx, y1731_session_t *session,
  * Verifies connectivity and measures response time
  * ============================================================================ */
 
-int y1731_loopback(rfc2544_ctx_t *ctx, y1731_session_t *session,
-                   const uint8_t *target_mac, uint32_t count,
-                   y1731_loopback_result_t *result)
+int y1731_loopback(rfc2544_ctx_t *ctx, y1731_session_t *session, const uint8_t *target_mac,
+                   uint32_t count, y1731_loopback_result_t *result)
 {
 	if (!ctx || !session || !result)
 		return -EINVAL;
 
-	(void)target_mac;  /* Used for actual OAM implementation */
+	(void)target_mac; /* Used for actual OAM implementation */
 
 	memset(result, 0, sizeof(*result));
 	session->state = Y1731_STATE_RUNNING;
@@ -303,14 +299,13 @@ int y1731_loopback(rfc2544_ctx_t *ctx, y1731_session_t *session,
 	/* Low rate - approximately 1 pps */
 	uint64_t max_pps = calc_max_pps(ctx->line_rate, 128);
 	double rate_pct = (max_pps > 0) ? ((1.0 * 100.0) / (double)max_pps) : 0.001;
-	if (rate_pct < 0.001) rate_pct = 0.001;
+	if (rate_pct < 0.001)
+		rate_pct = 0.001;
 
 	/* Run loopback trial */
 	trial_result_t trial;
-	int ret = run_trial_custom(ctx, 128, rate_pct,
-	                           duration_sec, 1,
-	                           Y1731_SIGNATURE_LOCAL, session->local_mep.mep_id,
-	                           &trial);
+	int ret = run_trial_custom(ctx, 128, rate_pct, duration_sec, 1, Y1731_SIGNATURE_LOCAL,
+	                           session->local_mep.mep_id, &trial);
 
 	if (ret < 0) {
 		rfc2544_log(LOG_ERROR, "Loopback trial failed: %d", ret);
@@ -329,12 +324,11 @@ int y1731_loopback(rfc2544_ctx_t *ctx, y1731_session_t *session,
 
 	session->state = Y1731_STATE_STOPPED;
 
-	rfc2544_log(LOG_INFO, "Loopback: %u/%u replies (%.1f%%)",
-	            result->lbr_received, result->lbm_sent,
-	            result->lbm_sent > 0 ?
-	            100.0 * result->lbr_received / result->lbm_sent : 0.0);
-	rfc2544_log(LOG_INFO, "RTT: avg=%.3f, min=%.3f, max=%.3f ms",
-	            result->rtt_avg_ms, result->rtt_min_ms, result->rtt_max_ms);
+	rfc2544_log(LOG_INFO, "Loopback: %u/%u replies (%.1f%%)", result->lbr_received,
+	            result->lbm_sent,
+	            result->lbm_sent > 0 ? 100.0 * result->lbr_received / result->lbm_sent : 0.0);
+	rfc2544_log(LOG_INFO, "RTT: avg=%.3f, min=%.3f, max=%.3f ms", result->rtt_avg_ms,
+	            result->rtt_min_ms, result->rtt_max_ms);
 
 	return 0;
 }
@@ -421,8 +415,8 @@ void y1731_print_loss_results(const y1731_loss_result_t *result)
 	printf("Frames TX:        %" PRIu64 "\n", result->frames_tx);
 	printf("Frames RX:        %" PRIu64 "\n", result->frames_rx);
 	printf("\nLoss Statistics:\n");
-	printf("  Near-end Loss:  %" PRIu64 " (%.4f%%)\n",
-	       result->near_end_loss, result->near_end_loss_ratio * 100.0);
-	printf("  Far-end Loss:   %" PRIu64 " (%.4f%%)\n",
-	       result->far_end_loss, result->far_end_loss_ratio * 100.0);
+	printf("  Near-end Loss:  %" PRIu64 " (%.4f%%)\n", result->near_end_loss,
+	       result->near_end_loss_ratio * 100.0);
+	printf("  Far-end Loss:   %" PRIu64 " (%.4f%%)\n", result->far_end_loss,
+	       result->far_end_loss_ratio * 100.0);
 }

@@ -1,4 +1,9 @@
-// Package web provides a web server and API for RFC2544 Test Master
+// Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
+
+// Package web provides a web server and API for the Test Master.
+//
+// Embeds the React frontend and provides REST endpoints for test
+// configuration, execution control, and real-time results streaming.
 package web
 
 import (
@@ -57,10 +62,10 @@ type Result struct {
 
 // Status constants for test state
 const (
-	StatusIdle     = "idle"
-	StatusRunning  = "running"
-	StatusComplete = "complete"
-	StatusError    = "error"
+	StatusIdle      = "idle"
+	StatusRunning   = "running"
+	StatusComplete  = "complete"
+	StatusError     = "error"
 	StatusCancelled = "cancelled"
 )
 
@@ -100,12 +105,12 @@ type Y1564Config struct {
 
 // Y1564Service for Y.1564 service definition
 type Y1564Service struct {
-	ServiceID   uint32    `json:"service_id"`
-	ServiceName string    `json:"service_name"`
-	FrameSize   uint32    `json:"frame_size"`
-	CoS         uint8     `json:"cos"`
-	Enabled     bool      `json:"enabled"`
-	SLA         Y1564SLA  `json:"sla"`
+	ServiceID   uint32   `json:"service_id"`
+	ServiceName string   `json:"service_name"`
+	FrameSize   uint32   `json:"frame_size"`
+	CoS         uint8    `json:"cos"`
+	Enabled     bool     `json:"enabled"`
+	SLA         Y1564SLA `json:"sla"`
 }
 
 // Y1564SLA for Y.1564 SLA parameters
@@ -121,20 +126,20 @@ type Y1564SLA struct {
 
 // Y1564StepResult for Y.1564 step test results
 type Y1564StepResult struct {
-	Step            uint32  `json:"step"`
-	OfferedRatePct  float64 `json:"offered_rate_pct"`
+	Step             uint32  `json:"step"`
+	OfferedRatePct   float64 `json:"offered_rate_pct"`
 	AchievedRateMbps float64 `json:"achieved_rate_mbps"`
-	FramesTx        uint64  `json:"frames_tx"`
-	FramesRx        uint64  `json:"frames_rx"`
-	FLRPct          float64 `json:"flr_pct"`
-	FDAvgMs         float64 `json:"fd_avg_ms"`
-	FDMinMs         float64 `json:"fd_min_ms"`
-	FDMaxMs         float64 `json:"fd_max_ms"`
-	FDVMs           float64 `json:"fdv_ms"`
-	FLRPass         bool    `json:"flr_pass"`
-	FDPass          bool    `json:"fd_pass"`
-	FDVPass         bool    `json:"fdv_pass"`
-	StepPass        bool    `json:"step_pass"`
+	FramesTx         uint64  `json:"frames_tx"`
+	FramesRx         uint64  `json:"frames_rx"`
+	FLRPct           float64 `json:"flr_pct"`
+	FDAvgMs          float64 `json:"fd_avg_ms"`
+	FDMinMs          float64 `json:"fd_min_ms"`
+	FDMaxMs          float64 `json:"fd_max_ms"`
+	FDVMs            float64 `json:"fdv_ms"`
+	FLRPass          bool    `json:"flr_pass"`
+	FDPass           bool    `json:"fd_pass"`
+	FDVPass          bool    `json:"fdv_pass"`
+	StepPass         bool    `json:"step_pass"`
 }
 
 // Y1564ConfigResult for Y.1564 configuration test results
@@ -165,17 +170,17 @@ type Y1564PerfResult struct {
 
 // Server represents the web server
 type Server struct {
-	addr    string
-	mux     *http.ServeMux
-	server  *http.Server
-	mu      sync.RWMutex
-	stats   Stats
-	results []Result
+	addr        string
+	mux         *http.ServeMux
+	server      *http.Server
+	mu          sync.RWMutex
+	stats       Stats
+	results     []Result
 	testResults []TestResult
-	config  Config
-	status  string
-	statusMsg string
-	progress float64
+	config      Config
+	status      string
+	statusMsg   string
+	progress    float64
 
 	// Embedded UI (optional)
 	uiFS fs.FS

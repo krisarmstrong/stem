@@ -10,11 +10,12 @@
  */
 
 #include "rfc2544.h"
-#include "rfc2544_internal.h"
 
 #include <errno.h>
 #include <string.h>
 #include <time.h>
+
+#include "rfc2544_internal.h"
 
 /**
  * Token bucket state for metering
@@ -30,8 +31,8 @@ typedef struct {
  * Dual token bucket meter (CIR + EIR)
  */
 typedef struct {
-	token_bucket_t cir_bucket;  /* CIR bucket (green) */
-	token_bucket_t eir_bucket;  /* EIR bucket (yellow) */
+	token_bucket_t cir_bucket; /* CIR bucket (green) */
+	token_bucket_t eir_bucket; /* EIR bucket (yellow) */
 } dual_bucket_meter_t;
 
 /**
@@ -49,7 +50,7 @@ static uint64_t get_time_ns(void)
  */
 static void bucket_init(token_bucket_t *bucket, double rate_bps, double burst_bytes)
 {
-	bucket->tokens = burst_bytes;  /* Start full */
+	bucket->tokens = burst_bytes; /* Start full */
 	bucket->bucket_size = burst_bytes;
 	bucket->rate = rate_bps / 8.0; /* Convert to bytes/sec */
 	bucket->last_update_ns = get_time_ns();
@@ -116,20 +117,18 @@ static traffic_color_t meter_packet(dual_bucket_meter_t *meter, uint32_t packet_
 /**
  * Run color-aware metering test
  */
-int y1564_color_test(rfc2544_ctx_t *ctx, const y1564_service_t *service,
-                     color_result_t *result)
+int y1564_color_test(rfc2544_ctx_t *ctx, const y1564_service_t *service, color_result_t *result)
 {
 	if (!ctx || !service || !result)
 		return -EINVAL;
 
 	memset(result, 0, sizeof(*result));
 
-	rfc2544_log(LOG_INFO, "Starting color-aware metering test for service %u",
-	            service->service_id);
-	rfc2544_log(LOG_INFO, "  CIR: %.2f Mbps, CBS: %u bytes",
-	            service->sla.cir_mbps, service->sla.cbs_bytes);
-	rfc2544_log(LOG_INFO, "  EIR: %.2f Mbps, EBS: %u bytes",
-	            service->sla.eir_mbps, service->sla.ebs_bytes);
+	rfc2544_log(LOG_INFO, "Starting color-aware metering test for service %u", service->service_id);
+	rfc2544_log(LOG_INFO, "  CIR: %.2f Mbps, CBS: %u bytes", service->sla.cir_mbps,
+	            service->sla.cbs_bytes);
+	rfc2544_log(LOG_INFO, "  EIR: %.2f Mbps, EBS: %u bytes", service->sla.eir_mbps,
+	            service->sla.ebs_bytes);
 
 	/* Initialize dual bucket meter */
 	dual_bucket_meter_t meter;
@@ -146,8 +145,8 @@ int y1564_color_test(rfc2544_ctx_t *ctx, const y1564_service_t *service,
 	/* Calculate packets to send */
 	uint64_t total_packets = (uint64_t)(test_rate * 1e6 / 8 / frame_size * test_duration_sec);
 
-	rfc2544_log(LOG_INFO, "  Test rate: %.2f Mbps, duration: %u sec, packets: %lu",
-	            test_rate, test_duration_sec, total_packets);
+	rfc2544_log(LOG_INFO, "  Test rate: %.2f Mbps, duration: %u sec, packets: %lu", test_rate,
+	            test_duration_sec, total_packets);
 
 	/* Simulate metering (in real implementation, this would send actual traffic) */
 	for (uint64_t i = 0; i < total_packets; i++) {
@@ -197,8 +196,8 @@ int y1564_burst_test(rfc2544_ctx_t *ctx, const y1564_service_t *service,
 	result->expected_ebs = service->sla.ebs_bytes;
 
 	rfc2544_log(LOG_INFO, "Starting burst validation for service %u", service->service_id);
-	rfc2544_log(LOG_INFO, "  Expected CBS: %u bytes, EBS: %u bytes",
-	            result->expected_cbs, result->expected_ebs);
+	rfc2544_log(LOG_INFO, "  Expected CBS: %u bytes, EBS: %u bytes", result->expected_cbs,
+	            result->expected_ebs);
 
 	/*
 	 * CBS Test: Send burst at line rate, count green frames
@@ -256,12 +255,10 @@ int y1564_burst_test(rfc2544_ctx_t *ctx, const y1564_service_t *service,
 	}
 
 	rfc2544_log(LOG_INFO, "Burst validation complete:");
-	rfc2544_log(LOG_INFO, "  CBS: measured=%u, expected=%u, %s",
-	            result->measured_cbs, result->expected_cbs,
-	            result->cbs_valid ? "PASS" : "FAIL");
-	rfc2544_log(LOG_INFO, "  EBS: measured=%u, expected=%u, %s",
-	            result->measured_ebs, result->expected_ebs,
-	            result->ebs_valid ? "PASS" : "FAIL");
+	rfc2544_log(LOG_INFO, "  CBS: measured=%u, expected=%u, %s", result->measured_cbs,
+	            result->expected_cbs, result->cbs_valid ? "PASS" : "FAIL");
+	rfc2544_log(LOG_INFO, "  EBS: measured=%u, expected=%u, %s", result->measured_ebs,
+	            result->expected_ebs, result->ebs_valid ? "PASS" : "FAIL");
 
 	return 0;
 }

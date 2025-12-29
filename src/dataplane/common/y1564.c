@@ -1,5 +1,7 @@
-/*
- * y1564.c - ITU-T Y.1564 (EtherSAM) Test Implementation
+/**
+ * @file y1564.c
+ * @brief ITU-T Y.1564 (EtherSAM) Test Implementation
+ * @copyright 2025 Mustard Seed Networks. All rights reserved.
  *
  * This file implements the ITU-T Y.1564 Ethernet Service Activation Methodology:
  * - Service Configuration Test (step test at 25%, 50%, 75%, 100% CIR)
@@ -11,10 +13,9 @@
  */
 
 #include "rfc2544.h"
-#include "rfc2544_internal.h"
+
 #include "platform_config.h"
 
-#include <arpa/inet.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <math.h>
@@ -24,6 +25,9 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+
+#include "rfc2544_internal.h"
+#include <arpa/inet.h>
 
 /* Internal packet structure (matches core.c) */
 typedef struct {
@@ -57,10 +61,9 @@ typedef struct __attribute__((packed)) {
 
 /* Forward declarations from packet.c */
 y1564_payload_t *y1564_create_packet_template(uint8_t *buffer, uint32_t frame_size,
-                                               const uint8_t *src_mac, const uint8_t *dst_mac,
-                                               uint32_t src_ip, uint32_t dst_ip,
-                                               uint16_t src_port, uint16_t dst_port,
-                                               uint32_t service_id, uint8_t dscp);
+                                              const uint8_t *src_mac, const uint8_t *dst_mac,
+                                              uint32_t src_ip, uint32_t dst_ip, uint16_t src_port,
+                                              uint16_t dst_port, uint32_t service_id, uint8_t dscp);
 void y1564_stamp_packet(y1564_payload_t *payload, uint32_t seq_num, uint64_t timestamp_ns);
 bool y1564_is_valid_response(const uint8_t *data, uint32_t len);
 uint32_t y1564_get_seq_num(const uint8_t *data, uint32_t len);
@@ -205,13 +208,13 @@ void y1564_default_sla(y1564_sla_t *sla)
 		return;
 
 	memset(sla, 0, sizeof(*sla));
-	sla->cir_mbps = 100.0;           /* 100 Mbps default CIR */
-	sla->eir_mbps = 0.0;             /* No EIR by default */
-	sla->cbs_bytes = 12000;          /* 12KB committed burst */
-	sla->ebs_bytes = 0;              /* No excess burst */
-	sla->fd_threshold_ms = 10.0;     /* 10ms frame delay threshold */
-	sla->fdv_threshold_ms = 5.0;     /* 5ms jitter threshold */
-	sla->flr_threshold_pct = 0.01;   /* 0.01% frame loss threshold */
+	sla->cir_mbps = 100.0;         /* 100 Mbps default CIR */
+	sla->eir_mbps = 0.0;           /* No EIR by default */
+	sla->cbs_bytes = 12000;        /* 12KB committed burst */
+	sla->ebs_bytes = 0;            /* No excess burst */
+	sla->fd_threshold_ms = 10.0;   /* 10ms frame delay threshold */
+	sla->fdv_threshold_ms = 5.0;   /* 5ms jitter threshold */
+	sla->flr_threshold_pct = 0.01; /* 0.01% frame loss threshold */
 }
 
 void y1564_default_config(y1564_config_t *config)
@@ -228,8 +231,8 @@ void y1564_default_config(y1564_config_t *config)
 	config->config_steps[3] = 100.0;
 
 	/* Default durations */
-	config->step_duration_sec = 60;        /* 1 minute per step */
-	config->perf_duration_sec = 15 * 60;   /* 15 minutes performance test */
+	config->step_duration_sec = 60;      /* 1 minute per step */
+	config->perf_duration_sec = 15 * 60; /* 15 minutes performance test */
 
 	/* Default to running both tests */
 	config->run_config_test = true;
@@ -245,7 +248,7 @@ void y1564_default_config(y1564_config_t *config)
 		         "Service%d", i + 1);
 		y1564_default_sla(&config->services[i].sla);
 		config->services[i].frame_size = 512;
-		config->services[i].cos = 0;  /* Best effort by default */
+		config->services[i].cos = 0; /* Best effort by default */
 		config->services[i].enabled = false;
 	}
 }
@@ -315,9 +318,9 @@ static int y1564_run_step(rfc2544_ctx_t *ctx, const y1564_service_t *service, do
 	rfc2544_get_ips(ctx, &src_ip, &dst_ip);
 
 	/* Create Y.1564 packet with service DSCP marking */
-	y1564_payload_t *payload = y1564_create_packet_template(pkt_buffer, frame_size, src_mac,
-	                                                        dst_mac, src_ip, dst_ip, 12345, 3842,
-	                                                        service->service_id, service->cos);
+	y1564_payload_t *payload =
+	    y1564_create_packet_template(pkt_buffer, frame_size, src_mac, dst_mac, src_ip, dst_ip,
+	                                 12345, 3842, service->service_id, service->cos);
 	if (!payload) {
 		free(pkt_buffer);
 		return -EINVAL;
@@ -496,7 +499,7 @@ int y1564_config_test(rfc2544_ctx_t *ctx, const y1564_service_t *service,
 	/* Get Y.1564 config from context */
 	const y1564_config_t *y1564_cfg = &ctx->config.y1564;
 	uint32_t step_duration = y1564_cfg->step_duration_sec;
-	uint32_t warmup_sec = 2;  /* 2 second warmup per step */
+	uint32_t warmup_sec = 2; /* 2 second warmup per step */
 
 	y1564_log(LOG_INFO, "Service Configuration Test: service=%u (%s), CIR=%.2f Mbps",
 	          service->service_id, service->service_name, service->sla.cir_mbps);
@@ -576,11 +579,10 @@ int y1564_perf_test(rfc2544_ctx_t *ctx, const y1564_service_t *service, uint32_t
 	result->service_id = service->service_id;
 	result->duration_sec = duration_sec;
 
-	uint32_t warmup_sec = 5;  /* 5 second warmup for performance test */
+	uint32_t warmup_sec = 5; /* 5 second warmup for performance test */
 
 	y1564_log(LOG_INFO, "Service Performance Test: service=%u (%s), CIR=%.2f Mbps, duration=%um",
-	          service->service_id, service->service_name, service->sla.cir_mbps,
-	          duration_sec / 60);
+	          service->service_id, service->service_name, service->sla.cir_mbps, duration_sec / 60);
 
 	/* Run performance trial at full CIR */
 	y1564_trial_t trial;
@@ -610,8 +612,9 @@ int y1564_perf_test(rfc2544_ctx_t *ctx, const y1564_service_t *service, uint32_t
 	result->fdv_pass = (trial.fdv_ms <= service->sla.fdv_threshold_ms);
 	result->service_pass = result->flr_pass && result->fd_pass && result->fdv_pass;
 
-	y1564_log(LOG_INFO, "Service Performance Test %s: FLR=%.4f%% (%s), FD=%.2fms (%s), "
-	                    "FDV=%.2fms (%s)",
+	y1564_log(LOG_INFO,
+	          "Service Performance Test %s: FLR=%.4f%% (%s), FD=%.2fms (%s), "
+	          "FDV=%.2fms (%s)",
 	          result->service_pass ? "PASSED" : "FAILED", result->flr_pct,
 	          result->flr_pass ? "PASS" : "FAIL", result->fd_avg_ms,
 	          result->fd_pass ? "PASS" : "FAIL", result->fdv_ms,
@@ -658,8 +661,7 @@ int y1564_multi_service_test(rfc2544_ctx_t *ctx, const y1564_service_t *services
 
 			ret = y1564_config_test(ctx, svc, &config_results[i]);
 			if (ret < 0 && ret != -ECANCELED) {
-				y1564_log(LOG_ERROR, "Config test failed for service %u: %d", svc->service_id,
-				          ret);
+				y1564_log(LOG_ERROR, "Config test failed for service %u: %d", svc->service_id, ret);
 				return ret;
 			}
 		}
@@ -681,8 +683,7 @@ int y1564_multi_service_test(rfc2544_ctx_t *ctx, const y1564_service_t *services
 
 			ret = y1564_perf_test(ctx, svc, perf_duration, &perf_results[i]);
 			if (ret < 0 && ret != -ECANCELED) {
-				y1564_log(LOG_ERROR, "Perf test failed for service %u: %d", svc->service_id,
-				          ret);
+				y1564_log(LOG_ERROR, "Perf test failed for service %u: %d", svc->service_id, ret);
 				return ret;
 			}
 		}
@@ -715,23 +716,23 @@ void y1564_print_results(const y1564_config_result_t *config_results,
 		if (config_results) {
 			for (uint32_t s = 0; s < service_count; s++) {
 				const y1564_config_result_t *cr = &config_results[s];
-				if (s > 0) printf(",");
-				printf("{\"service_id\":%u,\"service_pass\":%s,\"steps\":[",
-				       cr->service_id, cr->service_pass ? "true" : "false");
+				if (s > 0)
+					printf(",");
+				printf("{\"service_id\":%u,\"service_pass\":%s,\"steps\":[", cr->service_id,
+				       cr->service_pass ? "true" : "false");
 				for (int i = 0; i < Y1564_CONFIG_STEPS; i++) {
 					const y1564_step_result_t *sr = &cr->steps[i];
-					if (i > 0) printf(",");
+					if (i > 0)
+						printf(",");
 					printf("{\"step\":%u,\"offered_rate_pct\":%.1f,\"achieved_rate_mbps\":%.2f,"
 					       "\"frames_tx\":%" PRIu64 ",\"frames_rx\":%" PRIu64 ",\"flr_pct\":%.4f,"
 					       "\"fd_avg_ms\":%.2f,\"fd_min_ms\":%.2f,\"fd_max_ms\":%.2f,"
 					       "\"fdv_ms\":%.2f,\"flr_pass\":%s,\"fd_pass\":%s,\"fdv_pass\":%s,"
 					       "\"step_pass\":%s}",
-					       sr->step, sr->offered_rate_pct, sr->achieved_rate_mbps,
-					       sr->frames_tx, sr->frames_rx, sr->flr_pct,
-					       sr->fd_avg_ms, sr->fd_min_ms, sr->fd_max_ms, sr->fdv_ms,
-					       sr->flr_pass ? "true" : "false",
-					       sr->fd_pass ? "true" : "false",
-					       sr->fdv_pass ? "true" : "false",
+					       sr->step, sr->offered_rate_pct, sr->achieved_rate_mbps, sr->frames_tx,
+					       sr->frames_rx, sr->flr_pct, sr->fd_avg_ms, sr->fd_min_ms, sr->fd_max_ms,
+					       sr->fdv_ms, sr->flr_pass ? "true" : "false",
+					       sr->fd_pass ? "true" : "false", sr->fdv_pass ? "true" : "false",
 					       sr->step_pass ? "true" : "false");
 				}
 				printf("]}");
@@ -741,17 +742,16 @@ void y1564_print_results(const y1564_config_result_t *config_results,
 		if (perf_results) {
 			for (uint32_t s = 0; s < service_count; s++) {
 				const y1564_perf_result_t *pr = &perf_results[s];
-				if (s > 0) printf(",");
+				if (s > 0)
+					printf(",");
 				printf("{\"service_id\":%u,\"duration_sec\":%u,\"frames_tx\":%" PRIu64 ","
 				       "\"frames_rx\":%" PRIu64 ",\"flr_pct\":%.4f,\"fd_avg_ms\":%.2f,"
 				       "\"fd_min_ms\":%.2f,\"fd_max_ms\":%.2f,\"fdv_ms\":%.2f,"
 				       "\"flr_pass\":%s,\"fd_pass\":%s,\"fdv_pass\":%s,\"service_pass\":%s}",
-				       pr->service_id, pr->duration_sec, pr->frames_tx, pr->frames_rx,
-				       pr->flr_pct, pr->fd_avg_ms, pr->fd_min_ms, pr->fd_max_ms, pr->fdv_ms,
-				       pr->flr_pass ? "true" : "false",
-				       pr->fd_pass ? "true" : "false",
-				       pr->fdv_pass ? "true" : "false",
-				       pr->service_pass ? "true" : "false");
+				       pr->service_id, pr->duration_sec, pr->frames_tx, pr->frames_rx, pr->flr_pct,
+				       pr->fd_avg_ms, pr->fd_min_ms, pr->fd_max_ms, pr->fdv_ms,
+				       pr->flr_pass ? "true" : "false", pr->fd_pass ? "true" : "false",
+				       pr->fdv_pass ? "true" : "false", pr->service_pass ? "true" : "false");
 			}
 		}
 		printf("]}\n");
@@ -760,15 +760,15 @@ void y1564_print_results(const y1564_config_result_t *config_results,
 
 	/* CSV format */
 	if (format == STATS_FORMAT_CSV) {
-		printf("service_id,test_phase,step,offered_pct,achieved_mbps,flr_pct,fd_ms,fdv_ms,result\n");
+		printf(
+		    "service_id,test_phase,step,offered_pct,achieved_mbps,flr_pct,fd_ms,fdv_ms,result\n");
 		if (config_results) {
 			for (uint32_t s = 0; s < service_count; s++) {
 				const y1564_config_result_t *cr = &config_results[s];
 				for (int i = 0; i < Y1564_CONFIG_STEPS; i++) {
 					const y1564_step_result_t *sr = &cr->steps[i];
-					printf("%u,config,%u,%.0f,%.2f,%.4f,%.2f,%.2f,%s\n",
-					       cr->service_id, sr->step, sr->offered_rate_pct,
-					       sr->achieved_rate_mbps, sr->flr_pct, sr->fd_avg_ms,
+					printf("%u,config,%u,%.0f,%.2f,%.4f,%.2f,%.2f,%s\n", cr->service_id, sr->step,
+					       sr->offered_rate_pct, sr->achieved_rate_mbps, sr->flr_pct, sr->fd_avg_ms,
 					       sr->fdv_ms, sr->step_pass ? "PASS" : "FAIL");
 				}
 			}
@@ -776,13 +776,10 @@ void y1564_print_results(const y1564_config_result_t *config_results,
 		if (perf_results) {
 			for (uint32_t s = 0; s < service_count; s++) {
 				const y1564_perf_result_t *pr = &perf_results[s];
-				double rate_mbps = pr->duration_sec > 0
-				    ? (double)pr->frames_tx * 8 / pr->duration_sec / 1e6
-				    : 0.0;
-				printf("%u,perf,0,100,%.2f,%.4f,%.2f,%.2f,%s\n",
-				       pr->service_id, rate_mbps,
-				       pr->flr_pct, pr->fd_avg_ms, pr->fdv_ms,
-				       pr->service_pass ? "PASS" : "FAIL");
+				double rate_mbps =
+				    pr->duration_sec > 0 ? (double)pr->frames_tx * 8 / pr->duration_sec / 1e6 : 0.0;
+				printf("%u,perf,0,100,%.2f,%.4f,%.2f,%.2f,%s\n", pr->service_id, rate_mbps,
+				       pr->flr_pct, pr->fd_avg_ms, pr->fdv_ms, pr->service_pass ? "PASS" : "FAIL");
 			}
 		}
 		return;
@@ -802,18 +799,16 @@ void y1564_print_results(const y1564_config_result_t *config_results,
 		for (uint32_t s = 0; s < service_count; s++) {
 			const y1564_config_result_t *cr = &config_results[s];
 
-			printf("\nService %u: %s\n", cr->service_id,
-			       cr->service_pass ? "PASS" : "FAIL");
+			printf("\nService %u: %s\n", cr->service_id, cr->service_pass ? "PASS" : "FAIL");
 			printf("%-6s %8s %12s %15s %12s %10s %10s %10s %8s\n", "Step", "% CIR", "Rate (Mbps)",
 			       "Frames TX", "FLR (%)", "FD (ms)", "FDV (ms)", "Status", "Result");
 			printf("-----------------------------------------------------------------\n");
 
 			for (int i = 0; i < Y1564_CONFIG_STEPS; i++) {
 				const y1564_step_result_t *sr = &cr->steps[i];
-				printf("%-6u %7.0f%% %12.2f %15" PRIu64 " %11.4f%% %10.2f %10.2f %10s %8s\n", sr->step,
-				       sr->offered_rate_pct, sr->achieved_rate_mbps, sr->frames_tx,
-				       sr->flr_pct, sr->fd_avg_ms, sr->fdv_ms,
-				       sr->step_pass ? "PASS" : "FAIL",
+				printf("%-6u %7.0f%% %12.2f %15" PRIu64 " %11.4f%% %10.2f %10.2f %10s %8s\n",
+				       sr->step, sr->offered_rate_pct, sr->achieved_rate_mbps, sr->frames_tx,
+				       sr->flr_pct, sr->fd_avg_ms, sr->fdv_ms, sr->step_pass ? "PASS" : "FAIL",
 				       (sr->flr_pass && sr->fd_pass && sr->fdv_pass) ? "OK" : "FAIL");
 			}
 		}
@@ -830,8 +825,8 @@ void y1564_print_results(const y1564_config_result_t *config_results,
 		for (uint32_t s = 0; s < service_count; s++) {
 			const y1564_perf_result_t *pr = &perf_results[s];
 			printf("%-10u %10um %15" PRIu64 " %11.4f%% %10.2f %10.2f %8s\n", pr->service_id,
-			       pr->duration_sec / 60, pr->frames_tx, pr->flr_pct, pr->fd_avg_ms,
-			       pr->fdv_ms, pr->service_pass ? "PASS" : "FAIL");
+			       pr->duration_sec / 60, pr->frames_tx, pr->flr_pct, pr->fd_avg_ms, pr->fdv_ms,
+			       pr->service_pass ? "PASS" : "FAIL");
 		}
 	}
 
@@ -857,6 +852,7 @@ void y1564_print_results(const y1564_config_result_t *config_results,
 		}
 	}
 
-	printf("Overall Result: %s\n", all_pass ? "ALL SERVICES PASSED" : "ONE OR MORE SERVICES FAILED");
+	printf("Overall Result: %s\n",
+	       all_pass ? "ALL SERVICES PASSED" : "ONE OR MORE SERVICES FAILED");
 	printf("=================================================================\n");
 }

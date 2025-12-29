@@ -1,0 +1,70 @@
+version: "2"
+
+run:
+  timeout: 5m
+  go: "1.25"
+
+linters:
+  default: none
+  enable:
+    # Core static analysis
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+
+    # Security
+    - gosec
+    - noctx
+    - sqlclosecheck
+    - rowserrcheck
+
+    # Error handling
+    - errorlint
+    - nilerr
+    - forcetypeassert
+    - wrapcheck
+
+    # Bug prevention
+    - bodyclose
+    - copyloopvar
+    - exhaustive
+    - makezero
+    - nilnil
+    - durationcheck
+    - unparam
+    - wastedassign
+
+    # Code quality
+    - revive
+    - goconst
+    - gocritic
+    - gocognit
+    - nestif
+    - prealloc
+
+    # Style
+    - misspell
+
+    # Testing
+    - testifylint
+    - tparallel
+    - thelper
+
+  settings:
+    gocognit:
+      min-complexity: 20
+    nestif:
+      min-complexity: 5
+    exhaustive:
+      default-signifies-exhaustive: true
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

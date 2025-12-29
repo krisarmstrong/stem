@@ -1,10 +1,9 @@
-/*
- * tui.go - Terminal UI for MSN Reflector
- *
- * Real-time dashboard using tview/tcell for terminal rendering.
- * Mustard Seed Networks | High-performance packet reflector
- */
+// Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
 
+// Package tui provides the Terminal User Interface for the Reflector.
+//
+// Uses tview/tcell for real-time dashboard rendering with live packet
+// statistics, interface status, and signature filter status.
 package tui
 
 import (
@@ -13,7 +12,7 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/krisarmstrong/seed-test-suite/pkg/reflector/dataplane"
+	"github.com/krisarmstrong/stem/pkg/reflector/dataplane"
 	"github.com/rivo/tview"
 )
 

@@ -5,6 +5,7 @@
  */
 
 #include "rfc2544.h"
+
 #include "platform_config.h"
 
 #include <inttypes.h>
@@ -35,8 +36,8 @@ void progress_callback(const rfc2544_ctx_t *ctx, const char *message, double pct
 
 void print_usage(const char *prog)
 {
-	fprintf(stderr, "RFC 2544 Network Benchmark Test Master v%d.%d.%d\n\n",
-	        RFC2544_VERSION_MAJOR, RFC2544_VERSION_MINOR, RFC2544_VERSION_PATCH);
+	fprintf(stderr, "RFC 2544 Network Benchmark Test Master v%d.%d.%d\n\n", RFC2544_VERSION_MAJOR,
+	        RFC2544_VERSION_MINOR, RFC2544_VERSION_PATCH);
 	fprintf(stderr, "Usage: %s <interface> [options]\n\n", prog);
 
 	fprintf(stderr, "Test Selection:\n");
@@ -84,10 +85,8 @@ void print_usage(const char *prog)
 	fprintf(stderr, "  %s eth0 -t throughput          # Throughput test on eth0\n", prog);
 	fprintf(stderr, "  %s eth0 -t latency -s 1518     # Latency test with 1518 byte frames\n",
 	        prog);
-	fprintf(stderr, "  %s eth0 -t loss --json         # Frame loss test with JSON output\n",
-	        prog);
-	fprintf(stderr, "  %s eth0 -t burst --jumbo       # Back-to-back test including jumbo\n",
-	        prog);
+	fprintf(stderr, "  %s eth0 -t loss --json         # Frame loss test with JSON output\n", prog);
+	fprintf(stderr, "  %s eth0 -t burst --jumbo       # Back-to-back test including jumbo\n", prog);
 }
 
 int main(int argc, char **argv)

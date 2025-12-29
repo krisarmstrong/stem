@@ -1,4 +1,9 @@
-// Package tui provides a terminal user interface for RFC2544 Test Master
+// Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
+
+// Package tui provides a terminal user interface for the Test Master.
+//
+// Uses tview/tcell for real-time test progress display, showing current
+// test status, throughput metrics, and test results.
 package tui
 
 import (
@@ -58,12 +63,12 @@ const (
 // Stats represents real-time test statistics
 type Stats struct {
 	// Current test info
-	TestType    TestType
-	FrameSize   uint32
-	Progress    float64
-	State       string
-	Iteration   int
-	MaxIter     int
+	TestType  TestType
+	FrameSize uint32
+	Progress  float64
+	State     string
+	Iteration int
+	MaxIter   int
 
 	// Packet counters
 	TxPackets uint64
@@ -92,20 +97,20 @@ type Stats struct {
 	Duration  time.Duration
 
 	// Y.1564 specific fields
-	ServiceID   uint32  // Current service being tested
-	ServiceName string  // Service name
-	CurrentStep int     // Current step (1-4 for config test)
-	TotalSteps  int     // Total steps
-	CIRMbps     float64 // Target CIR
-	FDMs        float64 // Frame Delay (ms)
-	FDVMs       float64 // Frame Delay Variation (ms)
-	FLRPct      float64 // Frame Loss Ratio (%)
-	FDThreshold float64 // FD SLA threshold
+	ServiceID    uint32  // Current service being tested
+	ServiceName  string  // Service name
+	CurrentStep  int     // Current step (1-4 for config test)
+	TotalSteps   int     // Total steps
+	CIRMbps      float64 // Target CIR
+	FDMs         float64 // Frame Delay (ms)
+	FDVMs        float64 // Frame Delay Variation (ms)
+	FLRPct       float64 // Frame Loss Ratio (%)
+	FDThreshold  float64 // FD SLA threshold
 	FDVThreshold float64 // FDV SLA threshold
 	FLRThreshold float64 // FLR SLA threshold
-	FDPass      bool    // FD within SLA
-	FDVPass     bool    // FDV within SLA
-	FLRPass     bool    // FLR within SLA
+	FDPass       bool    // FD within SLA
+	FDVPass      bool    // FDV within SLA
+	FLRPass      bool    // FLR within SLA
 }
 
 // Result represents a completed test result

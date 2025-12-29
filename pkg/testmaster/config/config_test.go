@@ -1,4 +1,5 @@
-// Package config provides YAML configuration support for RFC2544 Test Master
+// Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
+
 package config
 
 import (

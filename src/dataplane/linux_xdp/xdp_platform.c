@@ -8,30 +8,35 @@
  */
 
 #include "rfc2544.h"
-#include "rfc2544_internal.h"
+
 #include "platform_config.h"
+
+#include "rfc2544_internal.h"
 
 #if HAVE_AF_XDP
 
-#include <arpa/inet.h>
-#include <bpf/bpf.h>
-#include <bpf/libbpf.h>
-#include <errno.h>
 #include <linux/if_ether.h>
 #include <linux/if_link.h>
 #include <linux/if_xdp.h>
-#include <net/if.h>
+#include <linux/sockios.h>
+
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <sys/resource.h>
+#include <sys/socket.h>
+
+#include <errno.h>
 #include <poll.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/ioctl.h>
-#include <sys/mman.h>
-#include <sys/resource.h>
-#include <sys/socket.h>
-#include <linux/sockios.h>
 #include <unistd.h>
+
+#include <arpa/inet.h>
+#include <bpf/bpf.h>
+#include <bpf/libbpf.h>
+#include <net/if.h>
 #include <xdp/libxdp.h>
 #include <xdp/xsk.h>
 
@@ -147,8 +152,7 @@ static int xdp_init(rfc2544_ctx_t *ctx, worker_ctx_t *wctx)
 	/* Get interface index */
 	pctx->if_index = if_nametoindex(ctx->config.interface);
 	if (pctx->if_index == 0) {
-		fprintf(stderr, "[xdp] Failed to get interface index for %s\n",
-		        ctx->config.interface);
+		fprintf(stderr, "[xdp] Failed to get interface index for %s\n", ctx->config.interface);
 		free(pctx);
 		return -ENODEV;
 	}
@@ -166,8 +170,8 @@ static int xdp_init(rfc2544_ctx_t *ctx, worker_ctx_t *wctx)
 
 	if (pctx->umem_area == MAP_FAILED) {
 		/* Fall back to regular pages */
-		pctx->umem_area = mmap(NULL, pctx->umem_size, PROT_READ | PROT_WRITE,
-		                       MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+		pctx->umem_area =
+		    mmap(NULL, pctx->umem_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 		if (pctx->umem_area == MAP_FAILED) {
 			fprintf(stderr, "[xdp] Failed to allocate UMEM\n");
 			free(pctx);
@@ -192,8 +196,8 @@ static int xdp_init(rfc2544_ctx_t *ctx, worker_ctx_t *wctx)
 	    .flags = 0,
 	};
 
-	ret = xsk_umem__create(&pctx->umem, pctx->umem_area, pctx->umem_size,
-	                       &pctx->fill_ring, &pctx->comp_ring, &umem_cfg);
+	ret = xsk_umem__create(&pctx->umem, pctx->umem_area, pctx->umem_size, &pctx->fill_ring,
+	                       &pctx->comp_ring, &umem_cfg);
 	if (ret) {
 		fprintf(stderr, "[xdp] Failed to create UMEM: %s\n", strerror(-ret));
 		frame_alloc_cleanup(&pctx->frame_alloc);
@@ -211,14 +215,14 @@ static int xdp_init(rfc2544_ctx_t *ctx, worker_ctx_t *wctx)
 	    .libbpf_flags = XSK_LIBBPF_FLAGS__INHIBIT_PROG_LOAD,
 	};
 
-	ret = xsk_socket__create(&pctx->xsk, ctx->config.interface, wctx->queue_id,
-	                         pctx->umem, &pctx->rx_ring, &pctx->tx_ring, &xsk_cfg);
+	ret = xsk_socket__create(&pctx->xsk, ctx->config.interface, wctx->queue_id, pctx->umem,
+	                         &pctx->rx_ring, &pctx->tx_ring, &xsk_cfg);
 
 	if (ret) {
 		/* Fall back to SKB mode */
 		xsk_cfg.xdp_flags = XDP_FLAGS_SKB_MODE;
-		ret = xsk_socket__create(&pctx->xsk, ctx->config.interface, wctx->queue_id,
-		                         pctx->umem, &pctx->rx_ring, &pctx->tx_ring, &xsk_cfg);
+		ret = xsk_socket__create(&pctx->xsk, ctx->config.interface, wctx->queue_id, pctx->umem,
+		                         &pctx->rx_ring, &pctx->tx_ring, &xsk_cfg);
 		if (ret) {
 			fprintf(stderr, "[xdp] Failed to create XDP socket: %s\n", strerror(-ret));
 			xsk_umem__delete(pctx->umem);
@@ -264,8 +268,8 @@ static int xdp_init(rfc2544_ctx_t *ctx, worker_ctx_t *wctx)
 
 	wctx->pctx = pctx;
 
-	fprintf(stderr, "[xdp] Initialized on %s queue %d (fd=%d)\n",
-	        ctx->config.interface, wctx->queue_id, pctx->xsk_fd);
+	fprintf(stderr, "[xdp] Initialized on %s queue %d (fd=%d)\n", ctx->config.interface,
+	        wctx->queue_id, pctx->xsk_fd);
 
 	return 0;
 }

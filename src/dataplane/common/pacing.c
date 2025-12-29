@@ -1,11 +1,14 @@
-/*
- * pacing.c - Rate Control and Packet Pacing
+/**
+ * @file pacing.c
+ * @brief Rate Control and Packet Pacing
+ * @copyright 2025 Mustard Seed Networks. All rights reserved.
  *
  * Implements software-based rate limiting for accurate RFC 2544 testing.
  * Uses high-resolution timing to achieve precise packet rates.
  */
 
 #include "rfc2544.h"
+
 #include "platform_config.h"
 
 #include <sched.h>
@@ -23,29 +26,29 @@
 
 struct pacing_ctx {
 	/* Target rate */
-	uint64_t line_rate_bps;   /* Original line rate (for rate changes) */
-	uint64_t target_pps;      /* Target packets per second */
-	uint64_t target_bps;      /* Target bits per second */
-	uint32_t frame_size;      /* Frame size for rate calculation */
+	uint64_t line_rate_bps; /* Original line rate (for rate changes) */
+	uint64_t target_pps;    /* Target packets per second */
+	uint64_t target_bps;    /* Target bits per second */
+	uint32_t frame_size;    /* Frame size for rate calculation */
 
 	/* Timing */
-	uint64_t interval_ns;     /* Nanoseconds between packets */
-	uint64_t next_tx_ns;      /* Next allowed TX time */
-	uint64_t start_ns;        /* Start timestamp */
+	uint64_t interval_ns; /* Nanoseconds between packets */
+	uint64_t next_tx_ns;  /* Next allowed TX time */
+	uint64_t start_ns;    /* Start timestamp */
 
 	/* Burst control */
-	uint32_t batch_size;      /* Packets per batch */
+	uint32_t batch_size;        /* Packets per batch */
 	uint32_t batch_interval_ns; /* Time per batch */
 
 	/* Statistics */
 	uint64_t packets_sent;
 	uint64_t bytes_sent;
-	uint64_t pacing_delays;   /* Number of times we had to wait */
-	uint64_t overruns;        /* Number of times we fell behind */
+	uint64_t pacing_delays; /* Number of times we had to wait */
+	uint64_t overruns;      /* Number of times we fell behind */
 
 	/* Mode */
 	bool enabled;
-	bool use_busy_wait;       /* Use busy-wait for precision */
+	bool use_busy_wait; /* Use busy-wait for precision */
 };
 typedef struct pacing_ctx pacing_ctx_t;
 

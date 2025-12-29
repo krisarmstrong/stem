@@ -1,27 +1,33 @@
 {
-  "name": "seed-test-suite-ui",
-  "version": "3.0.0-dev",
-  "description": "Seed Test Suite WebUI - Mustard Seed Networks",
+  "name": "the-stem-ui",
+  "version": "0.1.0",
+  "description": "The Stem WebUI - Network Performance Testing - Mustard Seed Networks",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext ts,tsx"
+    "lint": "npx @biomejs/biome check src/",
+    "lint:fix": "npx @biomejs/biome check --write src/",
+    "format": "npx @biomejs/biome format --write src/"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.1.18",
     "lucide-react": "^0.460.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.3.10",
+    "@eslint/js": "^9.39.2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
     "autoprefixer": "^10.4.20",
+    "globals": "^16.5.0",
     "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.15",
+    "tailwindcss": "^4.1.18",
     "typescript": "^5.6.3",
-    "vite": "^5.4.11"
+    "vite": "^7.3.0"
   }
 }

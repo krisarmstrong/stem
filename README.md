@@ -7,20 +7,20 @@ Part of The Seed ecosystem - combining packet reflection and RFC-compliant netwo
 ## Quick Start
 
 ```bash
-# Build the CLI
+# Build everything
 make
 
 # Run reflector (Tier 1)
-seedtest reflect -i eth0
+./bin/seedtest reflect -i eth0
 
 # Run network tests (Tier 2)
-seedtest test -t throughput -i eth0
+./bin/seedtest test -t throughput -i eth0
 
 # Start WebUI
-seedtest web -p 8080
+./bin/seedtest web -p 8080
 
 # Start TUI dashboard
-seedtest tui
+./bin/seedtest tui
 ```
 
 ## Features
@@ -42,16 +42,90 @@ seedtest tui
 
 ## Interfaces
 
-| Interface | Description |
-|-----------|-------------|
-| CLI | `seedtest <command>` |
-| TUI | Terminal dashboard |
-| WebUI | http://localhost:8080 |
+| Interface | Command | Description |
+|-----------|---------|-------------|
+| CLI | `seedtest <command>` | Command-line interface |
+| TUI | `seedtest tui` | Terminal dashboard |
+| WebUI | `seedtest web -p 8080` | http://localhost:8080 |
 
-## Documentation
+## Build
 
-See [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) for detailed architecture.
+### Prerequisites
+- Go 1.21+
+- Node.js 18+
+- GCC (for C dataplane)
+
+### Build Commands
+
+```bash
+# Build CLI binary
+make build
+
+# Build WebUI
+cd ui && npm install && npm run build
+
+# Build everything
+make
+
+# Run tests
+make test
+```
+
+## Licensing
+
+Seed Test Suite uses a tiered licensing model:
+
+| Tier | Features | License Key Prefix |
+|------|----------|-------------------|
+| Tier 1 | Reflector only | `1001-*` |
+| Tier 2 | Full test suite + Reflector | `2001-*` |
+| Tier 3 | Enterprise (future) | `3001-*` |
+
+### Trial Mode
+- 14-day full-featured trial (no license required)
+- Start via WebUI Settings > License > Start Trial
+
+### Activation
+- License keys are 16-character alphanumeric (XXXX-XXXX-XXXX-XXXX)
+- Offline validation (no internet required after activation)
+- 3 device activations per license
+- Device binding via hardware fingerprint
+
+## Project Structure
+
+```
+seed-test-suite/
+├── cmd/seedtest/       # CLI entrypoint
+├── pkg/
+│   ├── license/        # Licensing system
+│   ├── interfaces/     # Network interface detection
+│   ├── reflector/      # Reflector package
+│   ├── testmaster/     # Test suite package
+│   └── web/            # Unified web server
+├── src/dataplane/      # C dataplane code
+├── include/            # C headers
+└── ui/                 # React WebUI
+```
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/interfaces` | GET | List network interfaces |
+| `/api/stats` | GET | Current statistics |
+| `/api/test/start` | POST | Start test |
+| `/api/test/stop` | POST | Stop test |
+| `/api/license` | GET | License status |
+| `/api/license/activate` | POST | Activate license |
+| `/api/license/trial` | POST | Start trial |
+| `/api/reflector/mode` | GET/POST | Reflector mode |
+| `/api/reflector/config` | GET/POST | Reflector config |
+| `/api/reflector/stats` | GET | Reflector stats |
+
+## Support
+
+For licensing inquiries and support, contact Mustard Seed Networks.
 
 ## License
 
-Copyright (c) 2024 Mustard Seed Networks
+Copyright (c) 2025 Mustard Seed Networks. All rights reserved.

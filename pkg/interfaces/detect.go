@@ -1,5 +1,10 @@
-// Package interfaces provides network interface detection and scoring
-// for selecting optimal interfaces for testing.
+// Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
+
+// Package interfaces provides network interface detection and scoring.
+//
+// This package detects available network interfaces, gathers detailed
+// information about each (speed, driver, XDP/DPDK support), and calculates
+// a suitability score for network testing purposes.
 package interfaces
 
 import (
@@ -13,19 +18,19 @@ import (
 
 // InterfaceInfo contains detailed information about a network interface
 type InterfaceInfo struct {
-	Name       string `json:"name"`
-	MAC        string `json:"mac"`
-	Speed      int    `json:"speed"`      // Mbps
-	Duplex     string `json:"duplex"`     // full, half, unknown
-	State      string `json:"state"`      // up, down
-	Driver     string `json:"driver"`     // ixgbe, mlx5_core, etc.
-	Physical   bool   `json:"physical"`   // true for real NICs
-	XDPSupport bool   `json:"xdp"`        // AF_XDP capable
-	DPDKSupport bool  `json:"dpdk"`       // DPDK capable
-	Score      int    `json:"score"`      // Auto-selection score
-	MTU        int    `json:"mtu"`        // Maximum transmission unit
-	IPv4       string `json:"ipv4"`       // Primary IPv4 address
-	IPv6       string `json:"ipv6"`       // Primary IPv6 address
+	Name        string `json:"name"`
+	MAC         string `json:"mac"`
+	Speed       int    `json:"speed"`    // Mbps
+	Duplex      string `json:"duplex"`   // full, half, unknown
+	State       string `json:"state"`    // up, down
+	Driver      string `json:"driver"`   // ixgbe, mlx5_core, etc.
+	Physical    bool   `json:"physical"` // true for real NICs
+	XDPSupport  bool   `json:"xdp"`      // AF_XDP capable
+	DPDKSupport bool   `json:"dpdk"`     // DPDK capable
+	Score       int    `json:"score"`    // Auto-selection score
+	MTU         int    `json:"mtu"`      // Maximum transmission unit
+	IPv4        string `json:"ipv4"`     // Primary IPv4 address
+	IPv6        string `json:"ipv6"`     // Primary IPv6 address
 }
 
 // DetectInterfaces returns a list of all network interfaces with detailed info

@@ -1,4 +1,10 @@
-// Package web provides the HTTP server for the Seed Test Suite WebUI
+// Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
+
+// Package web provides the HTTP server for the Seed Test Suite WebUI.
+//
+// The server embeds the React frontend build and provides REST API endpoints
+// for interface detection, license management, test execution, and real-time
+// statistics monitoring via polling.
 package web
 
 import (
@@ -11,7 +17,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/krisarmstrong/seed-test-suite/pkg/interfaces"
+	"github.com/krisarmstrong/stem/pkg/interfaces"
+	"github.com/krisarmstrong/stem/pkg/license"
 )
 
 //go:embed dist/*
@@ -29,11 +36,12 @@ type Server struct {
 	selectedIface   string
 	mode            string // "reflector" or "test_master"
 	reflectorConfig ReflectorConfig
+	licenseManager  *license.Manager
 }
 
 // ReflectorConfig holds reflector-specific settings
 type ReflectorConfig struct {
-	Profile         string   `json:"profile"`          // netally, msn, all, custom
+	Profile         string   `json:"profile"` // netally, msn, all, custom
 	SignatureFilter []string `json:"signatureFilter"`
 	OUIFilter       string   `json:"ouiFilter"`
 	PortFilter      int      `json:"portFilter"`
@@ -54,6 +62,12 @@ type Stats struct {
 
 // NewServer creates a new web server
 func NewServer(port int) *Server {
+	// Initialize license manager
+	licMgr, err := license.NewManager()
+	if err != nil {
+		log.Printf("Warning: Failed to initialize license manager: %v", err)
+	}
+
 	s := &Server{
 		port:       port,
 		mux:        http.NewServeMux(),
@@ -66,6 +80,7 @@ func NewServer(port int) *Server {
 			PortFilter: 3842,
 			OUIFilter:  "00:c0:17",
 		},
+		licenseManager: licMgr,
 	}
 	s.setupRoutes()
 	return s
@@ -85,6 +100,11 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/api/reflector/config", s.handleReflectorConfig)
 	s.mux.HandleFunc("/api/reflector/stats", s.handleReflectorStats)
 	s.mux.HandleFunc("/api/mode", s.handleMode)
+
+	// License routes
+	s.mux.HandleFunc("/api/license", s.handleLicense)
+	s.mux.HandleFunc("/api/license/activate", s.handleLicenseActivate)
+	s.mux.HandleFunc("/api/license/trial", s.handleLicenseTrial)
 
 	// Static files (embedded UI)
 	staticFS, err := fs.Sub(staticFiles, "dist")
@@ -385,6 +405,144 @@ func (s *Server) handleReflectorStats(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(reflectorStats)
+}
+
+// LicenseStatus represents the license status response
+type LicenseStatus struct {
+	Activated     bool     `json:"activated"`
+	IsTrialMode   bool     `json:"isTrialMode"`
+	Tier          int      `json:"tier"`
+	TierName      string   `json:"tierName"`
+	DaysRemaining int      `json:"daysRemaining"`
+	Features      []string `json:"features"`
+	DeviceHash    string   `json:"deviceHash"`
+	LicenseKey    string   `json:"licenseKey,omitempty"`
+	Message       string   `json:"message,omitempty"`
+}
+
+// handleLicense returns current license status
+func (s *Server) handleLicense(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if s.licenseManager == nil {
+		json.NewEncoder(w).Encode(LicenseStatus{
+			Activated: false,
+			Message:   "License manager not initialized",
+		})
+		return
+	}
+
+	state := s.licenseManager.GetState()
+	fp := s.licenseManager.GetFingerprint()
+
+	status := LicenseStatus{
+		DeviceHash: fp.Hash(),
+	}
+
+	if state == nil {
+		status.Activated = false
+		status.Message = "No license. Start a trial or enter a license key."
+	} else if state.IsTrialMode {
+		status.Activated = true
+		status.IsTrialMode = true
+		status.Tier = int(license.TierTestSuite)
+		status.TierName = "Trial"
+		status.DaysRemaining = s.licenseManager.TrialDaysRemaining()
+		status.Features = state.Features
+		status.Message = fmt.Sprintf("Trial mode: %d days remaining", status.DaysRemaining)
+	} else {
+		status.Activated = s.licenseManager.IsActivated()
+		status.IsTrialMode = false
+		status.Tier = int(state.Tier)
+		status.TierName = state.Tier.String()
+		status.Features = state.Features
+		status.LicenseKey = license.FormatKey(state.LicenseKey)
+		if status.Activated {
+			status.Message = fmt.Sprintf("Licensed: %s", state.Tier)
+		} else {
+			status.Message = "License expired or invalid"
+		}
+	}
+
+	json.NewEncoder(w).Encode(status)
+}
+
+// handleLicenseActivate activates a license key
+func (s *Server) handleLicenseActivate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if s.licenseManager == nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "License manager not initialized",
+		})
+		return
+	}
+
+	var req struct {
+		LicenseKey string `json:"licenseKey"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if req.LicenseKey == "" {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "License key is required",
+		})
+		return
+	}
+
+	result := s.licenseManager.Activate(req.LicenseKey)
+	json.NewEncoder(w).Encode(result)
+}
+
+// handleLicenseTrial starts or checks trial status
+func (s *Server) handleLicenseTrial(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if s.licenseManager == nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "License manager not initialized",
+		})
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		// Check trial status
+		if s.licenseManager.IsTrialValid() {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"active":        true,
+				"daysRemaining": s.licenseManager.TrialDaysRemaining(),
+			})
+		} else {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"active": false,
+			})
+		}
+
+	case http.MethodPost:
+		// Start trial
+		result := s.licenseManager.StartTrial()
+		json.NewEncoder(w).Encode(result)
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 // Run starts the web server

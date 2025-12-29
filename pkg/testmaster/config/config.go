@@ -1,4 +1,9 @@
-// Package config provides YAML configuration support for RFC2544 Test Master
+// Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
+
+// Package config provides YAML configuration support for the Test Master.
+//
+// Defines configuration structures for all test types including RFC 2544,
+// Y.1564, RFC 2889, RFC 6349, Y.1731, MEF, and TSN tests.
 package config
 
 import (
@@ -14,17 +19,17 @@ type TestType string
 
 const (
 	// RFC 2544 Tests
-	TestThroughput      TestType = "throughput"       // Section 26.1
-	TestLatency         TestType = "latency"          // Section 26.2
-	TestFrameLoss       TestType = "frame_loss"       // Section 26.3
-	TestBackToBack      TestType = "back_to_back"     // Section 26.4
-	TestSystemRecovery  TestType = "system_recovery"  // Section 26.5
-	TestReset           TestType = "reset"            // Section 26.6
+	TestThroughput     TestType = "throughput"      // Section 26.1
+	TestLatency        TestType = "latency"         // Section 26.2
+	TestFrameLoss      TestType = "frame_loss"      // Section 26.3
+	TestBackToBack     TestType = "back_to_back"    // Section 26.4
+	TestSystemRecovery TestType = "system_recovery" // Section 26.5
+	TestReset          TestType = "reset"           // Section 26.6
 
 	// ITU-T Y.1564 (EtherSAM) Tests
-	TestY1564Config     TestType = "y1564_config"     // Service Configuration Test
-	TestY1564Perf       TestType = "y1564_perf"       // Service Performance Test
-	TestY1564Full       TestType = "y1564"            // Full Test (Config + Perf)
+	TestY1564Config TestType = "y1564_config" // Service Configuration Test
+	TestY1564Perf   TestType = "y1564_perf"   // Service Performance Test
+	TestY1564Full   TestType = "y1564"        // Full Test (Config + Perf)
 
 	// RFC 2889 LAN Switch Tests
 	TestRFC2889Forwarding TestType = "rfc2889_forwarding" // Forwarding Rate
@@ -73,8 +78,8 @@ type Config struct {
 
 	// Test selection
 	TestType     TestType `yaml:"test_type"`
-	FrameSize    uint32   `yaml:"frame_size"`     // 0 = all standard sizes
-	IncludeJumbo bool     `yaml:"include_jumbo"`  // Include 9000 byte frames
+	FrameSize    uint32   `yaml:"frame_size"`    // 0 = all standard sizes
+	IncludeJumbo bool     `yaml:"include_jumbo"` // Include 9000 byte frames
 
 	// Timing
 	TrialDuration time.Duration `yaml:"trial_duration"` // Default: 60s
@@ -109,7 +114,7 @@ type Config struct {
 	BatchSize uint32 `yaml:"batch_size"`
 
 	// Web UI
-	WebUI    WebUIConfig `yaml:"web_ui"`
+	WebUI WebUIConfig `yaml:"web_ui"`
 
 	// ITU-T Y.1564 (EtherSAM) configuration
 	Y1564 Y1564Config `yaml:"y1564"`
@@ -178,12 +183,12 @@ type Y1564Service struct {
 
 // Y1564Config for ITU-T Y.1564 testing
 type Y1564Config struct {
-	Services        []Y1564Service `yaml:"services"`
-	ConfigSteps     []float64      `yaml:"config_steps"`      // Step percentages (default: 25, 50, 75, 100)
-	StepDuration    time.Duration  `yaml:"step_duration"`     // Duration per step (default: 60s)
-	PerfDuration    time.Duration  `yaml:"perf_duration"`     // Performance test duration (default: 15m)
-	RunConfigTest   bool           `yaml:"run_config_test"`   // Run configuration test
-	RunPerfTest     bool           `yaml:"run_perf_test"`     // Run performance test
+	Services      []Y1564Service `yaml:"services"`
+	ConfigSteps   []float64      `yaml:"config_steps"`    // Step percentages (default: 25, 50, 75, 100)
+	StepDuration  time.Duration  `yaml:"step_duration"`   // Duration per step (default: 60s)
+	PerfDuration  time.Duration  `yaml:"perf_duration"`   // Performance test duration (default: 15m)
+	RunConfigTest bool           `yaml:"run_config_test"` // Run configuration test
+	RunPerfTest   bool           `yaml:"run_perf_test"`   // Run performance test
 }
 
 // RFC2889Config for LAN switch benchmarking tests
@@ -196,46 +201,46 @@ type RFC2889Config struct {
 
 // RFC6349Config for TCP throughput testing
 type RFC6349Config struct {
-	TargetRateMbps   float64       `yaml:"target_rate_mbps"`   // Target rate (0 = auto)
-	MSS              uint32        `yaml:"mss"`                // Maximum Segment Size
-	RWND             uint32        `yaml:"rwnd"`               // Receive Window Size
-	TestDuration     time.Duration `yaml:"test_duration"`      // Test duration
-	ParallelStreams  uint32        `yaml:"parallel_streams"`   // Number of parallel streams
+	TargetRateMbps  float64       `yaml:"target_rate_mbps"` // Target rate (0 = auto)
+	MSS             uint32        `yaml:"mss"`              // Maximum Segment Size
+	RWND            uint32        `yaml:"rwnd"`             // Receive Window Size
+	TestDuration    time.Duration `yaml:"test_duration"`    // Test duration
+	ParallelStreams uint32        `yaml:"parallel_streams"` // Number of parallel streams
 }
 
 // Y1731Config for Ethernet OAM testing
 type Y1731Config struct {
-	MEPID       uint32        `yaml:"mep_id"`       // MEP identifier
-	MEGLevel    uint8         `yaml:"meg_level"`    // MEG level (0-7)
-	MEGID       string        `yaml:"meg_id"`       // MEG identifier
-	CCMInterval uint32        `yaml:"ccm_interval"` // CCM interval (ms)
-	ProbeCount  uint32        `yaml:"probe_count"`  // Number of probes
+	MEPID         uint32        `yaml:"mep_id"`         // MEP identifier
+	MEGLevel      uint8         `yaml:"meg_level"`      // MEG level (0-7)
+	MEGID         string        `yaml:"meg_id"`         // MEG identifier
+	CCMInterval   uint32        `yaml:"ccm_interval"`   // CCM interval (ms)
+	ProbeCount    uint32        `yaml:"probe_count"`    // Number of probes
 	ProbeInterval time.Duration `yaml:"probe_interval"` // Interval between probes
 }
 
 // MEFConfig for service activation testing
 type MEFConfig struct {
-	CIRMbps          float64       `yaml:"cir_mbps"`           // Committed Information Rate
-	EIRMbps          float64       `yaml:"eir_mbps"`           // Excess Information Rate
-	CBSBytes         uint32        `yaml:"cbs_bytes"`          // Committed Burst Size
-	EBSBytes         uint32        `yaml:"ebs_bytes"`          // Excess Burst Size
-	FDThresholdUs    float64       `yaml:"fd_threshold_us"`    // Frame Delay threshold (us)
-	FDVThresholdUs   float64       `yaml:"fdv_threshold_us"`   // Frame Delay Variation (us)
-	FLRThresholdPct  float64       `yaml:"flr_threshold_pct"`  // Frame Loss Ratio threshold
-	AvailThresholdPct float64      `yaml:"avail_threshold_pct"` // Availability threshold
-	ConfigDuration   time.Duration `yaml:"config_duration"`    // Config test duration
-	PerfDuration     time.Duration `yaml:"perf_duration"`      // Perf test duration
+	CIRMbps           float64       `yaml:"cir_mbps"`            // Committed Information Rate
+	EIRMbps           float64       `yaml:"eir_mbps"`            // Excess Information Rate
+	CBSBytes          uint32        `yaml:"cbs_bytes"`           // Committed Burst Size
+	EBSBytes          uint32        `yaml:"ebs_bytes"`           // Excess Burst Size
+	FDThresholdUs     float64       `yaml:"fd_threshold_us"`     // Frame Delay threshold (us)
+	FDVThresholdUs    float64       `yaml:"fdv_threshold_us"`    // Frame Delay Variation (us)
+	FLRThresholdPct   float64       `yaml:"flr_threshold_pct"`   // Frame Loss Ratio threshold
+	AvailThresholdPct float64       `yaml:"avail_threshold_pct"` // Availability threshold
+	ConfigDuration    time.Duration `yaml:"config_duration"`     // Config test duration
+	PerfDuration      time.Duration `yaml:"perf_duration"`       // Perf test duration
 }
 
 // TSNConfig for Time-Sensitive Networking testing
 type TSNConfig struct {
-	NumClasses       uint32        `yaml:"num_classes"`        // Number of traffic classes
-	CycleTimeNs      uint64        `yaml:"cycle_time_ns"`      // GCL cycle time
-	MaxLatencyNs     uint64        `yaml:"max_latency_ns"`     // Maximum latency threshold
-	MaxJitterNs      uint64        `yaml:"max_jitter_ns"`      // Maximum jitter threshold
-	MaxSyncOffsetNs  uint64        `yaml:"max_sync_offset_ns"` // Maximum PTP sync offset
-	TestDuration     time.Duration `yaml:"test_duration"`      // Test duration
-	FrameSize        uint32        `yaml:"frame_size"`         // Frame size for testing
+	NumClasses      uint32        `yaml:"num_classes"`        // Number of traffic classes
+	CycleTimeNs     uint64        `yaml:"cycle_time_ns"`      // GCL cycle time
+	MaxLatencyNs    uint64        `yaml:"max_latency_ns"`     // Maximum latency threshold
+	MaxJitterNs     uint64        `yaml:"max_jitter_ns"`      // Maximum jitter threshold
+	MaxSyncOffsetNs uint64        `yaml:"max_sync_offset_ns"` // Maximum PTP sync offset
+	TestDuration    time.Duration `yaml:"test_duration"`      // Test duration
+	FrameSize       uint32        `yaml:"frame_size"`         // Frame size for testing
 }
 
 // DefaultRFC2889Config returns default RFC 2889 configuration
@@ -274,16 +279,16 @@ func DefaultY1731Config() Y1731Config {
 // DefaultMEFConfig returns default MEF configuration
 func DefaultMEFConfig() MEFConfig {
 	return MEFConfig{
-		CIRMbps:          100.0,
-		EIRMbps:          0,
-		CBSBytes:         12000,
-		EBSBytes:         0,
-		FDThresholdUs:    10000, // 10ms
-		FDVThresholdUs:   5000,  // 5ms
-		FLRThresholdPct:  0.01,
+		CIRMbps:           100.0,
+		EIRMbps:           0,
+		CBSBytes:          12000,
+		EBSBytes:          0,
+		FDThresholdUs:     10000, // 10ms
+		FDVThresholdUs:    5000,  // 5ms
+		FLRThresholdPct:   0.01,
 		AvailThresholdPct: 99.99,
-		ConfigDuration:   60 * time.Second,
-		PerfDuration:     15 * time.Minute,
+		ConfigDuration:    60 * time.Second,
+		PerfDuration:      15 * time.Minute,
 	}
 }
 
@@ -328,12 +333,12 @@ func DefaultY1564Config() Y1564Config {
 // DefaultConfig returns a configuration with RFC 2544 recommended defaults
 func DefaultConfig() *Config {
 	return &Config{
-		AutoDetect:     true,
-		TestType:       TestThroughput,
-		FrameSize:      0, // All standard sizes
-		IncludeJumbo:   false,
-		TrialDuration:  60 * time.Second,
-		WarmupPeriod:   2 * time.Second,
+		AutoDetect:    true,
+		TestType:      TestThroughput,
+		FrameSize:     0, // All standard sizes
+		IncludeJumbo:  false,
+		TrialDuration: 60 * time.Second,
+		WarmupPeriod:  2 * time.Second,
 
 		Throughput: ThroughputConfig{
 			InitialRatePct: 100.0,

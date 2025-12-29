@@ -6,11 +6,12 @@
  */
 
 #include "rfc2544.h"
-#include "rfc2544_internal.h"
 
-#include <arpa/inet.h>
 #include <errno.h>
 #include <string.h>
+
+#include "rfc2544_internal.h"
+#include <arpa/inet.h>
 
 /* IPv6 header offsets */
 #define IPV6_VERSION_OFFSET 0
@@ -70,9 +71,8 @@ int rfc2544_ipv6_configure(rfc2544_ctx_t *ctx, const ipv6_config_t *config)
 	ipv6_to_string(config->src_addr, src_str, sizeof(src_str));
 	ipv6_to_string(config->dst_addr, dst_str, sizeof(dst_str));
 
-	rfc2544_log(LOG_INFO, "IPv6 configured: %s -> %s, TC=%u, FL=%u, HL=%u",
-	            src_str, dst_str, config->traffic_class,
-	            config->flow_label, config->hop_limit);
+	rfc2544_log(LOG_INFO, "IPv6 configured: %s -> %s, TC=%u, FL=%u, HL=%u", src_str, dst_str,
+	            config->traffic_class, config->flow_label, config->hop_limit);
 
 	return 0;
 }
@@ -80,16 +80,14 @@ int rfc2544_ipv6_configure(rfc2544_ctx_t *ctx, const ipv6_config_t *config)
 /**
  * Build IPv6 header
  */
-int rfc2544_build_ipv6_header(uint8_t *buffer, uint16_t payload_len,
-                              const ipv6_config_t *config)
+int rfc2544_build_ipv6_header(uint8_t *buffer, uint16_t payload_len, const ipv6_config_t *config)
 {
 	if (!buffer || !config)
 		return -EINVAL;
 
 	/* Version (4) | Traffic Class (8) | Flow Label (20) */
-	uint32_t ver_tc_fl = (6 << 28) |                          /* Version 6 */
-	                     ((config->traffic_class & 0xFF) << 20) |
-	                     (config->flow_label & 0xFFFFF);
+	uint32_t ver_tc_fl = (6 << 28) | /* Version 6 */
+	                     ((config->traffic_class & 0xFF) << 20) | (config->flow_label & 0xFFFFF);
 
 	buffer[0] = (ver_tc_fl >> 24) & 0xFF;
 	buffer[1] = (ver_tc_fl >> 16) & 0xFF;
@@ -136,7 +134,7 @@ void rfc2544_ipv6_default_config(ipv6_config_t *config)
 	config->dst_addr[1] = 0x80;
 	config->dst_addr[15] = 0x02;
 
-	config->traffic_class = 0;  /* Best effort */
+	config->traffic_class = 0; /* Best effort */
 	config->flow_label = 0;
 	config->hop_limit = 64;
 }
@@ -145,7 +143,7 @@ void rfc2544_ipv6_default_config(ipv6_config_t *config)
  * Calculate IPv6 UDP pseudo-header checksum
  */
 uint16_t rfc2544_ipv6_udp_checksum(const uint8_t *src_addr, const uint8_t *dst_addr,
-                                    uint16_t udp_len, const uint8_t *udp_data)
+                                   uint16_t udp_len, const uint8_t *udp_data)
 {
 	uint32_t sum = 0;
 

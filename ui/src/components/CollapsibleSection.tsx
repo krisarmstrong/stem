@@ -1,5 +1,13 @@
-import { useState, ReactNode } from 'react';
+/**
+ * @fileoverview The Stem - Collapsible Section Component
+ * @description A reusable component that renders an expandable/collapsible content section.
+ *              Used throughout the UI for organizing settings and test configurations.
+ * @copyright 2025 Mustard Seed Networks. All rights reserved.
+ * @license Proprietary
+ */
+
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { type ReactNode, useState } from 'react';
 
 interface CollapsibleSectionProps {
   title: ReactNode;
@@ -18,17 +26,16 @@ export function CollapsibleSection({
 }: CollapsibleSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
-  const baseStyles = variant === 'default'
-    ? 'border border-[var(--color-surface-border)] rounded-lg overflow-hidden'
-    : '';
+  const baseStyles =
+    variant === 'default'
+      ? 'border border-[var(--color-surface-border)] rounded-lg overflow-hidden'
+      : '';
 
-  const headerStyles = variant === 'default'
-    ? 'px-4 py-3 bg-[var(--color-surface-raised)]'
-    : 'py-2';
+  const headerStyles =
+    variant === 'default' ? 'px-4 py-3 bg-[var(--color-surface-raised)]' : 'py-2';
 
-  const contentStyles = variant === 'default'
-    ? 'px-4 py-3 bg-[var(--color-surface-base)]'
-    : 'py-2 pl-6';
+  const contentStyles =
+    variant === 'default' ? 'px-4 py-3 bg-[var(--color-surface-base)]' : 'py-2 pl-6';
 
   return (
     <section className={`${baseStyles} ${className}`}>
@@ -48,11 +55,7 @@ export function CollapsibleSection({
         )}
       </button>
 
-      {isOpen && (
-        <div className={contentStyles}>
-          {children}
-        </div>
-      )}
+      {isOpen && <div className={contentStyles}>{children}</div>}
     </section>
   );
 }

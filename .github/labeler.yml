@@ -1,0 +1,42 @@
+# PR Labeler Configuration
+# Mustard Seed Networks - The Stem
+
+go:
+  - changed-files:
+      - any-glob-to-any-file: '**/*.go'
+
+frontend:
+  - changed-files:
+      - any-glob-to-any-file: 'ui/**'
+
+c:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/**/*.c'
+          - 'include/**/*.h'
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.md'
+          - 'docs/**'
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**'
+          - 'Makefile'
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*_test.go'
+          - 'tests/**'
+
+config:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '*.json'
+          - '*.yaml'
+          - '*.yml'
+          - '*.toml'

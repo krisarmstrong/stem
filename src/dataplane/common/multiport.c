@@ -6,11 +6,12 @@
  */
 
 #include "rfc2544.h"
-#include "rfc2544_internal.h"
 
 #include <errno.h>
 #include <pthread.h>
 #include <string.h>
+
+#include "rfc2544_internal.h"
 
 /* Per-port test thread data */
 typedef struct {
@@ -28,21 +29,20 @@ static void *port_thread_func(void *arg)
 {
 	port_thread_data_t *data = (port_thread_data_t *)arg;
 
-	rfc2544_log(LOG_INFO, "Port %d (%s): Starting throughput test",
-	            data->port_index, data->port->interface);
+	rfc2544_log(LOG_INFO, "Port %d (%s): Starting throughput test", data->port_index,
+	            data->port->interface);
 
 	/* Run throughput test on this port */
 	uint32_t count;
-	data->status = rfc2544_throughput_test(data->ctx, data->ctx->config.frame_size,
-	                                        &data->result, &count);
+	data->status =
+	    rfc2544_throughput_test(data->ctx, data->ctx->config.frame_size, &data->result, &count);
 
 	if (data->status == 0) {
-		rfc2544_log(LOG_INFO, "Port %d (%s): %.2f Mbps",
-		            data->port_index, data->port->interface,
+		rfc2544_log(LOG_INFO, "Port %d (%s): %.2f Mbps", data->port_index, data->port->interface,
 		            data->result.max_rate_mbps);
 	} else {
-		rfc2544_log(LOG_ERROR, "Port %d (%s): Test failed (%d)",
-		            data->port_index, data->port->interface, data->status);
+		rfc2544_log(LOG_ERROR, "Port %d (%s): Test failed (%d)", data->port_index,
+		            data->port->interface, data->status);
 	}
 
 	return NULL;
@@ -62,13 +62,12 @@ int rfc2544_multiport_init(rfc2544_ctx_t *ctx, const multiport_config_t *config)
 	/* Store multi-port configuration */
 	memcpy(&ctx->config.multiport, config, sizeof(multiport_config_t));
 
-	rfc2544_log(LOG_INFO, "Multi-port test initialized with %u ports:",
-	            config->port_count);
+	rfc2544_log(LOG_INFO, "Multi-port test initialized with %u ports:", config->port_count);
 
 	for (uint32_t i = 0; i < config->port_count; i++) {
 		if (config->ports[i].enabled) {
-			rfc2544_log(LOG_INFO, "  Port %u: %s (rate %.1f%%)",
-			            i, config->ports[i].interface, config->ports[i].rate_pct);
+			rfc2544_log(LOG_INFO, "  Port %u: %s (rate %.1f%%)", i, config->ports[i].interface,
+			            config->ports[i].rate_pct);
 		}
 	}
 
@@ -88,8 +87,7 @@ int rfc2544_multiport_throughput(rfc2544_ctx_t *ctx, throughput_result_t *result
 	if (config->port_count == 0)
 		return -EINVAL;
 
-	rfc2544_log(LOG_INFO, "Starting multi-port throughput test on %u ports",
-	            config->port_count);
+	rfc2544_log(LOG_INFO, "Starting multi-port throughput test on %u ports", config->port_count);
 
 	/* Allocate per-port contexts and thread data */
 	pthread_t threads[MAX_TEST_PORTS];
@@ -108,8 +106,8 @@ int rfc2544_multiport_throughput(rfc2544_ctx_t *ctx, throughput_result_t *result
 		/* Create separate context for this port */
 		int ret = rfc2544_init(&port_contexts[i], config->ports[i].interface);
 		if (ret < 0) {
-			rfc2544_log(LOG_ERROR, "Failed to init port %u (%s): %d",
-			            i, config->ports[i].interface, ret);
+			rfc2544_log(LOG_ERROR, "Failed to init port %u (%s): %d", i, config->ports[i].interface,
+			            ret);
 			continue;
 		}
 

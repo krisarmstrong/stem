@@ -6,11 +6,12 @@
  */
 
 #include "rfc2544.h"
-#include "rfc2544_internal.h"
 
 #include <errno.h>
 #include <pthread.h>
 #include <string.h>
+
+#include "rfc2544_internal.h"
 
 /* Thread data for reverse direction */
 typedef struct {
@@ -29,8 +30,8 @@ static void *reverse_thread_func(void *arg)
 
 	/* Run throughput test in reverse direction */
 	uint32_t count;
-	data->status = rfc2544_throughput_test(data->ctx, data->ctx->config.frame_size,
-	                                        &data->result, &count);
+	data->status =
+	    rfc2544_throughput_test(data->ctx, data->ctx->config.frame_size, &data->result, &count);
 
 	return NULL;
 }
@@ -38,8 +39,8 @@ static void *reverse_thread_func(void *arg)
 /**
  * Run bidirectional throughput test
  */
-int rfc2544_bidir_throughput(rfc2544_ctx_t *ctx, bidir_mode_t mode,
-                             double reverse_rate, bidir_result_t *result)
+int rfc2544_bidir_throughput(rfc2544_ctx_t *ctx, bidir_mode_t mode, double reverse_rate,
+                             bidir_result_t *result)
 {
 	if (!ctx || !result)
 		return -EINVAL;
@@ -73,11 +74,7 @@ int rfc2544_bidir_throughput(rfc2544_ctx_t *ctx, bidir_mode_t mode,
 	 * For now, we simulate by running two threads with the same context,
 	 * which tests the local NIC's bidirectional capacity.
 	 */
-	bidir_thread_data_t reverse_data = {
-		.ctx = ctx,
-		.rate_pct = reverse_rate,
-		.status = 0
-	};
+	bidir_thread_data_t reverse_data = {.ctx = ctx, .rate_pct = reverse_rate, .status = 0};
 
 	pthread_t reverse_thread;
 	int ret = pthread_create(&reverse_thread, NULL, reverse_thread_func, &reverse_data);
@@ -104,8 +101,7 @@ int rfc2544_bidir_throughput(rfc2544_ctx_t *ctx, bidir_mode_t mode,
 	memcpy(&result->rx_result, &reverse_data.result, sizeof(throughput_result_t));
 
 	/* Calculate aggregate throughput */
-	result->aggregate_mbps = result->tx_result.max_rate_mbps +
-	                         result->rx_result.max_rate_mbps;
+	result->aggregate_mbps = result->tx_result.max_rate_mbps + result->rx_result.max_rate_mbps;
 
 	rfc2544_log(LOG_INFO, "Bidirectional test complete:");
 	rfc2544_log(LOG_INFO, "  TX: %.2f Mbps", result->tx_result.max_rate_mbps);
