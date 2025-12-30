@@ -571,7 +571,28 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if update.Interface != "" {
+			// Validate that the interface exists
+			ifaces, err := interfaces.DetectInterfaces()
+			if err != nil {
+				logging.Error("failed to detect interfaces for validation", "error", err)
+				http.Error(w, "Failed to validate interface", http.StatusInternalServerError)
+				return
+			}
+
+			found := false
+			for _, iface := range ifaces {
+				if iface.Name == update.Interface {
+					found = true
+					break
+				}
+			}
+			if !found {
+				http.Error(w, fmt.Sprintf("Interface '%s' not found", update.Interface), http.StatusBadRequest)
+				return
+			}
+
 			s.selectedIface = update.Interface
+			logging.Info("interface selected", "interface", update.Interface)
 		}
 
 		writeJSON(w, StatusResponse{Status: "updated"})

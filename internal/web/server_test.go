@@ -5,11 +5,14 @@ package web
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/krisarmstrong/stem/internal/interfaces"
 )
 
 func TestNewServer(t *testing.T) {
@@ -356,18 +359,40 @@ func TestHandleSettingsGet(t *testing.T) {
 func TestHandleSettingsPost(t *testing.T) {
 	s := NewServer(8080)
 
-	body := bytes.NewBufferString(`{"interface": "enp1s0"}`)
+	// Get a real interface name from the system
+	ifaces, err := interfaces.DetectInterfaces()
+	if err != nil || len(ifaces) == 0 {
+		t.Skip("No network interfaces available for testing")
+	}
+	testIface := ifaces[0].Name
+
+	body := bytes.NewBufferString(fmt.Sprintf(`{"interface": "%s"}`, testIface))
 	req := httptest.NewRequest(http.MethodPost, "/api/settings", body)
 	w := httptest.NewRecorder()
 
 	s.handleSettings(w, req)
 
 	if w.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", w.Code)
+		t.Errorf("Expected status 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	if s.selectedIface != "enp1s0" {
-		t.Errorf("Expected selectedIface 'enp1s0', got '%s'", s.selectedIface)
+	if s.selectedIface != testIface {
+		t.Errorf("Expected selectedIface '%s', got '%s'", testIface, s.selectedIface)
+	}
+}
+
+func TestHandleSettingsInvalidInterface(t *testing.T) {
+	s := NewServer(8080)
+
+	// Use an interface name that definitely doesn't exist
+	body := bytes.NewBufferString(`{"interface": "nonexistent_interface_xyz123"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/settings", body)
+	w := httptest.NewRecorder()
+
+	s.handleSettings(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400 for invalid interface, got %d", w.Code)
 	}
 }
 
