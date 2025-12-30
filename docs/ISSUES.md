@@ -10,8 +10,6 @@ Issues are now tracked via GitHub Issues: https://github.com/krisarmstrong/stem/
 
 ### P2 (Medium)
 - [#2 Replace interface{} with concrete types](https://github.com/krisarmstrong/stem/issues/2)
-- [#3 Extract hardcoded values to constants](https://github.com/krisarmstrong/stem/issues/3)
-- [#4 Add interface validation to handleSettings](https://github.com/krisarmstrong/stem/issues/4)
 - [#5 Add observability for config update failures](https://github.com/krisarmstrong/stem/issues/5)
 - [#6 Document web server architecture](https://github.com/krisarmstrong/stem/issues/6)
 - [#7 Fix errcheck warnings in test files](https://github.com/krisarmstrong/stem/issues/7)
@@ -35,6 +33,15 @@ Issues are now tracked via GitHub Issues: https://github.com/krisarmstrong/stem/
 **Status**: FIXED in v0.1.5
 - Removed unused reflector/web and testmaster/web packages
 - Single web server at internal/web serves all functionality
+
+### ~~Issue #4: Add interface validation to handleSettings~~
+**Status**: FIXED in v0.1.5
+- Validates interface exists before accepting settings update
+- Logs interface selection for observability
+
+### ~~Issue #3: Extract hardcoded values to constants~~
+**Status**: FIXED in v0.1.5
+- Added HTTP timeout constants (HTTPReadHeaderTimeout, etc.)
 
 ---
 
