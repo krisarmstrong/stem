@@ -11,11 +11,28 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/krisarmstrong/stem/internal/reflector/dataplane"
+)
+
+// Response types for type safety
+type (
+	// StatusResponse for simple status messages
+	StatusResponse struct {
+		Status string `json:"status"`
+	}
+
+	// HealthResponse for health checks
+	HealthResponse struct {
+		Status  string  `json:"status"`
+		Running bool    `json:"running"`
+		Uptime  float64 `json:"uptime"`
+		Version string  `json:"version"`
+	}
 )
 
 // setCORSHeaders sets CORS headers for local development.
@@ -30,12 +47,19 @@ func setCORSHeaders(w http.ResponseWriter, r *http.Request) {
 		strings.HasPrefix(origin, "https://127.0.0.1") {
 		if origin != "" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
-		} else {
-			// Allow same-origin requests
-			w.Header().Set("Access-Control-Allow-Origin", "*")
 		}
+		// For same-origin requests (no Origin header), no CORS header needed
 	}
 	// Don't set header for non-localhost origins (blocked by browser)
+}
+
+// writeJSON encodes v as JSON and writes it to w.
+// If encoding fails, it logs the error.
+func writeJSON(w http.ResponseWriter, v interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		slog.Error("failed to encode JSON response", "error", err)
+	}
 }
 
 //go:embed dist/*
@@ -177,9 +201,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		resp.Latency.Enabled = stats.LatencyCount > 0
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	setCORSHeaders(w, r)
-	json.NewEncoder(w).Encode(resp)
+	writeJSON(w, resp)
 }
 
 // handleConfig handles GET (read) and POST (update) for configuration
@@ -197,8 +220,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Require dataplane for config operations
 	if s.dp == nil {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(ConfigResponse{Platform: struct {
+		writeJSON(w, ConfigResponse{Platform: struct {
 			Type string `json:"type"`
 		}{Type: "none"}})
 		return
@@ -217,8 +239,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		writeJSON(w, StatusResponse{Status: "ok"})
 		return
 	}
 
@@ -246,13 +267,12 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		resp.Platform.Type = "AF_PACKET"
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	writeJSON(w, resp)
 }
 
 // handleResetStats resets statistics counters
 func (s *Server) handleResetStats(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	setCORSHeaders(w, r)
 	if r.Method == http.MethodOptions {
 		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 		w.WriteHeader(http.StatusOK)
@@ -266,23 +286,21 @@ func (s *Server) handleResetStats(w http.ResponseWriter, r *http.Request) {
 		s.dp.ResetStats()
 	}
 	s.startTime = time.Now() // Reset uptime too
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	writeJSON(w, StatusResponse{Status: "ok"})
 }
 
 // handleHealth returns a simple health check
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	setCORSHeaders(w, r)
 	running := false
 	if s.dp != nil {
 		running = s.dp.IsRunning()
 	}
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "ok",
-		"running": running,
-		"uptime":  time.Since(s.startTime).Seconds(),
-		"version": "2.0.0",
+	writeJSON(w, HealthResponse{
+		Status:  "ok",
+		Running: running,
+		Uptime:  time.Since(s.startTime).Seconds(),
+		Version: "2.0.0",
 	})
 }
 
