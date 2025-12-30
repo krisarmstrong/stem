@@ -27,6 +27,122 @@ type TestConfig struct {
 	Params    map[string]interface{}
 }
 
+// Parameter extraction helpers for safe type conversion.
+// JSON decoding converts all numbers to float64, so we need to handle both
+// native types and float64 conversions.
+
+// getFloat64Param extracts a float64 parameter from a map, handling both float64 and int types.
+func getFloat64Param(params map[string]interface{}, key string, defaultVal float64) float64 {
+	if params == nil {
+		return defaultVal
+	}
+	v, ok := params[key]
+	if !ok {
+		return defaultVal
+	}
+	switch val := v.(type) {
+	case float64:
+		return val
+	case float32:
+		return float64(val)
+	case int:
+		return float64(val)
+	case int64:
+		return float64(val)
+	case int32:
+		return float64(val)
+	default:
+		return defaultVal
+	}
+}
+
+// getUint64Param extracts a uint64 parameter from a map, handling float64 and int types.
+func getUint64Param(params map[string]interface{}, key string, defaultVal uint64) uint64 {
+	if params == nil {
+		return defaultVal
+	}
+	v, ok := params[key]
+	if !ok {
+		return defaultVal
+	}
+	switch val := v.(type) {
+	case float64:
+		if val >= 0 {
+			return uint64(val)
+		}
+		return defaultVal
+	case uint64:
+		return val
+	case int64:
+		if val >= 0 {
+			return uint64(val)
+		}
+		return defaultVal
+	case int:
+		if val >= 0 {
+			return uint64(val)
+		}
+		return defaultVal
+	default:
+		return defaultVal
+	}
+}
+
+// getUint32Param extracts a uint32 parameter from a map, handling float64 and int types.
+func getUint32Param(params map[string]interface{}, key string, defaultVal uint32) uint32 {
+	if params == nil {
+		return defaultVal
+	}
+	v, ok := params[key]
+	if !ok {
+		return defaultVal
+	}
+	switch val := v.(type) {
+	case float64:
+		if val >= 0 && val <= float64(^uint32(0)) {
+			return uint32(val)
+		}
+		return defaultVal
+	case uint32:
+		return val
+	case int:
+		if val >= 0 && val <= int(^uint32(0)) {
+			return uint32(val)
+		}
+		return defaultVal
+	case int64:
+		if val >= 0 && val <= int64(^uint32(0)) {
+			return uint32(val)
+		}
+		return defaultVal
+	default:
+		return defaultVal
+	}
+}
+
+// getIntParam extracts an int parameter from a map, handling float64 type.
+func getIntParam(params map[string]interface{}, key string, defaultVal int) int {
+	if params == nil {
+		return defaultVal
+	}
+	v, ok := params[key]
+	if !ok {
+		return defaultVal
+	}
+	switch val := v.(type) {
+	case float64:
+		return int(val)
+	case int:
+		return val
+	case int64:
+		return int(val)
+	case int32:
+		return int(val)
+	default:
+		return defaultVal
+	}
+}
+
 // ErrTestNotImplemented is returned for unimplemented tests.
 var ErrTestNotImplemented = errors.New("test type not implemented")
 
@@ -144,17 +260,12 @@ func (e *Executor) configureContext(cfg *TestConfig) error {
 		dpCfg.TrialDuration = time.Duration(cfg.Duration) * time.Second
 	}
 
-	// Extract additional parameters
-	if cfg.Params != nil {
-		if resolution, ok := cfg.Params["resolution"].(float64); ok {
-			dpCfg.ResolutionPct = resolution
-		}
-		if maxLoss, ok := cfg.Params["max_loss"].(float64); ok {
-			dpCfg.AcceptableLoss = maxLoss
-		}
-		if warmup, ok := cfg.Params["warmup"].(int); ok {
-			dpCfg.WarmupPeriod = time.Duration(warmup) * time.Second
-		}
+	// Extract additional parameters using type-safe helpers
+	dpCfg.ResolutionPct = getFloat64Param(cfg.Params, "resolution", 0.1)
+	dpCfg.AcceptableLoss = getFloat64Param(cfg.Params, "max_loss", 0.0)
+	warmup := getIntParam(cfg.Params, "warmup", 0)
+	if warmup > 0 {
+		dpCfg.WarmupPeriod = time.Duration(warmup) * time.Second
 	}
 
 	if err := e.ctx.Configure(dpCfg); err != nil {
@@ -173,57 +284,24 @@ func (e *Executor) getLoadLevels(cfg *TestConfig) []float64 {
 	return []float64{10, 25, 50, 75, 90, 100}
 }
 
-// getFrameLossParams extracts frame loss parameters from config.
+// getFrameLossParams extracts frame loss parameters from config using type-safe helpers.
 func (e *Executor) getFrameLossParams(cfg *TestConfig) (float64, float64, float64) {
-	startPct := 10.0
-	endPct := 100.0
-	stepPct := 10.0
-
-	if cfg.Params != nil {
-		if v, ok := cfg.Params["start_pct"].(float64); ok {
-			startPct = v
-		}
-		if v, ok := cfg.Params["end_pct"].(float64); ok {
-			endPct = v
-		}
-		if v, ok := cfg.Params["step_pct"].(float64); ok {
-			stepPct = v
-		}
-	}
-
+	startPct := getFloat64Param(cfg.Params, "start_pct", 10.0)
+	endPct := getFloat64Param(cfg.Params, "end_pct", 100.0)
+	stepPct := getFloat64Param(cfg.Params, "step_pct", 10.0)
 	return startPct, endPct, stepPct
 }
 
-// getBackToBackParams extracts back-to-back test parameters.
+// getBackToBackParams extracts back-to-back test parameters using type-safe helpers.
 func (e *Executor) getBackToBackParams(cfg *TestConfig) (uint64, uint32) {
-	initialBurst := uint64(10000)
-	trials := uint32(3)
-
-	if cfg.Params != nil {
-		if v, ok := cfg.Params["initial_burst"].(uint64); ok {
-			initialBurst = v
-		}
-		if v, ok := cfg.Params["trials"].(uint32); ok {
-			trials = v
-		}
-	}
-
+	initialBurst := getUint64Param(cfg.Params, "initial_burst", 10000)
+	trials := getUint32Param(cfg.Params, "trials", 3)
 	return initialBurst, trials
 }
 
-// getRecoveryParams extracts system recovery test parameters.
+// getRecoveryParams extracts system recovery test parameters using type-safe helpers.
 func (e *Executor) getRecoveryParams(cfg *TestConfig) (float64, uint32) {
-	throughputPct := 100.0
-	overloadSec := uint32(60)
-
-	if cfg.Params != nil {
-		if v, ok := cfg.Params["throughput_pct"].(float64); ok {
-			throughputPct = v
-		}
-		if v, ok := cfg.Params["overload_sec"].(uint32); ok {
-			overloadSec = v
-		}
-	}
-
+	throughputPct := getFloat64Param(cfg.Params, "throughput_pct", 100.0)
+	overloadSec := getUint32Param(cfg.Params, "overload_sec", 60)
 	return throughputPct, overloadSec
 }

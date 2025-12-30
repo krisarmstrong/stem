@@ -232,13 +232,23 @@ func NewServer(port int) *Server {
 		logging.Warn("Failed to initialize license manager", "error", err)
 	}
 
+	// Auto-select best interface if available
+	var defaultIface string
+	if best, err := interfaces.GetBestInterface(); err == nil {
+		defaultIface = best.Name
+		logging.Info("Auto-selected network interface", "interface", best.Name, "score", best.Score)
+	} else {
+		logging.Warn("No suitable interface found for auto-selection", "error", err)
+	}
+
 	s := &Server{
-		port:       port,
-		mux:        http.NewServeMux(),
-		stats:      &Stats{},
-		testStatus: "idle",
-		startTime:  time.Now(),
-		mode:       "test_master",
+		port:          port,
+		mux:           http.NewServeMux(),
+		stats:         &Stats{},
+		testStatus:    "idle",
+		startTime:     time.Now(),
+		mode:          "test_master",
+		selectedIface: defaultIface,
 		reflectorConfig: ReflectorConfig{
 			Profile:    DefaultProfile,
 			PortFilter: DefaultPortFilter,

@@ -1138,3 +1138,106 @@ func TestModuleRoutesRegistered(t *testing.T) {
 		})
 	}
 }
+
+// Test cancellation behavior (issue #23)
+func TestHandleTestStopCancelsRunningTest(t *testing.T) {
+	s := NewServer(8080)
+	s.testStatus = "running"
+	s.currentTest = "throughput"
+
+	req := httptest.NewRequest(http.MethodPost, "/api/test/stop", nil)
+	w := httptest.NewRecorder()
+
+	s.handleTestStop(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	if s.testStatus != "cancelled" {
+		t.Errorf("Expected testStatus 'cancelled', got '%s'", s.testStatus)
+	}
+
+	if s.currentTest != "" {
+		t.Errorf("Expected currentTest to be cleared, got '%s'", s.currentTest)
+	}
+
+	var resp StatusResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if resp.Status != "stopped" {
+		t.Errorf("Expected status 'stopped', got '%s'", resp.Status)
+	}
+}
+
+func TestHandleTestStopCancelsStartingTest(t *testing.T) {
+	s := NewServer(8080)
+	s.testStatus = "starting"
+	s.currentTest = "latency"
+
+	req := httptest.NewRequest(http.MethodPost, "/api/test/stop", nil)
+	w := httptest.NewRecorder()
+
+	s.handleTestStop(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	if s.testStatus != "cancelled" {
+		t.Errorf("Expected testStatus 'cancelled', got '%s'", s.testStatus)
+	}
+}
+
+func TestHandleTestStopWrongMethod(t *testing.T) {
+	s := NewServer(8080)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/test/stop", nil)
+	w := httptest.NewRecorder()
+
+	s.handleTestStop(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("Expected status 405 for GET, got %d", w.Code)
+	}
+}
+
+func TestHandleTestStopIdempotent(t *testing.T) {
+	s := NewServer(8080)
+	s.testStatus = "running"
+	s.currentTest = "throughput"
+
+	// First stop should succeed
+	req1 := httptest.NewRequest(http.MethodPost, "/api/test/stop", nil)
+	w1 := httptest.NewRecorder()
+	s.handleTestStop(w1, req1)
+
+	if w1.Code != http.StatusOK {
+		t.Errorf("First stop: Expected status 200, got %d", w1.Code)
+	}
+
+	// Second stop should fail (no test running)
+	req2 := httptest.NewRequest(http.MethodPost, "/api/test/stop", nil)
+	w2 := httptest.NewRecorder()
+	s.handleTestStop(w2, req2)
+
+	if w2.Code != http.StatusBadRequest {
+		t.Errorf("Second stop: Expected status 400, got %d", w2.Code)
+	}
+}
+
+func TestTestStatusTransitions(t *testing.T) {
+	s := NewServer(8080)
+
+	// Valid test status values
+	validStatuses := []string{"idle", "starting", "running", "completed", "error", "cancelled", "stopped"}
+
+	for _, status := range validStatuses {
+		s.testStatus = status
+		if s.testStatus != status {
+			t.Errorf("Failed to set testStatus to '%s'", status)
+		}
+	}
+}

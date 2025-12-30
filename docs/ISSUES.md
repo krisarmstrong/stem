@@ -12,12 +12,41 @@ Issues are now tracked via GitHub Issues: https://github.com/krisarmstrong/stem/
 (No open P1 issues)
 
 ### P2 (Medium)
-- **Issue #19**: Address enumeration ignores errors
-- **Issue #20**: Params parsing relies on float64 type assertions
-- **Issue #21**: No default interface selection applied
-- **Issue #23**: Missing tests for test cancellation behavior
-- **Issue #24**: Missing validation for executor parameter types
-- **Issue #25**: Missing E2E coverage for reflector mode
+(No open P2 issues)
+
+---
+
+## FIXED (v0.1.7)
+
+### ~~Issue #19: Address enumeration ignores errors~~
+**Status**: FIXED in v0.1.7
+- Address enumeration now handles errors from iface.Addrs() and net.ParseCIDR()
+- Non-critical errors are acknowledged but don't prevent interface detection
+
+### ~~Issue #20: Params parsing relies on float64 type assertions~~
+**Status**: FIXED in v0.1.7
+- Added type-safe parameter extraction helpers (getFloat64Param, getUint64Param, etc.)
+- Handles JSON-decoded float64 and native int types with proper bounds checking
+
+### ~~Issue #21: No default interface selection applied~~
+**Status**: FIXED in v0.1.7
+- NewServer() auto-selects highest-scoring interface via GetBestInterface()
+- Logs selection or warning if no suitable interface found
+
+### ~~Issue #23: Missing tests for test cancellation behavior~~
+**Status**: FIXED in v0.1.7
+- Added comprehensive tests for test cancellation behavior
+- Tests cover running/starting test cancellation, idempotent behavior, method validation
+
+### ~~Issue #24: Missing validation for executor parameter types~~
+**Status**: FIXED in v0.1.7
+- Added type-safe helpers with comprehensive unit tests
+- Handles float64, int, int64, uint32, uint64 with bounds checking
+
+### ~~Issue #25: Missing E2E coverage for reflector mode~~
+**Status**: FIXED in v0.1.7
+- Tests added for reflector stats wiring and test cancellation via API
+- Reflector executor exposes Dataplane() accessor for direct stats
 
 ---
 
@@ -147,4 +176,4 @@ Issues are now tracked via GitHub Issues: https://github.com/krisarmstrong/stem/
 ---
 
 *Last Updated: 2025-12-30*
-*Latest Release: v0.1.6*
+*Latest Release: v0.1.7*

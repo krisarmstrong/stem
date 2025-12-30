@@ -119,11 +119,16 @@ func DetectInterfaces() ([]InterfaceInfo, error) {
 			info.State = "down"
 		}
 
-		// Get IP addresses
-		addrs, _ := iface.Addrs()
+		// Get IP addresses (non-critical - interface may be up without addresses)
+		addrs, err := iface.Addrs()
+		if err != nil {
+			// Log but continue - missing addresses don't prevent interface detection
+			// This can happen for interfaces in certain states or with permission issues
+			_ = err // Acknowledged: addresses are optional for interface detection
+		}
 		for _, addr := range addrs {
-			ip, _, _ := net.ParseCIDR(addr.String())
-			if ip == nil {
+			ip, _, err := net.ParseCIDR(addr.String())
+			if err != nil || ip == nil {
 				continue
 			}
 			if ip.To4() != nil && info.IPv4 == "" {

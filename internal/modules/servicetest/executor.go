@@ -27,6 +27,35 @@ type TestConfig struct {
 	Params    map[string]interface{}
 }
 
+// Parameter extraction helpers for safe type conversion.
+// JSON decoding converts all numbers to float64, so we need to handle both
+// native types and float64 conversions.
+
+// getFloat64Param extracts a float64 parameter from a map, handling both float64 and int types.
+func getFloat64Param(params map[string]interface{}, key string, defaultVal float64) float64 {
+	if params == nil {
+		return defaultVal
+	}
+	v, ok := params[key]
+	if !ok {
+		return defaultVal
+	}
+	switch val := v.(type) {
+	case float64:
+		return val
+	case float32:
+		return float64(val)
+	case int:
+		return float64(val)
+	case int64:
+		return float64(val)
+	case int32:
+		return float64(val)
+	default:
+		return defaultVal
+	}
+}
+
 // ErrTestNotImplemented is returned for unimplemented tests.
 var ErrTestNotImplemented = errors.New("test type not implemented")
 
@@ -193,35 +222,48 @@ func (e *Executor) buildY1564Service(cfg *TestConfig) *dataplane.Y1564Service {
 	return service
 }
 
-// extractY1564Params extracts SLA and service parameters from config.
+// extractY1564Params extracts SLA and service parameters from config using type-safe helpers.
 func (e *Executor) extractY1564Params(cfg *TestConfig, service *dataplane.Y1564Service) {
 	if cfg.Params == nil {
 		return
 	}
 
-	// Extract SLA parameters
-	if cir, ok := cfg.Params["cir"].(float64); ok {
-		service.SLA.CIRMbps = cir
+	// Extract SLA parameters using type-safe helper
+	// Only update if parameter is explicitly set (check existence first)
+	if _, ok := cfg.Params["cir"]; ok {
+		service.SLA.CIRMbps = getFloat64Param(cfg.Params, "cir", service.SLA.CIRMbps)
 	}
-	if eir, ok := cfg.Params["eir"].(float64); ok {
-		service.SLA.EIRMbps = eir
+	if _, ok := cfg.Params["eir"]; ok {
+		service.SLA.EIRMbps = getFloat64Param(cfg.Params, "eir", service.SLA.EIRMbps)
 	}
-	if fd, ok := cfg.Params["fd_threshold"].(float64); ok {
-		service.SLA.FDThresholdMs = fd
+	if _, ok := cfg.Params["fd_threshold"]; ok {
+		service.SLA.FDThresholdMs = getFloat64Param(cfg.Params, "fd_threshold", service.SLA.FDThresholdMs)
 	}
-	if fdv, ok := cfg.Params["fdv_threshold"].(float64); ok {
-		service.SLA.FDVThresholdMs = fdv
+	if _, ok := cfg.Params["fdv_threshold"]; ok {
+		service.SLA.FDVThresholdMs = getFloat64Param(cfg.Params, "fdv_threshold", service.SLA.FDVThresholdMs)
 	}
-	if flr, ok := cfg.Params["flr_threshold"].(float64); ok {
-		service.SLA.FLRThresholdPct = flr
+	if _, ok := cfg.Params["flr_threshold"]; ok {
+		service.SLA.FLRThresholdPct = getFloat64Param(cfg.Params, "flr_threshold", service.SLA.FLRThresholdPct)
 	}
 
 	// Extract service identification
 	if name, ok := cfg.Params["service_name"].(string); ok {
 		service.ServiceName = name
 	}
-	if id, ok := cfg.Params["service_id"].(uint32); ok {
-		service.ServiceID = id
+	if v, ok := cfg.Params["service_id"]; ok {
+		// Handle both uint32 and float64 (from JSON)
+		switch id := v.(type) {
+		case uint32:
+			service.ServiceID = id
+		case float64:
+			if id >= 0 && id <= float64(^uint32(0)) {
+				service.ServiceID = uint32(id)
+			}
+		case int:
+			if id >= 0 {
+				service.ServiceID = uint32(id)
+			}
+		}
 	}
 }
 
