@@ -41,6 +41,9 @@ const (
 	TierEnterprise Tier = 3 // Enterprise (future)
 )
 
+// Error messages
+const errProductCodeMismatch = "Product code mismatch for tier"
+
 // String returns the tier name
 func (t Tier) String() string {
 	switch t {
@@ -129,17 +132,17 @@ func ValidateLicenseKey(key string) *LicenseInfo {
 	switch info.ProductCode {
 	case "1001":
 		if info.Tier != TierReflector {
-			info.ErrorMsg = "Product code mismatch for tier"
+			info.ErrorMsg = errProductCodeMismatch
 			return info
 		}
 	case "2001":
 		if info.Tier != TierTestSuite {
-			info.ErrorMsg = "Product code mismatch for tier"
+			info.ErrorMsg = errProductCodeMismatch
 			return info
 		}
 	case "3001":
 		if info.Tier != TierEnterprise {
-			info.ErrorMsg = "Product code mismatch for tier"
+			info.ErrorMsg = errProductCodeMismatch
 			return info
 		}
 	default:

@@ -39,8 +39,11 @@ import (
 )
 
 const (
-	ProductName = "The Stem"
-	Company     = "Mustard Seed Networks"
+	ProductName            = "The Stem"
+	Company                = "Mustard Seed Networks"
+	DefaultProfile         = "all"
+	DefaultReflectionMode  = "all"
+	DefaultSignatureFilter = "all"
 )
 
 // All supported test types
@@ -299,7 +302,7 @@ func reflectCmd(args []string) {
 	fs := flag.NewFlagSet("reflect", flag.ExitOnError)
 	iface := fs.String("interface", "", "Network interface")
 	fs.StringVar(iface, "i", "", "Network interface (shorthand)")
-	profile := fs.String("profile", "all", "Preset profile")
+	profile := fs.String("profile", DefaultProfile, "Preset profile")
 	port := fs.Int("port", 0, "UDP port filter")
 	oui := fs.String("oui", "", "OUI filter")
 	useTUI := fs.Bool("tui", false, "Launch TUI dashboard")
@@ -330,7 +333,7 @@ func reflectCmd(args []string) {
 	}
 
 	// Map profile to signature filter
-	sigFilter := "all"
+	sigFilter := DefaultSignatureFilter
 	switch *profile {
 	case "netally", "ito":
 		sigFilter = "ito"
@@ -338,8 +341,8 @@ func reflectCmd(args []string) {
 		sigFilter = "msn"
 	case "custom":
 		sigFilter = "custom"
-	case "all":
-		sigFilter = "all"
+	case DefaultProfile:
+		sigFilter = DefaultSignatureFilter
 	}
 
 	// Build reflector config with defaults
@@ -351,7 +354,7 @@ func reflectCmd(args []string) {
 			OUI:  "00:c0:17", // Default NetAlly OUI
 		},
 		Reflection: reflectorConfig.ReflectConfig{
-			Mode: "all",
+			Mode: DefaultReflectionMode,
 		},
 	}
 
@@ -839,9 +842,9 @@ func tuiCmd(args []string) {
 		// Build reflector config
 		cfg := &reflectorConfig.Config{
 			Interface:       *iface,
-			SignatureFilter: "all",
+			SignatureFilter: DefaultSignatureFilter,
 			Reflection: reflectorConfig.ReflectConfig{
-				Mode: "all",
+				Mode: DefaultReflectionMode,
 			},
 		}
 
