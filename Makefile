@@ -40,7 +40,7 @@ endif
 # Main Targets
 # ============================================================================
 
-.PHONY: all ui ui-deps go clean test dev install help
+.PHONY: all ui ui-deps go clean test dev install help lint lint-go lint-c format format-go format-c fix verify
 
 # Default: build everything
 all: ui go
@@ -107,13 +107,96 @@ dev:
 	@echo "  make go-dev    # Go backend"
 
 # ============================================================================
+# Linting & Formatting
+# ============================================================================
+
+# Run all linters
+lint: lint-go
+	@echo "✓ All linters passed"
+
+# Run Go linters (golangci-lint v2)
+lint-go:
+	@echo "Running Go linter (golangci-lint)..."
+	@GOLANGCI_LINT="$$(go env GOPATH)/bin/golangci-lint"; \
+	if [ ! -f "$$GOLANGCI_LINT" ]; then \
+		echo "📦 Installing golangci-lint..."; \
+		go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest; \
+	fi; \
+	$$GOLANGCI_LINT run ./...
+	@echo "✓ Go lint passed"
+
+# Run C linter (clang-tidy) - Linux only
+lint-c:
+ifeq ($(UNAME),Linux)
+	@echo "Running C linter (clang-tidy)..."
+	@if command -v clang-tidy >/dev/null 2>&1; then \
+		find src/ include/ -name '*.c' -o -name '*.h' | xargs clang-tidy -p . 2>/dev/null || true; \
+	else \
+		echo "⚠️  clang-tidy not found, skipping"; \
+	fi
+	@echo "✓ C lint complete"
+else
+	@echo "C linting requires Linux"
+endif
+
+# Format all code
+format: format-go
+	@echo "✓ All code formatted"
+
+# Format Go code
+format-go:
+	@echo "Formatting Go code..."
+	@gofmt -w -s .
+	@echo "✓ Go code formatted"
+
+# Format C code - Linux only
+format-c:
+ifeq ($(UNAME),Linux)
+	@echo "Formatting C code..."
+	@if command -v clang-format >/dev/null 2>&1; then \
+		find src/ include/ -name '*.c' -o -name '*.h' | xargs clang-format -i; \
+		echo "✓ C code formatted"; \
+	else \
+		echo "⚠️  clang-format not found, skipping"; \
+	fi
+else
+	@echo "C formatting requires Linux"
+endif
+
+# Auto-fix linting issues
+fix:
+	@echo "Auto-fixing Go code..."
+	@GOLANGCI_LINT="$$(go env GOPATH)/bin/golangci-lint"; \
+	if [ ! -f "$$GOLANGCI_LINT" ]; then \
+		go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest; \
+	fi; \
+	$$GOLANGCI_LINT run --fix ./...
+	@gofmt -w -s .
+	@echo "✓ Auto-fix complete"
+
+# ============================================================================
+# Verification (CI/CD pipeline)
+# ============================================================================
+
+# Full verification: lint, test, build
+verify: lint test build
+	@echo ""
+	@echo "════════════════════════════════════════════════════════════════════════════"
+	@echo "  ✓ VERIFICATION COMPLETE"
+	@echo "    - Linters passed"
+	@echo "    - Tests passed"
+	@echo "    - Build successful: $(BINARY_NAME)"
+	@echo "    - Version: $(VERSION)"
+	@echo "════════════════════════════════════════════════════════════════════════════"
+
+# ============================================================================
 # Testing
 # ============================================================================
 
 # Run Go tests
 test:
 	@echo "Running Go tests..."
-	$(GO) test -v -race ./internal/...
+	$(GO) test -v -race ./internal/... ./cmd/...
 
 # Run tests with coverage
 test-coverage:
@@ -245,6 +328,16 @@ help:
 	@echo "  go             Build Go binary"
 	@echo "  quick          Quick build (Go only, skip UI)"
 	@echo "  clean          Clean all build artifacts"
+	@echo "  verify         Full verification (lint + test + build)"
+	@echo ""
+	@echo "Linting & Formatting:"
+	@echo "  lint           Run all linters"
+	@echo "  lint-go        Run Go linter (golangci-lint)"
+	@echo "  lint-c         Run C linter (clang-tidy, Linux)"
+	@echo "  format         Format all code"
+	@echo "  format-go      Format Go code (gofmt)"
+	@echo "  format-c       Format C code (clang-format, Linux)"
+	@echo "  fix            Auto-fix linting issues"
 	@echo ""
 	@echo "Development:"
 	@echo "  ui-dev         Run React dev server (port 3000)"

@@ -9,6 +9,8 @@ Issues are now tracked via GitHub Issues: https://github.com/krisarmstrong/stem/
 - [#4 Add interface validation to handleSettings](https://github.com/krisarmstrong/stem/issues/4)
 - [#5 Add observability for config update failures](https://github.com/krisarmstrong/stem/issues/5)
 - [#6 Document web server architecture](https://github.com/krisarmstrong/stem/issues/6)
+- [#7 Fix errcheck warnings in test files](https://github.com/krisarmstrong/stem/issues/7)
+- [#8 Fix all golangci-lint warnings (332 issues)](https://github.com/krisarmstrong/stem/issues/8)
 
 ---
 

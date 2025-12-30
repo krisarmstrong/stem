@@ -1,5 +1,6 @@
 # Binaries
 seedtest
+stem
 rfc2544-linux
 *.o
 *.a
@@ -8,6 +9,9 @@ rfc2544-linux
 # Build artifacts
 build/
 bin/
+
+# Claude Code
+.claude/
 *.deb
 *.rpm
 
