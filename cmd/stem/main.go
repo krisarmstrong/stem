@@ -27,6 +27,7 @@ import (
 
 	"github.com/krisarmstrong/stem/internal/help"
 	"github.com/krisarmstrong/stem/internal/license"
+	"github.com/krisarmstrong/stem/internal/logging"
 	"github.com/krisarmstrong/stem/internal/version"
 	reflectorConfig "github.com/krisarmstrong/stem/internal/reflector/config"
 	reflectorDP "github.com/krisarmstrong/stem/internal/reflector/dataplane"
@@ -100,6 +101,23 @@ var testCategories = []struct {
 }
 
 func main() {
+	// Initialize structured logging
+	logLevel := os.Getenv("STEM_LOG_LEVEL")
+	if logLevel == "" {
+		logLevel = "info"
+	}
+	logFormat := os.Getenv("STEM_LOG_FORMAT")
+	if logFormat == "" {
+		logFormat = "text" // Use text for CLI, json for production
+	}
+	if err := logging.Init(&logging.Config{
+		Level:  logLevel,
+		Format: logFormat,
+	}); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: logging initialization failed: %v\n", err)
+		// Continue with default logging
+	}
+
 	if len(os.Args) < 2 {
 		printUsage()
 		os.Exit(1)
@@ -345,7 +363,10 @@ func reflectCmd(args []string) {
 			select {
 			case <-sigChan:
 				fmt.Println("\nShutting down reflector...")
-				dp.Stop()
+				// Stop in goroutine to avoid blocking select
+				go dp.Stop()
+				// Give dataplane time to clean up, then print stats
+				time.Sleep(100 * time.Millisecond)
 				stats := dp.GetStats()
 				fmt.Printf("\nFinal Statistics:\n")
 				fmt.Printf("  Packets Received:  %d\n", stats.PacketsReceived)
@@ -524,14 +545,24 @@ func testCmd(args []string) {
 	fmt.Println("\nTest suite complete.")
 }
 
-// parseFrameSizes parses comma-separated frame sizes
+// parseFrameSizes parses comma-separated frame sizes with validation warnings
 func parseFrameSizes(s string) []int {
 	var sizes []int
 	for _, part := range strings.Split(s, ",") {
-		size, err := strconv.Atoi(strings.TrimSpace(part))
-		if err == nil && size >= 64 && size <= 9216 {
-			sizes = append(sizes, size)
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" {
+			continue
 		}
+		size, err := strconv.Atoi(trimmed)
+		if err != nil {
+			logging.Warn("invalid frame size ignored", "value", trimmed, "error", err)
+			continue
+		}
+		if size < 64 || size > 9216 {
+			logging.Warn("frame size out of range (64-9216), ignored", "value", size)
+			continue
+		}
+		sizes = append(sizes, size)
 	}
 	return sizes
 }
@@ -699,12 +730,18 @@ func printCSVResults(results []interface{}) {
 
 func webCmd(args []string) {
 	fs := flag.NewFlagSet("web", flag.ExitOnError)
-	port := fs.Int("port", 8080, "HTTP port")
+	port := fs.Int("port", 8080, "HTTP port (1-65535)")
 	fs.IntVar(port, "p", 8080, "HTTP port (shorthand)")
 	host := fs.String("host", "0.0.0.0", "Bind address")
 
 	if err := fs.Parse(args); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Validate port range
+	if *port < 1 || *port > 65535 {
+		fmt.Fprintf(os.Stderr, "Error: port must be between 1 and 65535, got %d\n", *port)
 		os.Exit(1)
 	}
 
@@ -740,7 +777,10 @@ func tuiCmd(args []string) {
 		}
 
 		// Check license (Tier 1 minimum)
-		mgr, _ := license.NewManager()
+		mgr, err := license.NewManager()
+		if err != nil {
+			logging.Warn("license manager initialization failed", "error", err)
+		}
 		if mgr != nil && !mgr.IsActivated() {
 			result := mgr.StartTrial()
 			if !result.Success {
@@ -780,7 +820,10 @@ func tuiCmd(args []string) {
 
 	case "test", "testmaster", "":
 		// Check license (Tier 2 required)
-		mgr, _ := license.NewManager()
+		mgr, err := license.NewManager()
+		if err != nil {
+			logging.Warn("license manager initialization failed", "error", err)
+		}
 		if mgr != nil {
 			state := mgr.GetState()
 			if state == nil {

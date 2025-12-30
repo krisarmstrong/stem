@@ -53,8 +53,8 @@ func TestHandleHealth(t *testing.T) {
 	if resp["status"] != "healthy" {
 		t.Errorf("Expected status 'healthy', got '%v'", resp["status"])
 	}
-	if resp["product"] != "Seed Test Suite" {
-		t.Errorf("Expected product 'Seed Test Suite', got '%v'", resp["product"])
+	if resp["product"] != "The Stem" {
+		t.Errorf("Expected product 'The Stem', got '%v'", resp["product"])
 	}
 	if resp["company"] != "Mustard Seed Networks" {
 		t.Errorf("Expected company 'Mustard Seed Networks', got '%v'", resp["company"])

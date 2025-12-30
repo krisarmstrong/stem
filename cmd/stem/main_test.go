@@ -7,20 +7,23 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/krisarmstrong/stem/internal/version"
 )
 
 func TestVersion(t *testing.T) {
-	if Version == "" {
+	if version.Version == "" {
 		t.Error("Version should not be empty")
 	}
-	if !strings.Contains(Version, ".") {
-		t.Error("Version should contain dots (semantic versioning)")
+	// Version is "dev" when not built with ldflags, or semver when built
+	if version.Version != "dev" && !strings.Contains(version.Version, ".") {
+		t.Error("Version should be 'dev' or contain dots (semantic versioning)")
 	}
 }
 
 func TestProductName(t *testing.T) {
-	if ProductName != "Seed Test Suite" {
-		t.Errorf("Expected ProductName 'Seed Test Suite', got '%s'", ProductName)
+	if ProductName != "The Stem" {
+		t.Errorf("Expected ProductName 'The Stem', got '%s'", ProductName)
 	}
 }
 
@@ -242,7 +245,7 @@ func TestPrintVersion(t *testing.T) {
 	if !strings.Contains(output, ProductName) {
 		t.Error("printVersion should contain ProductName")
 	}
-	if !strings.Contains(output, Version) {
+	if !strings.Contains(output, version.Version) {
 		t.Error("printVersion should contain Version")
 	}
 	if !strings.Contains(output, Company) {

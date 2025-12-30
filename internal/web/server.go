@@ -1,6 +1,6 @@
 // Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
 
-// Package web provides the HTTP server for the Seed Test Suite WebUI.
+// Package web provides the HTTP server for The Stem WebUI.
 //
 // The server embeds the React frontend build and provides REST API endpoints
 // for interface detection, license management, test execution, and real-time
@@ -12,14 +12,80 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
-	"log"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/krisarmstrong/stem/internal/interfaces"
 	"github.com/krisarmstrong/stem/internal/license"
+	"github.com/krisarmstrong/stem/internal/logging"
+	"github.com/krisarmstrong/stem/internal/version"
 )
+
+// Configuration constants
+const (
+	DefaultPortFilter = 3842
+	DefaultOUIFilter  = "00:c0:17" // NetAlly OUI
+	DefaultProfile    = "all"
+)
+
+// Response types for type safety
+type (
+	// StatusResponse for simple status messages
+	StatusResponse struct {
+		Status string `json:"status"`
+	}
+
+	// ModeResponse for mode queries
+	ModeResponse struct {
+		Mode string `json:"mode"`
+	}
+
+	// ModeUpdateResponse for mode updates
+	ModeUpdateResponse struct {
+		Status string `json:"status"`
+		Mode   string `json:"mode"`
+	}
+
+	// SettingsResponse for settings queries
+	SettingsResponse struct {
+		Mode      string `json:"mode"`
+		Interface string `json:"interface"`
+		Theme     string `json:"theme"`
+	}
+
+	// HealthResponse for health checks
+	HealthResponse struct {
+		Status  string `json:"status"`
+		Version string `json:"version"`
+		Commit  string `json:"commit"`
+		Product string `json:"product"`
+		Company string `json:"company"`
+		Uptime  int64  `json:"uptime"`
+	}
+
+	// TrialStatusResponse for trial queries
+	TrialStatusResponse struct {
+		Active        bool `json:"active"`
+		DaysRemaining int  `json:"daysRemaining,omitempty"`
+	}
+
+	// ErrorResponse for error messages
+	ErrorResponse struct {
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+	}
+)
+
+// writeJSON encodes v as JSON and writes it to w.
+// If encoding fails, it logs the error and sends a 500 response.
+func writeJSON(w http.ResponseWriter, v interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		logging.Error("failed to encode JSON response", "error", err)
+		// Don't try to write error response - headers already sent
+	}
+}
 
 //go:embed dist/*
 var staticFiles embed.FS
@@ -65,7 +131,7 @@ func NewServer(port int) *Server {
 	// Initialize license manager
 	licMgr, err := license.NewManager()
 	if err != nil {
-		log.Printf("Warning: Failed to initialize license manager: %v", err)
+		logging.Warn("Failed to initialize license manager", "error", err)
 	}
 
 	s := &Server{
@@ -76,9 +142,9 @@ func NewServer(port int) *Server {
 		startTime:  time.Now(),
 		mode:       "test_master",
 		reflectorConfig: ReflectorConfig{
-			Profile:    "all",
-			PortFilter: 3842,
-			OUIFilter:  "00:c0:17",
+			Profile:    DefaultProfile,
+			PortFilter: DefaultPortFilter,
+			OUIFilter:  DefaultOUIFilter,
 		},
 		licenseManager: licMgr,
 	}
@@ -109,15 +175,15 @@ func (s *Server) setupRoutes() {
 	// Static files (embedded UI)
 	staticFS, err := fs.Sub(staticFiles, "dist")
 	if err != nil {
-		log.Printf("Warning: Could not load embedded UI: %v", err)
+		logging.Warn("Could not load embedded UI", "error", err)
 		// Serve a simple fallback page
 		s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "text/html")
 			w.Write([]byte(`<!DOCTYPE html>
 <html>
-<head><title>Seed Test Suite</title></head>
+<head><title>The Stem</title></head>
 <body>
-<h1>Seed Test Suite</h1>
+<h1>The Stem</h1>
 <p>WebUI not built. Run 'cd ui && npm install && npm run build' first.</p>
 <p>API available at <a href="/api/health">/api/health</a></p>
 </body>
@@ -142,8 +208,7 @@ func (s *Server) handleInterfaces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(ifaces)
+	writeJSON(w, ifaces)
 }
 
 // handleStats returns current runtime statistics
@@ -162,8 +227,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 	s.statsMu.RUnlock()
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(stats)
+	writeJSON(w, stats)
 }
 
 // handleTestStart starts a test run
@@ -183,8 +247,7 @@ func (s *Server) handleTestStart(w http.ResponseWriter, r *http.Request) {
 	s.currentTest = "throughput" // Default test
 	s.statsMu.Unlock()
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "started"})
+	writeJSON(w, StatusResponse{Status: "started"})
 }
 
 // handleTestStop stops the current test
@@ -204,37 +267,37 @@ func (s *Server) handleTestStop(w http.ResponseWriter, r *http.Request) {
 	s.currentTest = ""
 	s.statsMu.Unlock()
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
+	writeJSON(w, StatusResponse{Status: "stopped"})
+}
+
+// SettingsUpdate for settings POST requests
+type SettingsUpdate struct {
+	Interface string `json:"interface,omitempty"`
+	Theme     string `json:"theme,omitempty"`
 }
 
 // handleSettings handles settings get/update
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		// Return current settings
-		settings := map[string]interface{}{
-			"mode":      "test_master",
-			"interface": s.selectedIface,
-			"theme":     "system",
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(settings)
+		writeJSON(w, SettingsResponse{
+			Mode:      s.mode,
+			Interface: s.selectedIface,
+			Theme:     "system",
+		})
 
 	case http.MethodPost:
-		// Update settings
-		var settings map[string]interface{}
-		if err := json.NewDecoder(r.Body).Decode(&settings); err != nil {
+		var update SettingsUpdate
+		if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 			http.Error(w, "Invalid JSON", http.StatusBadRequest)
 			return
 		}
 
-		if iface, ok := settings["interface"].(string); ok {
-			s.selectedIface = iface
+		if update.Interface != "" {
+			s.selectedIface = update.Interface
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
+		writeJSON(w, StatusResponse{Status: "updated"})
 
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -248,16 +311,14 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	health := map[string]interface{}{
-		"status":  "healthy",
-		"version": "3.0.0-dev",
-		"product": "Seed Test Suite",
-		"company": "Mustard Seed Networks",
-		"uptime":  int64(time.Since(s.startTime).Seconds()),
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(health)
+	writeJSON(w, HealthResponse{
+		Status:  "healthy",
+		Version: version.Version,
+		Commit:  version.Commit,
+		Product: "The Stem",
+		Company: "Mustard Seed Networks",
+		Uptime:  int64(time.Since(s.startTime).Seconds()),
+	})
 }
 
 // UpdateStats updates the runtime statistics (called by test runner)
@@ -272,18 +333,19 @@ func (s *Server) UpdateStats(packetsRx, packetsTx, bytesRx, bytesTx uint64, pps,
 	s.stats.CurrentMbps = mbps
 }
 
+// ModeRequest for mode POST requests
+type ModeRequest struct {
+	Mode string `json:"mode"`
+}
+
 // handleMode handles mode switching between reflector and test_master
 func (s *Server) handleMode(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	switch r.Method {
 	case http.MethodGet:
-		json.NewEncoder(w).Encode(map[string]string{"mode": s.mode})
+		writeJSON(w, ModeResponse{Mode: s.mode})
 
 	case http.MethodPost:
-		var req struct {
-			Mode string `json:"mode"`
-		}
+		var req ModeRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Invalid JSON", http.StatusBadRequest)
 			return
@@ -295,7 +357,7 @@ func (s *Server) handleMode(w http.ResponseWriter, r *http.Request) {
 		}
 
 		s.mode = req.Mode
-		json.NewEncoder(w).Encode(map[string]string{"status": "updated", "mode": s.mode})
+		writeJSON(w, ModeUpdateResponse{Status: "updated", Mode: s.mode})
 
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -304,11 +366,9 @@ func (s *Server) handleMode(w http.ResponseWriter, r *http.Request) {
 
 // handleReflectorConfig handles reflector configuration
 func (s *Server) handleReflectorConfig(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	switch r.Method {
 	case http.MethodGet:
-		json.NewEncoder(w).Encode(s.reflectorConfig)
+		writeJSON(w, s.reflectorConfig)
 
 	case http.MethodPost:
 		var cfg ReflectorConfig
@@ -338,7 +398,7 @@ func (s *Server) handleReflectorConfig(w http.ResponseWriter, r *http.Request) {
 			s.reflectorConfig.SignatureFilter = cfg.SignatureFilter
 		}
 
-		json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
+		writeJSON(w, StatusResponse{Status: "updated"})
 
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -403,8 +463,7 @@ func (s *Server) handleReflectorStats(w http.ResponseWriter, r *http.Request) {
 	}
 	s.statsMu.RUnlock()
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(reflectorStats)
+	writeJSON(w, reflectorStats)
 }
 
 // LicenseStatus represents the license status response
@@ -427,10 +486,8 @@ func (s *Server) handleLicense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-
 	if s.licenseManager == nil {
-		json.NewEncoder(w).Encode(LicenseStatus{
+		writeJSON(w, LicenseStatus{
 			Activated: false,
 			Message:   "License manager not initialized",
 		})
@@ -469,7 +526,12 @@ func (s *Server) handleLicense(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	json.NewEncoder(w).Encode(status)
+	writeJSON(w, status)
+}
+
+// LicenseActivateRequest for license activation
+type LicenseActivateRequest struct {
+	LicenseKey string `json:"licenseKey"`
 }
 
 // handleLicenseActivate activates a license key
@@ -479,44 +541,38 @@ func (s *Server) handleLicenseActivate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-
 	if s.licenseManager == nil {
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"success": false,
-			"message": "License manager not initialized",
+		writeJSON(w, ErrorResponse{
+			Success: false,
+			Message: "License manager not initialized",
 		})
 		return
 	}
 
-	var req struct {
-		LicenseKey string `json:"licenseKey"`
-	}
+	var req LicenseActivateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
 	if req.LicenseKey == "" {
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"success": false,
-			"message": "License key is required",
+		writeJSON(w, ErrorResponse{
+			Success: false,
+			Message: "License key is required",
 		})
 		return
 	}
 
 	result := s.licenseManager.Activate(req.LicenseKey)
-	json.NewEncoder(w).Encode(result)
+	writeJSON(w, result)
 }
 
 // handleLicenseTrial starts or checks trial status
 func (s *Server) handleLicenseTrial(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	if s.licenseManager == nil {
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"success": false,
-			"message": "License manager not initialized",
+		writeJSON(w, ErrorResponse{
+			Success: false,
+			Message: "License manager not initialized",
 		})
 		return
 	}
@@ -525,20 +581,18 @@ func (s *Server) handleLicenseTrial(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		// Check trial status
 		if s.licenseManager.IsTrialValid() {
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"active":        true,
-				"daysRemaining": s.licenseManager.TrialDaysRemaining(),
+			writeJSON(w, TrialStatusResponse{
+				Active:        true,
+				DaysRemaining: s.licenseManager.TrialDaysRemaining(),
 			})
 		} else {
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"active": false,
-			})
+			writeJSON(w, TrialStatusResponse{Active: false})
 		}
 
 	case http.MethodPost:
 		// Start trial
 		result := s.licenseManager.StartTrial()
-		json.NewEncoder(w).Encode(result)
+		writeJSON(w, result)
 
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -548,6 +602,12 @@ func (s *Server) handleLicenseTrial(w http.ResponseWriter, r *http.Request) {
 // Run starts the web server
 func (s *Server) Run() error {
 	addr := fmt.Sprintf(":%d", s.port)
-	log.Printf("Starting Seed Test Suite web server on http://localhost%s", addr)
-	return http.ListenAndServe(addr, s.mux)
+	logging.Info("Starting The Stem web server",
+		"address", fmt.Sprintf("http://localhost%s", addr),
+		"version", version.Version,
+	)
+
+	// Wrap with logging middleware
+	handler := logging.RequestIDMiddleware(logging.LoggingMiddleware(s.mux))
+	return http.ListenAndServe(addr, handler)
 }

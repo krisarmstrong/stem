@@ -12,10 +12,31 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/krisarmstrong/stem/internal/reflector/dataplane"
 )
+
+// setCORSHeaders sets CORS headers for local development.
+// Restricts to localhost origins for security.
+func setCORSHeaders(w http.ResponseWriter, r *http.Request) {
+	origin := r.Header.Get("Origin")
+	// Only allow localhost origins (various ports for dev servers)
+	if origin == "" ||
+		strings.HasPrefix(origin, "http://localhost") ||
+		strings.HasPrefix(origin, "http://127.0.0.1") ||
+		strings.HasPrefix(origin, "https://localhost") ||
+		strings.HasPrefix(origin, "https://127.0.0.1") {
+		if origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		} else {
+			// Allow same-origin requests
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+		}
+	}
+	// Don't set header for non-localhost origins (blocked by browser)
+}
 
 //go:embed dist/*
 var reactApp embed.FS
@@ -157,7 +178,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	setCORSHeaders(w, r)
 	json.NewEncoder(w).Encode(resp)
 }
 
@@ -165,14 +186,14 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	// Handle CORS preflight
 	if r.Method == http.MethodOptions {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		setCORSHeaders(w, r)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		w.WriteHeader(http.StatusOK)
 		return
 	}
 
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	setCORSHeaders(w, r)
 
 	// Require dataplane for config operations
 	if s.dp == nil {
