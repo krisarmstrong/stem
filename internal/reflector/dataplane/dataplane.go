@@ -237,13 +237,18 @@ func (dp *Dataplane) UpdateConfig(updates map[string]interface{}) error {
 			}
 		case "oui":
 			if oui, ok := value.(string); ok {
+				// Validate OUI format before updating
+				oldOUI := dp.cfg.Filtering.OUI
 				dp.cfg.Filtering.OUI = oui
 				parsed, err := dp.cfg.ParseOUI()
-				if err == nil {
-					dp.ctx.config.oui[0] = C.uint8_t(parsed[0])
-					dp.ctx.config.oui[1] = C.uint8_t(parsed[1])
-					dp.ctx.config.oui[2] = C.uint8_t(parsed[2])
+				if err != nil {
+					// Restore old value and return error
+					dp.cfg.Filtering.OUI = oldOUI
+					return fmt.Errorf("invalid OUI format '%s': %w", oui, err)
 				}
+				dp.ctx.config.oui[0] = C.uint8_t(parsed[0])
+				dp.ctx.config.oui[1] = C.uint8_t(parsed[1])
+				dp.ctx.config.oui[2] = C.uint8_t(parsed[2])
 			}
 		case "filter_mac":
 			if enabled, ok := value.(bool); ok {
