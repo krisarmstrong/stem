@@ -78,8 +78,11 @@ func NewManager() (*Manager, error) {
 	}
 	m.configDir = filepath.Join(homeDir, ".config", "seed-test-suite")
 
-	// Load existing state
-	m.loadState()
+	// Load existing state (best-effort, non-fatal)
+	if err := m.loadState(); err != nil {
+		// Log but don't fail - fresh state is acceptable
+		_ = err // State will be initialized fresh
+	}
 
 	return m, nil
 }
@@ -265,7 +268,7 @@ func (m *Manager) CheckIn() *ActivationResult {
 
 	// Update last validated time
 	m.state.LastValidatedAt = time.Now()
-	m.saveState()
+	_ = m.saveState() // Best-effort state persistence
 
 	return &ActivationResult{
 		Success: true,

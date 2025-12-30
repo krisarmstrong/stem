@@ -370,8 +370,9 @@ func reflectCmd(args []string) {
 
 	// Start reflector
 	if err := dp.Start(); err != nil {
+		dp.Close() // Cleanup before exit
 		fmt.Printf("Error: Failed to start reflector: %v\n", err)
-		os.Exit(1)
+		os.Exit(1) //nolint:gocritic // Explicit dp.Close() above ensures cleanup
 	}
 
 	fmt.Printf("%s %s - Reflector\n", ProductName, version.Version)
@@ -545,8 +546,9 @@ func testCmd(args []string) {
 	}
 
 	if err := ctx.Configure(cfg); err != nil {
+		ctx.Close() // Cleanup before exit
 		fmt.Printf("Error: Failed to configure: %v\n", err)
-		os.Exit(1)
+		os.Exit(1) //nolint:gocritic // Explicit ctx.Close() above ensures cleanup
 	}
 
 	// Setup signal handler
@@ -852,8 +854,9 @@ func tuiCmd(args []string) {
 		defer dp.Close()
 
 		if err := dp.Start(); err != nil {
+			dp.Close() // Cleanup before exit
 			fmt.Printf("Error: Failed to start reflector: %v\n", err)
-			os.Exit(1)
+			os.Exit(1) //nolint:gocritic // Explicit dp.Close() above ensures cleanup
 		}
 
 		// Launch reflector TUI

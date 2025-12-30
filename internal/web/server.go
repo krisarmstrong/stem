@@ -224,9 +224,9 @@ func (s *Server) setupRoutes() {
 	if err != nil {
 		logging.Warn("Could not load embedded UI", "error", err)
 		// Serve a simple fallback page
-		s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		s.mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "text/html")
-			w.Write([]byte(`<!DOCTYPE html>
+			_, _ = w.Write([]byte(`<!DOCTYPE html>
 <html>
 <head><title>The Stem</title></head>
 <body>

@@ -239,7 +239,7 @@ func (a *App) build() {
 
 	// Key bindings
 	a.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Key() {
+		switch event.Key() { //nolint:exhaustive // Only handle specific keys
 		case tcell.KeyF1:
 			if a.OnStart != nil {
 				go a.OnStart()
@@ -261,8 +261,9 @@ func (a *App) build() {
 				a.OnCancel()
 			}
 			return nil
+		default:
+			return event
 		}
-		return event
 	})
 
 	a.app.SetRoot(a.pages, true)
@@ -528,7 +529,7 @@ func (a *App) Log(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	timestamp := time.Now().Format("15:04:05")
 	a.app.QueueUpdateDraw(func() {
-		fmt.Fprintf(a.logView, "[gray]%s[white] %s\n", timestamp, msg)
+		_, _ = fmt.Fprintf(a.logView, "[gray]%s[white] %s\n", timestamp, msg)
 		a.logView.ScrollToEnd()
 	})
 }
@@ -538,7 +539,7 @@ func (a *App) LogInfo(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	timestamp := time.Now().Format("15:04:05")
 	a.app.QueueUpdateDraw(func() {
-		fmt.Fprintf(a.logView, "[gray]%s [green][INFO][white] %s\n", timestamp, msg)
+		_, _ = fmt.Fprintf(a.logView, "[gray]%s [green][INFO][white] %s\n", timestamp, msg)
 		a.logView.ScrollToEnd()
 	})
 }
@@ -548,7 +549,7 @@ func (a *App) LogWarn(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	timestamp := time.Now().Format("15:04:05")
 	a.app.QueueUpdateDraw(func() {
-		fmt.Fprintf(a.logView, "[gray]%s [yellow][WARN][white] %s\n", timestamp, msg)
+		_, _ = fmt.Fprintf(a.logView, "[gray]%s [yellow][WARN][white] %s\n", timestamp, msg)
 		a.logView.ScrollToEnd()
 	})
 }
@@ -558,7 +559,7 @@ func (a *App) LogError(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	timestamp := time.Now().Format("15:04:05")
 	a.app.QueueUpdateDraw(func() {
-		fmt.Fprintf(a.logView, "[gray]%s [red][ERROR][white] %s\n", timestamp, msg)
+		_, _ = fmt.Fprintf(a.logView, "[gray]%s [red][ERROR][white] %s\n", timestamp, msg)
 		a.logView.ScrollToEnd()
 	})
 }
