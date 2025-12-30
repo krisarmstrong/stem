@@ -10,6 +10,7 @@ package web
 import (
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"net/http"
@@ -21,6 +22,9 @@ import (
 	"github.com/krisarmstrong/stem/internal/license"
 	"github.com/krisarmstrong/stem/internal/logging"
 	"github.com/krisarmstrong/stem/internal/modules"
+	"github.com/krisarmstrong/stem/internal/modules/benchmark"
+	"github.com/krisarmstrong/stem/internal/modules/servicetest"
+	"github.com/krisarmstrong/stem/internal/testmaster/dataplane"
 	"github.com/krisarmstrong/stem/internal/version"
 )
 
@@ -91,6 +95,18 @@ type (
 		Status   string `json:"status"`
 		TestType string `json:"testType"`
 		Module   string `json:"module"`
+		Message  string `json:"message,omitempty"`
+	}
+
+	// TestResultResponse for completed test results
+	TestResultResponse struct {
+		Status   string      `json:"status"`
+		TestType string      `json:"testType,omitempty"`
+		Module   string      `json:"module,omitempty"`
+		Success  bool        `json:"success,omitempty"`
+		Error    string      `json:"error,omitempty"`
+		Message  string      `json:"message,omitempty"`
+		Data     interface{} `json:"data,omitempty"`
 	}
 )
 
@@ -115,6 +131,7 @@ type Server struct {
 	statsMu         sync.RWMutex
 	testStatus      string
 	currentTest     string
+	testResult      *TestResultResponse
 	startTime       time.Time
 	selectedIface   string
 	mode            string // "reflector" or "test_master"
@@ -176,6 +193,7 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/api/stats", s.handleStats)
 	s.mux.HandleFunc("/api/test/start", s.handleTestStart)
 	s.mux.HandleFunc("/api/test/stop", s.handleTestStop)
+	s.mux.HandleFunc("/api/test/result", s.handleTestResult)
 	s.mux.HandleFunc("/api/settings", s.handleSettings)
 	s.mux.HandleFunc("/api/health", s.handleHealth)
 
@@ -300,8 +318,9 @@ func (s *Server) handleTestStart(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Test already running", http.StatusConflict)
 		return
 	}
-	s.testStatus = "running"
+	s.testStatus = "starting"
 	s.currentTest = req.TestType
+	s.testResult = nil
 	s.statsMu.Unlock()
 
 	logging.Info("Starting test via module system",
@@ -310,15 +329,174 @@ func (s *Server) handleTestStart(w http.ResponseWriter, r *http.Request) {
 		"interface", iface,
 	)
 
-	// TODO: Actually execute the test via module executor
-	// This requires dataplane integration which depends on CGO/hardware
-	// For now, the test is "started" but execution is simulated
+	// Try to create executor and start test
+	err := s.executeTest(mod.Name(), req.TestType, iface, req.FrameSize, req.Duration)
+	if err != nil {
+		s.statsMu.Lock()
+		s.testStatus = "error"
+		s.testResult = &TestResultResponse{
+			Status:   "error",
+			TestType: req.TestType,
+			Module:   mod.Name(),
+			Success:  false,
+			Error:    err.Error(),
+		}
+		s.statsMu.Unlock()
+
+		// Check if this is a platform limitation
+		if errors.Is(err, dataplane.ErrNotSupported) {
+			logging.Warn("Test execution not supported on this platform",
+				"testType", req.TestType,
+				"error", err,
+			)
+			w.WriteHeader(http.StatusServiceUnavailable)
+			writeJSON(w, TestStartResponse{
+				Status:   "unavailable",
+				TestType: req.TestType,
+				Module:   mod.Name(),
+				Message:  "Test execution requires Linux with CGO support. This platform cannot execute tests.",
+			})
+			return
+		}
+
+		logging.Error("Failed to start test",
+			"testType", req.TestType,
+			"error", err,
+		)
+		http.Error(w, fmt.Sprintf("Failed to start test: %v", err), http.StatusInternalServerError)
+		return
+	}
 
 	writeJSON(w, TestStartResponse{
 		Status:   "started",
 		TestType: req.TestType,
 		Module:   mod.Name(),
+		Message:  "Test execution started",
 	})
+}
+
+// executeTest runs the test via the appropriate module executor
+func (s *Server) executeTest(moduleName, testType, iface string, frameSize uint32, duration int) error {
+	switch moduleName {
+	case "benchmark":
+		return s.executeBenchmarkTest(testType, iface, frameSize, duration)
+	case "servicetest":
+		return s.executeServiceTest(testType, iface, frameSize, duration)
+	default:
+		return fmt.Errorf("executor not implemented for module: %s", moduleName)
+	}
+}
+
+// executeBenchmarkTest runs RFC 2544 tests via the benchmark executor
+func (s *Server) executeBenchmarkTest(testType, iface string, frameSize uint32, duration int) error {
+	exec, err := benchmark.NewExecutor(iface)
+	if err != nil {
+		return fmt.Errorf("create benchmark executor: %w", err)
+	}
+
+	// Run test in goroutine
+	go func() {
+		defer exec.Close()
+
+		s.statsMu.Lock()
+		s.testStatus = "running"
+		s.statsMu.Unlock()
+
+		cfg := &benchmark.TestConfig{
+			Interface: iface,
+			FrameSize: frameSize,
+			Duration:  duration,
+		}
+
+		result, err := exec.Execute(testType, cfg)
+
+		s.statsMu.Lock()
+		defer s.statsMu.Unlock()
+
+		if err != nil {
+			s.testStatus = "error"
+			s.testResult = &TestResultResponse{
+				Status:   "error",
+				TestType: testType,
+				Module:   "benchmark",
+				Success:  false,
+				Error:    err.Error(),
+			}
+			logging.Error("Benchmark test failed", "testType", testType, "error", err)
+			return
+		}
+
+		s.testStatus = "completed"
+		s.testResult = &TestResultResponse{
+			Status:   "completed",
+			TestType: testType,
+			Module:   "benchmark",
+			Success:  result.Success,
+			Data:     result.Data,
+		}
+		if !result.Success {
+			s.testResult.Error = result.Error
+		}
+		logging.Info("Benchmark test completed", "testType", testType, "success", result.Success)
+	}()
+
+	return nil
+}
+
+// executeServiceTest runs Y.1564/MEF tests via the servicetest executor
+func (s *Server) executeServiceTest(testType, iface string, frameSize uint32, duration int) error {
+	exec, err := servicetest.NewExecutor(iface)
+	if err != nil {
+		return fmt.Errorf("create servicetest executor: %w", err)
+	}
+
+	// Run test in goroutine
+	go func() {
+		defer exec.Close()
+
+		s.statsMu.Lock()
+		s.testStatus = "running"
+		s.statsMu.Unlock()
+
+		cfg := &servicetest.TestConfig{
+			Interface: iface,
+			FrameSize: frameSize,
+			Duration:  duration,
+		}
+
+		result, err := exec.Execute(testType, cfg)
+
+		s.statsMu.Lock()
+		defer s.statsMu.Unlock()
+
+		if err != nil {
+			s.testStatus = "error"
+			s.testResult = &TestResultResponse{
+				Status:   "error",
+				TestType: testType,
+				Module:   "servicetest",
+				Success:  false,
+				Error:    err.Error(),
+			}
+			logging.Error("ServiceTest failed", "testType", testType, "error", err)
+			return
+		}
+
+		s.testStatus = "completed"
+		s.testResult = &TestResultResponse{
+			Status:   "completed",
+			TestType: testType,
+			Module:   "servicetest",
+			Success:  result.Success,
+			Data:     result.Data,
+		}
+		if !result.Success {
+			s.testResult.Error = result.Error
+		}
+		logging.Info("ServiceTest completed", "testType", testType, "success", result.Success)
+	}()
+
+	return nil
 }
 
 // handleTestStop stops the current test
@@ -329,16 +507,44 @@ func (s *Server) handleTestStop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.statsMu.Lock()
-	if s.testStatus != "running" {
+	if s.testStatus != "running" && s.testStatus != "starting" {
 		s.statsMu.Unlock()
 		http.Error(w, "No test running", http.StatusBadRequest)
 		return
 	}
-	s.testStatus = "completed"
+	s.testStatus = "cancelled"
+	testType := s.currentTest
 	s.currentTest = ""
 	s.statsMu.Unlock()
 
+	logging.Info("Test cancelled", "testType", testType)
 	writeJSON(w, StatusResponse{Status: "stopped"})
+}
+
+// handleTestResult returns the result of the last completed test
+func (s *Server) handleTestResult(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	s.statsMu.RLock()
+	result := s.testResult
+	status := s.testStatus
+	currentTest := s.currentTest
+	s.statsMu.RUnlock()
+
+	if result != nil {
+		writeJSON(w, result)
+		return
+	}
+
+	// No result available, return current status
+	writeJSON(w, TestResultResponse{
+		Status:   status,
+		TestType: currentTest,
+		Message:  "No test result available",
+	})
 }
 
 // SettingsUpdate for settings POST requests

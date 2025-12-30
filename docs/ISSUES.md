@@ -4,6 +4,15 @@ Issues are now tracked via GitHub Issues: https://github.com/krisarmstrong/stem/
 
 ## Open Issues
 
+### P0 (Critical)
+- [#9 /api/test/start reports running tests without execution](https://github.com/krisarmstrong/stem/issues/9)
+
+### P1 (High)
+- [#10 Interface capability detection relies on driver heuristics](https://github.com/krisarmstrong/stem/issues/10)
+- [#11 UpdateConfig silently ignores invalid OUI values](https://github.com/krisarmstrong/stem/issues/11)
+- [#12 Interface selection depends on sysfs without operator guidance](https://github.com/krisarmstrong/stem/issues/12)
+
+### P2 (Medium)
 - [#2 Replace interface{} with concrete types](https://github.com/krisarmstrong/stem/issues/2)
 - [#3 Extract hardcoded values to constants](https://github.com/krisarmstrong/stem/issues/3)
 - [#4 Add interface validation to handleSettings](https://github.com/krisarmstrong/stem/issues/4)
@@ -11,6 +20,8 @@ Issues are now tracked via GitHub Issues: https://github.com/krisarmstrong/stem/
 - [#6 Document web server architecture](https://github.com/krisarmstrong/stem/issues/6)
 - [#7 Fix errcheck warnings in test files](https://github.com/krisarmstrong/stem/issues/7)
 - [#8 Fix all golangci-lint warnings (332 issues)](https://github.com/krisarmstrong/stem/issues/8)
+- [#13 Consolidate 3 web servers into single production server](https://github.com/krisarmstrong/stem/issues/13)
+- [#14 Limited test coverage for interface selection edge cases](https://github.com/krisarmstrong/stem/issues/14)
 
 ---
 
