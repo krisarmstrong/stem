@@ -245,3 +245,179 @@ func TestGetModuleForReflect(t *testing.T) {
 		t.Error("custom_stream should map to trafficgen module")
 	}
 }
+
+func TestRegistryEdgeCases(t *testing.T) {
+	reg := NewRegistry()
+
+	// Registering nil should not panic (defensive)
+	// Attempting to get from empty registry
+	if got := reg.Get("anything"); got != nil {
+		t.Error("Get on empty registry should return nil")
+	}
+	if got := reg.ModuleForTest("anything"); got != nil {
+		t.Error("ModuleForTest on empty registry should return nil")
+	}
+
+	// Register same module twice should overwrite
+	bm1 := benchmark.New()
+	bm2 := benchmark.New()
+	reg.Register(bm1)
+	reg.Register(bm2)
+	if reg.ModuleCount() != 1 {
+		t.Errorf("Duplicate registration should overwrite, got count %d", reg.ModuleCount())
+	}
+}
+
+func TestAllModulesOrdering(t *testing.T) {
+	modules := DefaultRegistry.AllModules()
+	if len(modules) != 6 {
+		t.Fatalf("Expected 6 modules, got %d", len(modules))
+	}
+
+	// Verify we have all expected modules
+	found := make(map[string]bool)
+	for _, m := range modules {
+		found[m.Name()] = true
+	}
+
+	expected := []string{"reflector", "benchmark", "servicetest", "trafficgen", "measure", "certify"}
+	for _, name := range expected {
+		if !found[name] {
+			t.Errorf("Missing module: %s", name)
+		}
+	}
+}
+
+func TestModuleColors(t *testing.T) {
+	// Verify each module has a unique, valid hex color
+	modules := DefaultRegistry.AllModules()
+	colors := make(map[string]string)
+
+	for _, m := range modules {
+		color := m.Color()
+		if len(color) != 7 || color[0] != '#' {
+			t.Errorf("Module %s has invalid color format: %s", m.Name(), color)
+		}
+		if existing, ok := colors[color]; ok {
+			t.Errorf("Duplicate color %s used by %s and %s", color, existing, m.Name())
+		}
+		colors[color] = m.Name()
+	}
+
+	// Verify expected colors
+	expectedColors := map[string]string{
+		"reflector":   "#0891b2",
+		"benchmark":   "#dc2626",
+		"servicetest": "#ea580c",
+		"trafficgen":  "#ca8a04",
+		"measure":     "#2563eb",
+		"certify":     "#16a34a",
+	}
+
+	for name, expectedColor := range expectedColors {
+		m := DefaultRegistry.Get(name)
+		if m == nil {
+			t.Errorf("Module %s not found", name)
+			continue
+		}
+		if m.Color() != expectedColor {
+			t.Errorf("Module %s has color %s, expected %s", name, m.Color(), expectedColor)
+		}
+	}
+}
+
+func TestModuleCanRunNegativeCases(t *testing.T) {
+	testCases := []struct {
+		moduleName string
+		testType   string
+	}{
+		{"benchmark", "y1564_config"},
+		{"benchmark", "reflect"},
+		{"servicetest", "throughput"},
+		{"servicetest", "rfc2889_forwarding"},
+		{"trafficgen", "throughput"},
+		{"trafficgen", "reflect"}, // reflect moved to reflector module
+		{"measure", "throughput"},
+		{"certify", "throughput"},
+		{"reflector", "throughput"},
+		{"reflector", "custom_stream"},
+	}
+
+	for _, tc := range testCases {
+		m := DefaultRegistry.Get(tc.moduleName)
+		if m == nil {
+			t.Errorf("Module %s not found", tc.moduleName)
+			continue
+		}
+		if m.CanRun(tc.testType) {
+			t.Errorf("Module %s.CanRun(%s) should return false", tc.moduleName, tc.testType)
+		}
+	}
+}
+
+func TestAllTestTypesHaveModules(t *testing.T) {
+	// All known test types should map to a module
+	testTypes := []string{
+		// Reflector
+		"reflect",
+		// Benchmark
+		"throughput", "latency", "frame_loss", "back_to_back", "system_recovery", "reset",
+		// ServiceTest
+		"y1564_config", "y1564_perf", "y1564", "mef_config", "mef_perf", "mef",
+		// TrafficGen
+		"custom_stream",
+		// Measure
+		"y1731_delay", "y1731_loss", "y1731_slm", "y1731_loopback",
+		// Certify
+		"rfc2889_forwarding", "rfc2889_caching", "rfc2889_learning",
+		"rfc2889_broadcast", "rfc2889_congestion",
+		"rfc6349_throughput", "rfc6349_path",
+		"tsn_timing", "tsn_isolation", "tsn_latency", "tsn",
+	}
+
+	for _, tt := range testTypes {
+		m := GetModuleForTest(tt)
+		if m == nil {
+			t.Errorf("Test type %q has no module mapping", tt)
+		}
+	}
+}
+
+func TestToInfoComplete(t *testing.T) {
+	// Test ToInfo for all modules
+	modules := DefaultRegistry.AllModules()
+	for _, m := range modules {
+		info := ToInfo(m)
+
+		if info.Name != m.Name() {
+			t.Errorf("ToInfo(%s).Name mismatch", m.Name())
+		}
+		if info.DisplayName != m.DisplayName() {
+			t.Errorf("ToInfo(%s).DisplayName mismatch", m.Name())
+		}
+		if info.Description != m.Description() {
+			t.Errorf("ToInfo(%s).Description mismatch", m.Name())
+		}
+		if info.Color != m.Color() {
+			t.Errorf("ToInfo(%s).Color mismatch", m.Name())
+		}
+		if info.Standard != m.Standard() {
+			t.Errorf("ToInfo(%s).Standard mismatch", m.Name())
+		}
+		if len(info.Tests) != len(m.TestTypes()) {
+			t.Errorf("ToInfo(%s).Tests length mismatch: got %d, want %d",
+				m.Name(), len(info.Tests), len(m.TestTypes()))
+		}
+	}
+}
+
+func TestTotalTestCount(t *testing.T) {
+	// Count all tests across all modules
+	total := DefaultRegistry.TestCount()
+
+	// Expected: 1 (reflector) + 6 (benchmark) + 6 (servicetest) + 1 (trafficgen) + 4 (measure) + 11 (certify) = 29
+	expected := 29
+	if total != expected {
+		t.Errorf("Total test count = %d, want %d", total, expected)
+	}
+}

@@ -65,5 +65,5 @@ These are acceptable in test code and do not affect production.
 
 ---
 
-*Last Updated: 2025-12-29*
-*Latest Release: v0.1.3*
+*Last Updated: 2025-12-30*
+*Latest Release: v0.1.4*
