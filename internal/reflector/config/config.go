@@ -14,6 +14,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Filter and mode constants
+const (
+	filterAll = "all"
+	modeMAC   = "mac"
+	modeMACIP = "mac-ip"
+)
+
 // Config holds all reflector configuration
 type Config struct {
 	Interface       string         `yaml:"interface"`
@@ -88,7 +95,7 @@ func (c *Config) applyDefaults() {
 		c.WebUI.Port = 8080
 	}
 	if c.SignatureFilter == "" {
-		c.SignatureFilter = "all"
+		c.SignatureFilter = filterAll
 	}
 	if c.Filtering.Port == 0 {
 		c.Filtering.Port = 3842
@@ -97,7 +104,7 @@ func (c *Config) applyDefaults() {
 		c.Filtering.OUI = "00:c0:17"
 	}
 	if c.Reflection.Mode == "" {
-		c.Reflection.Mode = "all"
+		c.Reflection.Mode = filterAll
 	}
 	if c.Stats.Format == "" {
 		c.Stats.Format = "text"
@@ -125,7 +132,7 @@ func (c *Config) Validate() error {
 
 	// Validate reflection mode
 	switch c.Reflection.Mode {
-	case "mac", "mac-ip", "all":
+	case modeMAC, modeMACIP, filterAll:
 		// Valid
 	default:
 		return fmt.Errorf("invalid reflection mode: %s (expected mac, mac-ip, or all)", c.Reflection.Mode)

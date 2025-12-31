@@ -8,21 +8,30 @@ import (
 	"testing"
 )
 
+// Test constants for repeated strings.
+const (
+	testIfaceEth0       = "eth0"
+	testFilterAll       = "all"
+	testDefaultOUI      = "00:c0:17"
+	testStatsFormatText = "text"
+	testReflectModeMAC  = "mac"
+)
+
 func TestConfigStruct(t *testing.T) {
 	cfg := Config{
-		Interface:       "eth0",
+		Interface:       testIfaceEth0,
 		Verbose:         true,
-		SignatureFilter: "all",
+		SignatureFilter: testFilterAll,
 	}
 
-	if cfg.Interface != "eth0" {
-		t.Errorf("Expected Interface 'eth0', got '%s'", cfg.Interface)
+	if cfg.Interface != testIfaceEth0 {
+		t.Errorf("Expected Interface '%s', got '%s'", testIfaceEth0, cfg.Interface)
 	}
 	if !cfg.Verbose {
 		t.Error("Expected Verbose true")
 	}
-	if cfg.SignatureFilter != "all" {
-		t.Errorf("Expected SignatureFilter 'all', got '%s'", cfg.SignatureFilter)
+	if cfg.SignatureFilter != testFilterAll {
+		t.Errorf("Expected SignatureFilter '%s', got '%s'", testFilterAll, cfg.SignatureFilter)
 	}
 }
 
@@ -44,7 +53,7 @@ func TestFilterConfig(t *testing.T) {
 	cfg := FilterConfig{
 		Port:      3842,
 		FilterOUI: true,
-		OUI:       "00:c0:17",
+		OUI:       testDefaultOUI,
 		FilterMAC: false,
 	}
 
@@ -54,8 +63,8 @@ func TestFilterConfig(t *testing.T) {
 	if !cfg.FilterOUI {
 		t.Error("Expected FilterOUI true")
 	}
-	if cfg.OUI != "00:c0:17" {
-		t.Errorf("Expected OUI '00:c0:17', got '%s'", cfg.OUI)
+	if cfg.OUI != testDefaultOUI {
+		t.Errorf("Expected OUI '%s', got '%s'", testDefaultOUI, cfg.OUI)
 	}
 }
 
@@ -98,26 +107,26 @@ func TestStatsConfig(t *testing.T) {
 }
 
 func TestApplyDefaults(t *testing.T) {
-	cfg := &Config{Interface: "eth0"}
+	cfg := &Config{Interface: testIfaceEth0}
 	cfg.applyDefaults()
 
 	if cfg.WebUI.Port != 8080 {
 		t.Errorf("Expected default WebUI.Port 8080, got %d", cfg.WebUI.Port)
 	}
-	if cfg.SignatureFilter != "all" {
-		t.Errorf("Expected default SignatureFilter 'all', got '%s'", cfg.SignatureFilter)
+	if cfg.SignatureFilter != testFilterAll {
+		t.Errorf("Expected default SignatureFilter '%s', got '%s'", testFilterAll, cfg.SignatureFilter)
 	}
 	if cfg.Filtering.Port != 3842 {
 		t.Errorf("Expected default Filtering.Port 3842, got %d", cfg.Filtering.Port)
 	}
-	if cfg.Filtering.OUI != "00:c0:17" {
-		t.Errorf("Expected default Filtering.OUI '00:c0:17', got '%s'", cfg.Filtering.OUI)
+	if cfg.Filtering.OUI != testDefaultOUI {
+		t.Errorf("Expected default Filtering.OUI '%s', got '%s'", testDefaultOUI, cfg.Filtering.OUI)
 	}
-	if cfg.Reflection.Mode != "all" {
-		t.Errorf("Expected default Reflection.Mode 'all', got '%s'", cfg.Reflection.Mode)
+	if cfg.Reflection.Mode != testFilterAll {
+		t.Errorf("Expected default Reflection.Mode '%s', got '%s'", testFilterAll, cfg.Reflection.Mode)
 	}
-	if cfg.Stats.Format != "text" {
-		t.Errorf("Expected default Stats.Format 'text', got '%s'", cfg.Stats.Format)
+	if cfg.Stats.Format != testStatsFormatText {
+		t.Errorf("Expected default Stats.Format '%s', got '%s'", testStatsFormatText, cfg.Stats.Format)
 	}
 	if cfg.Stats.Interval != 10 {
 		t.Errorf("Expected default Stats.Interval 10, got %d", cfg.Stats.Interval)
@@ -126,11 +135,11 @@ func TestApplyDefaults(t *testing.T) {
 
 func TestApplyDefaultsDoesNotOverride(t *testing.T) {
 	cfg := &Config{
-		Interface:       "eth0",
+		Interface:       testIfaceEth0,
 		SignatureFilter: "custom",
 		WebUI:           WebUIConfig{Port: 9090},
 		Filtering:       FilterConfig{Port: 5000, OUI: "11:22:33"},
-		Reflection:      ReflectConfig{Mode: "mac"},
+		Reflection:      ReflectConfig{Mode: testReflectModeMAC},
 		Stats:           StatsConfig{Format: "json", Interval: 30},
 	}
 	cfg.applyDefaults()
@@ -144,8 +153,8 @@ func TestApplyDefaultsDoesNotOverride(t *testing.T) {
 	if cfg.Filtering.Port != 5000 {
 		t.Errorf("Filtering.Port should not be overwritten, expected 5000, got %d", cfg.Filtering.Port)
 	}
-	if cfg.Reflection.Mode != "mac" {
-		t.Errorf("Reflection.Mode should not be overwritten, expected 'mac', got '%s'", cfg.Reflection.Mode)
+	if cfg.Reflection.Mode != testReflectModeMAC {
+		t.Errorf("Reflection.Mode should not be overwritten, expected '%s', got '%s'", testReflectModeMAC, cfg.Reflection.Mode)
 	}
 	if cfg.Stats.Format != "json" {
 		t.Errorf("Stats.Format should not be overwritten, expected 'json', got '%s'", cfg.Stats.Format)
@@ -337,7 +346,7 @@ stats:
 
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "config.yaml")
-	if err := os.WriteFile(tmpFile, []byte(yamlContent), 0644); err != nil {
+	if err := os.WriteFile(tmpFile, []byte(yamlContent), 0o600); err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
 
@@ -367,7 +376,7 @@ func TestLoadFileNotFound(t *testing.T) {
 func TestLoadFileInvalidYAML(t *testing.T) {
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "invalid.yaml")
-	if err := os.WriteFile(tmpFile, []byte("invalid: yaml: content: [}"), 0644); err != nil {
+	if err := os.WriteFile(tmpFile, []byte("invalid: yaml: content: [}"), 0o600); err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
 

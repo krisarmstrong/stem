@@ -50,54 +50,58 @@ func NewRotorCipher(startPosition int) *RotorCipher {
 
 // Encode encodes a single character through the rotor
 func (rc *RotorCipher) Encode(c byte) byte {
-	if c >= '0' && c <= '9' {
+	switch {
+	case c >= '0' && c <= '9':
 		// Digit encoding
 		idx := int(c - '0')
 		idx = (idx + rc.position) % 10
 		encoded := msnRotor10[idx]
 		rc.position = (rc.position + 1) % 36
 		return byte('0' + encoded)
-	} else if c >= 'A' && c <= 'Z' {
+	case c >= 'A' && c <= 'Z':
 		// Letter encoding
 		idx := int(c - 'A')
 		idx = (idx + rc.position) % 26
 		encoded := msnRotor26[idx]
 		rc.position = (rc.position + 1) % 36
 		return byte('A' + encoded)
-	} else if c >= 'a' && c <= 'z' {
+	case c >= 'a' && c <= 'z':
 		// Lowercase - convert to upper, encode, keep case
 		idx := int(c - 'a')
 		idx = (idx + rc.position) % 26
 		encoded := msnRotor26[idx]
 		rc.position = (rc.position + 1) % 36
 		return byte('a' + encoded)
+	default:
+		// Non-alphanumeric passes through unchanged
+		return c
 	}
-	// Non-alphanumeric passes through unchanged
-	return c
 }
 
 // Decode decodes a single character through the inverse rotor
 func (rc *RotorCipher) Decode(c byte) byte {
-	if c >= '0' && c <= '9' {
+	switch {
+	case c >= '0' && c <= '9':
 		// Digit decoding
 		idx := msnRotor10Inv[int(c-'0')]
 		idx = (idx - rc.position%10 + 10) % 10
 		rc.position = (rc.position + 1) % 36
 		return byte('0' + idx)
-	} else if c >= 'A' && c <= 'Z' {
+	case c >= 'A' && c <= 'Z':
 		// Letter decoding
 		idx := msnRotor26Inv[int(c-'A')]
 		idx = (idx - rc.position%26 + 26) % 26
 		rc.position = (rc.position + 1) % 36
 		return byte('A' + idx)
-	} else if c >= 'a' && c <= 'z' {
+	case c >= 'a' && c <= 'z':
 		// Lowercase decoding
 		idx := msnRotor26Inv[int(c-'a')]
 		idx = (idx - rc.position%26 + 26) % 26
 		rc.position = (rc.position + 1) % 36
 		return byte('a' + idx)
+	default:
+		return c
 	}
-	return c
 }
 
 // EncodeString encodes an entire string

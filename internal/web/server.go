@@ -66,6 +66,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math"
 	"net/http"
 	"strings"
 	"sync"
@@ -76,8 +77,11 @@ import (
 	"github.com/krisarmstrong/stem/internal/logging"
 	"github.com/krisarmstrong/stem/internal/modules"
 	"github.com/krisarmstrong/stem/internal/modules/benchmark"
+	"github.com/krisarmstrong/stem/internal/modules/certify"
+	"github.com/krisarmstrong/stem/internal/modules/measure"
 	"github.com/krisarmstrong/stem/internal/modules/reflector"
 	"github.com/krisarmstrong/stem/internal/modules/servicetest"
+	"github.com/krisarmstrong/stem/internal/modules/trafficgen"
 	reflectorDP "github.com/krisarmstrong/stem/internal/reflector/dataplane"
 	"github.com/krisarmstrong/stem/internal/testmaster/dataplane"
 	"github.com/krisarmstrong/stem/internal/version"
@@ -88,6 +92,38 @@ const (
 	DefaultPortFilter = 3842
 	DefaultOUIFilter  = "00:c0:17" // NetAlly OUI
 	DefaultProfile    = "all"
+)
+
+// Status constants for test execution state
+const (
+	statusIdle      = "idle"
+	statusStarting  = "starting"
+	statusRunning   = "running"
+	statusCompleted = "completed"
+	statusError     = "error"
+	statusStopped   = "stopped"
+	statusCancelled = "cancelled"
+)
+
+// Module name constants
+const (
+	moduleReflector   = "reflector"
+	moduleBenchmark   = "benchmark"
+	moduleServicetest = "servicetest"
+	moduleTrafficgen  = "trafficgen"
+	moduleMeasure     = "measure"
+	moduleCertify     = "certify"
+)
+
+// Operating mode constants
+const (
+	modeReflector  = "reflector"
+	modeTestMaster = "test_master"
+)
+
+// Test type constants
+const (
+	testTypeReflect = "reflect"
 )
 
 // HTTP server timeout constants
@@ -224,6 +260,15 @@ type Stats struct {
 	CurrentTest     *string `json:"currentTest"`
 }
 
+// safeIntToUint16 safely converts an int to uint16.
+// Returns the converted value and true if in range, or 0 and false if out of range.
+func safeIntToUint16(v int) (uint16, bool) {
+	if v < 0 || v > math.MaxUint16 {
+		return 0, false
+	}
+	return uint16(v), true
+}
+
 // NewServer creates a new web server
 func NewServer(port int) *Server {
 	// Initialize license manager
@@ -245,9 +290,9 @@ func NewServer(port int) *Server {
 		port:          port,
 		mux:           http.NewServeMux(),
 		stats:         &Stats{},
-		testStatus:    "idle",
+		testStatus:    statusIdle,
 		startTime:     time.Now(),
-		mode:          "test_master",
+		mode:          modeTestMaster,
 		selectedIface: defaultIface,
 		reflectorConfig: ReflectorConfig{
 			Profile:    DefaultProfile,
@@ -387,12 +432,12 @@ func (s *Server) handleTestStart(w http.ResponseWriter, r *http.Request) {
 
 	// Check if test is already running
 	s.statsMu.Lock()
-	if s.testStatus == "running" {
+	if s.testStatus == statusRunning {
 		s.statsMu.Unlock()
 		http.Error(w, "Test already running", http.StatusConflict)
 		return
 	}
-	s.testStatus = "starting"
+	s.testStatus = statusStarting
 	s.currentTest = req.TestType
 	s.testResult = nil
 	s.statsMu.Unlock()
@@ -407,9 +452,9 @@ func (s *Server) handleTestStart(w http.ResponseWriter, r *http.Request) {
 	err := s.executeTest(mod.Name(), req.TestType, iface, req.FrameSize, req.Duration)
 	if err != nil {
 		s.statsMu.Lock()
-		s.testStatus = "error"
+		s.testStatus = statusError
 		s.testResult = &TestResultResponse{
-			Status:   "error",
+			Status:   statusError,
 			TestType: req.TestType,
 			Module:   mod.Name(),
 			Success:  false,
@@ -452,11 +497,17 @@ func (s *Server) handleTestStart(w http.ResponseWriter, r *http.Request) {
 // executeTest runs the test via the appropriate module executor
 func (s *Server) executeTest(moduleName, testType, iface string, frameSize uint32, duration int) error {
 	switch moduleName {
-	case "benchmark":
+	case moduleBenchmark:
 		return s.executeBenchmarkTest(testType, iface, frameSize, duration)
-	case "servicetest":
+	case moduleServicetest:
 		return s.executeServiceTest(testType, iface, frameSize, duration)
-	case "reflector":
+	case moduleTrafficgen:
+		return s.executeTrafficGenTest(testType, iface, frameSize, duration)
+	case moduleMeasure:
+		return s.executeMeasureTest(testType, iface, frameSize, duration)
+	case moduleCertify:
+		return s.executeCertifyTest(testType, iface, frameSize, duration)
+	case moduleReflector:
 		return s.executeReflector(iface)
 	default:
 		return fmt.Errorf("executor not implemented for module: %s", moduleName)
@@ -487,21 +538,21 @@ func (s *Server) executeReflector(iface string) error {
 	go func() {
 		s.statsMu.Lock()
 		exec := s.reflectorExec
-		s.testStatus = "running"
-		s.currentTest = "reflect"
+		s.testStatus = statusRunning
+		s.currentTest = testTypeReflect
 		s.statsMu.Unlock()
 
-		result, err := exec.Execute("reflect", nil)
+		result, err := exec.Execute(testTypeReflect, nil)
 
 		s.statsMu.Lock()
 		defer s.statsMu.Unlock()
 
 		if err != nil {
-			s.testStatus = "error"
+			s.testStatus = statusError
 			s.testResult = &TestResultResponse{
-				Status:   "error",
-				TestType: "reflect",
-				Module:   "reflector",
+				Status:   statusError,
+				TestType: testTypeReflect,
+				Module:   moduleReflector,
 				Success:  false,
 				Error:    err.Error(),
 			}
@@ -510,9 +561,9 @@ func (s *Server) executeReflector(iface string) error {
 		}
 
 		s.testResult = &TestResultResponse{
-			Status:   "running",
-			TestType: "reflect",
-			Module:   "reflector",
+			Status:   statusRunning,
+			TestType: testTypeReflect,
+			Module:   moduleReflector,
 			Success:  result.Success,
 			Data:     result.Data,
 		}
@@ -534,7 +585,7 @@ func (s *Server) executeBenchmarkTest(testType, iface string, frameSize uint32, 
 		defer exec.Close()
 
 		s.statsMu.Lock()
-		s.testStatus = "running"
+		s.testStatus = statusRunning
 		s.statsMu.Unlock()
 
 		cfg := &benchmark.TestConfig{
@@ -549,11 +600,11 @@ func (s *Server) executeBenchmarkTest(testType, iface string, frameSize uint32, 
 		defer s.statsMu.Unlock()
 
 		if err != nil {
-			s.testStatus = "error"
+			s.testStatus = statusError
 			s.testResult = &TestResultResponse{
-				Status:   "error",
+				Status:   statusError,
 				TestType: testType,
-				Module:   "benchmark",
+				Module:   moduleBenchmark,
 				Success:  false,
 				Error:    err.Error(),
 			}
@@ -561,11 +612,11 @@ func (s *Server) executeBenchmarkTest(testType, iface string, frameSize uint32, 
 			return
 		}
 
-		s.testStatus = "completed"
+		s.testStatus = statusCompleted
 		s.testResult = &TestResultResponse{
-			Status:   "completed",
+			Status:   statusCompleted,
 			TestType: testType,
-			Module:   "benchmark",
+			Module:   moduleBenchmark,
 			Success:  result.Success,
 			Data:     result.Data,
 		}
@@ -590,7 +641,7 @@ func (s *Server) executeServiceTest(testType, iface string, frameSize uint32, du
 		defer exec.Close()
 
 		s.statsMu.Lock()
-		s.testStatus = "running"
+		s.testStatus = statusRunning
 		s.statsMu.Unlock()
 
 		cfg := &servicetest.TestConfig{
@@ -605,11 +656,11 @@ func (s *Server) executeServiceTest(testType, iface string, frameSize uint32, du
 		defer s.statsMu.Unlock()
 
 		if err != nil {
-			s.testStatus = "error"
+			s.testStatus = statusError
 			s.testResult = &TestResultResponse{
-				Status:   "error",
+				Status:   statusError,
 				TestType: testType,
-				Module:   "servicetest",
+				Module:   moduleServicetest,
 				Success:  false,
 				Error:    err.Error(),
 			}
@@ -617,11 +668,11 @@ func (s *Server) executeServiceTest(testType, iface string, frameSize uint32, du
 			return
 		}
 
-		s.testStatus = "completed"
+		s.testStatus = statusCompleted
 		s.testResult = &TestResultResponse{
-			Status:   "completed",
+			Status:   statusCompleted,
 			TestType: testType,
-			Module:   "servicetest",
+			Module:   moduleServicetest,
 			Success:  result.Success,
 			Data:     result.Data,
 		}
@@ -629,6 +680,174 @@ func (s *Server) executeServiceTest(testType, iface string, frameSize uint32, du
 			s.testResult.Error = result.Error
 		}
 		logging.Info("ServiceTest completed", "testType", testType, "success", result.Success)
+	}()
+
+	return nil
+}
+
+// executeTrafficGenTest runs custom traffic generation via the trafficgen executor
+func (s *Server) executeTrafficGenTest(testType, iface string, frameSize uint32, duration int) error {
+	exec, err := trafficgen.NewExecutor(iface)
+	if err != nil {
+		return fmt.Errorf("create trafficgen executor: %w", err)
+	}
+
+	// Run test in goroutine
+	go func() {
+		defer exec.Close()
+
+		s.statsMu.Lock()
+		s.testStatus = statusRunning
+		s.statsMu.Unlock()
+
+		cfg := &trafficgen.TestConfig{
+			Interface: iface,
+			FrameSize: frameSize,
+			Duration:  duration,
+		}
+
+		result, err := exec.Execute(testType, cfg)
+
+		s.statsMu.Lock()
+		defer s.statsMu.Unlock()
+
+		if err != nil {
+			s.testStatus = statusError
+			s.testResult = &TestResultResponse{
+				Status:   statusError,
+				TestType: testType,
+				Module:   moduleTrafficgen,
+				Success:  false,
+				Error:    err.Error(),
+			}
+			logging.Error("TrafficGen test failed", "testType", testType, "error", err)
+			return
+		}
+
+		s.testStatus = statusCompleted
+		s.testResult = &TestResultResponse{
+			Status:   statusCompleted,
+			TestType: testType,
+			Module:   moduleTrafficgen,
+			Success:  result.Success,
+			Data:     result.Data,
+		}
+		if !result.Success {
+			s.testResult.Error = result.Error
+		}
+		logging.Info("TrafficGen test completed", "testType", testType, "success", result.Success)
+	}()
+
+	return nil
+}
+
+// executeMeasureTest runs Y.1731 OAM tests via the measure executor
+func (s *Server) executeMeasureTest(testType, iface string, frameSize uint32, duration int) error {
+	exec, err := measure.NewExecutor(iface)
+	if err != nil {
+		return fmt.Errorf("create measure executor: %w", err)
+	}
+
+	// Run test in goroutine
+	go func() {
+		defer exec.Close()
+
+		s.statsMu.Lock()
+		s.testStatus = statusRunning
+		s.statsMu.Unlock()
+
+		cfg := &measure.TestConfig{
+			Interface: iface,
+			FrameSize: frameSize,
+			Duration:  duration,
+		}
+
+		result, err := exec.Execute(testType, cfg)
+
+		s.statsMu.Lock()
+		defer s.statsMu.Unlock()
+
+		if err != nil {
+			s.testStatus = statusError
+			s.testResult = &TestResultResponse{
+				Status:   statusError,
+				TestType: testType,
+				Module:   moduleMeasure,
+				Success:  false,
+				Error:    err.Error(),
+			}
+			logging.Error("Measure test failed", "testType", testType, "error", err)
+			return
+		}
+
+		s.testStatus = statusCompleted
+		s.testResult = &TestResultResponse{
+			Status:   statusCompleted,
+			TestType: testType,
+			Module:   moduleMeasure,
+			Success:  result.Success,
+			Data:     result.Data,
+		}
+		if !result.Success {
+			s.testResult.Error = result.Error
+		}
+		logging.Info("Measure test completed", "testType", testType, "success", result.Success)
+	}()
+
+	return nil
+}
+
+// executeCertifyTest runs RFC 2889/6349/TSN tests via the certify executor
+func (s *Server) executeCertifyTest(testType, iface string, frameSize uint32, duration int) error {
+	exec, err := certify.NewExecutor(iface)
+	if err != nil {
+		return fmt.Errorf("create certify executor: %w", err)
+	}
+
+	// Run test in goroutine
+	go func() {
+		defer exec.Close()
+
+		s.statsMu.Lock()
+		s.testStatus = statusRunning
+		s.statsMu.Unlock()
+
+		cfg := &certify.TestConfig{
+			Interface: iface,
+			FrameSize: frameSize,
+			Duration:  duration,
+		}
+
+		result, err := exec.Execute(testType, cfg)
+
+		s.statsMu.Lock()
+		defer s.statsMu.Unlock()
+
+		if err != nil {
+			s.testStatus = statusError
+			s.testResult = &TestResultResponse{
+				Status:   statusError,
+				TestType: testType,
+				Module:   moduleCertify,
+				Success:  false,
+				Error:    err.Error(),
+			}
+			logging.Error("Certify test failed", "testType", testType, "error", err)
+			return
+		}
+
+		s.testStatus = statusCompleted
+		s.testResult = &TestResultResponse{
+			Status:   statusCompleted,
+			TestType: testType,
+			Module:   moduleCertify,
+			Success:  result.Success,
+			Data:     result.Data,
+		}
+		if !result.Success {
+			s.testResult.Error = result.Error
+		}
+		logging.Info("Certify test completed", "testType", testType, "success", result.Success)
 	}()
 
 	return nil
@@ -648,27 +867,27 @@ func (s *Server) handleTestStop(w http.ResponseWriter, r *http.Request) {
 	// Check if reflector is running
 	if exec != nil && exec.IsRunning() {
 		exec.Stop()
-		s.testStatus = "stopped"
+		s.testStatus = statusStopped
 		s.currentTest = ""
 		s.statsMu.Unlock()
 		logging.Info("Reflector stopped via API")
-		writeJSON(w, StatusResponse{Status: "stopped"})
+		writeJSON(w, StatusResponse{Status: statusStopped})
 		return
 	}
 
 	// Check if a test is running
-	if s.testStatus != "running" && s.testStatus != "starting" {
+	if s.testStatus != statusRunning && s.testStatus != statusStarting {
 		s.statsMu.Unlock()
 		http.Error(w, "No test running", http.StatusBadRequest)
 		return
 	}
 
-	s.testStatus = "cancelled"
+	s.testStatus = statusCancelled
 	s.currentTest = ""
 	s.statsMu.Unlock()
 
 	logging.Info("Test cancelled", "testType", testType)
-	writeJSON(w, StatusResponse{Status: "stopped"})
+	writeJSON(w, StatusResponse{Status: statusStopped})
 }
 
 // handleTestResult returns the result of the last completed test
@@ -800,7 +1019,7 @@ func (s *Server) handleMode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if req.Mode != "reflector" && req.Mode != "test_master" {
+		if req.Mode != modeReflector && req.Mode != modeTestMaster {
 			logging.Warn("mode update failed: invalid mode", "mode", req.Mode)
 			http.Error(w, "Invalid mode (must be 'reflector' or 'test_master')", http.StatusBadRequest)
 			return
@@ -873,11 +1092,16 @@ func (s *Server) handleReflectorConfig(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if cfg.PortFilter > 0 {
+			safePort, ok := safeIntToUint16(cfg.PortFilter)
+			if !ok {
+				logging.Warn("reflector config update failed: port out of range", "port", cfg.PortFilter)
+				http.Error(w, fmt.Sprintf("Port %d out of valid range (0-%d)", cfg.PortFilter, math.MaxUint16), http.StatusBadRequest)
+				return
+			}
 			s.reflectorConfig.PortFilter = cfg.PortFilter
 			changes = append(changes, fmt.Sprintf("portFilter=%d", cfg.PortFilter))
 			if dpUpdate != nil {
-				port := uint16(cfg.PortFilter)
-				dpUpdate.Port = &port
+				dpUpdate.Port = &safePort
 			}
 		}
 		if cfg.SignatureFilter != nil {
@@ -1001,7 +1225,7 @@ func (s *Server) handleReflectorStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	reflectorStats := ReflectorStats{
-		Running:          s.mode == "reflector" && s.testStatus == "running",
+		Running:          s.mode == moduleReflector && s.testStatus == statusRunning,
 		PacketsReceived:  s.stats.PacketsReceived,
 		PacketsReflected: s.stats.PacketsSent,
 		BytesReceived:    s.stats.BytesReceived,
@@ -1050,10 +1274,11 @@ func (s *Server) handleLicense(w http.ResponseWriter, r *http.Request) {
 		DeviceHash: fp.Hash(),
 	}
 
-	if state == nil {
+	switch {
+	case state == nil:
 		status.Activated = false
 		status.Message = "No license. Start a trial or enter a license key."
-	} else if state.IsTrialMode {
+	case state.IsTrialMode:
 		status.Activated = true
 		status.IsTrialMode = true
 		status.Tier = int(license.TierTestSuite)
@@ -1061,7 +1286,7 @@ func (s *Server) handleLicense(w http.ResponseWriter, r *http.Request) {
 		status.DaysRemaining = s.licenseManager.TrialDaysRemaining()
 		status.Features = state.Features
 		status.Message = fmt.Sprintf("Trial mode: %d days remaining", status.DaysRemaining)
-	} else {
+	default:
 		status.Activated = s.licenseManager.IsActivated()
 		status.IsTrialMode = false
 		status.Tier = int(state.Tier)

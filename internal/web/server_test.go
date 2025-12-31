@@ -15,6 +15,20 @@ import (
 	"github.com/krisarmstrong/stem/internal/interfaces"
 )
 
+// Test constants for repeated strings.
+const (
+	testModeTestMaster  = "test_master"
+	testModeReflector   = "reflector"
+	testIfaceEth0       = "eth0"
+	testStatusError     = "error"
+	testStatusRunning   = "running"
+	testStatusStarting  = "starting"
+	testStatusCancelled = "cancelled"
+	testTypeThroughput  = "throughput"
+	testModuleBenchmark = "benchmark"
+	testProfileNetally  = "netally"
+)
+
 func TestNewServer(t *testing.T) {
 	s := NewServer(8080)
 	if s == nil {
@@ -32,8 +46,8 @@ func TestNewServer(t *testing.T) {
 	if s.testStatus != "idle" {
 		t.Errorf("Expected initial testStatus 'idle', got '%s'", s.testStatus)
 	}
-	if s.mode != "test_master" {
-		t.Errorf("Expected initial mode 'test_master', got '%s'", s.mode)
+	if s.mode != testModeTestMaster {
+		t.Errorf("Expected initial mode '%s', got '%s'", testModeTestMaster, s.mode)
 	}
 }
 
@@ -128,7 +142,7 @@ func TestHandleStats(t *testing.T) {
 
 func TestHandleTestStart(t *testing.T) {
 	s := NewServer(8080)
-	s.selectedIface = "eth0" // Pre-set interface
+	s.selectedIface = testIfaceEth0 // Pre-set interface
 
 	body := strings.NewReader(`{"testType": "throughput"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/test/start", body)
@@ -143,32 +157,33 @@ func TestHandleTestStart(t *testing.T) {
 
 	// On non-CGO platforms (macOS), test execution is unavailable
 	// On CGO/Linux platforms, tests actually start
-	if w.Code == http.StatusServiceUnavailable {
+	switch w.Code {
+	case http.StatusServiceUnavailable:
 		// Non-CGO platform - correct behavior is to report unavailability
 		if resp.Status != "unavailable" {
 			t.Errorf("Expected status 'unavailable' on non-CGO platform, got '%s'", resp.Status)
 		}
-		if s.testStatus != "error" {
-			t.Errorf("Expected testStatus 'error' on non-CGO platform, got '%s'", s.testStatus)
+		if s.testStatus != testStatusError {
+			t.Errorf("Expected testStatus '%s' on non-CGO platform, got '%s'", testStatusError, s.testStatus)
 		}
-	} else if w.Code == http.StatusOK {
+	case http.StatusOK:
 		// CGO platform - test should start
 		if resp.Status != "started" {
 			t.Errorf("Expected status 'started', got '%s'", resp.Status)
 		}
-		if s.testStatus != "running" && s.testStatus != "starting" {
-			t.Errorf("Expected testStatus 'running' or 'starting', got '%s'", s.testStatus)
+		if s.testStatus != testStatusRunning && s.testStatus != testStatusStarting {
+			t.Errorf("Expected testStatus '%s' or '%s', got '%s'", testStatusRunning, testStatusStarting, s.testStatus)
 		}
-	} else {
+	default:
 		t.Errorf("Expected status 200 or 503, got %d: %s", w.Code, w.Body.String())
 	}
 
 	// These should be correct on all platforms
-	if resp.TestType != "throughput" {
-		t.Errorf("Expected testType 'throughput', got '%s'", resp.TestType)
+	if resp.TestType != testTypeThroughput {
+		t.Errorf("Expected testType '%s', got '%s'", testTypeThroughput, resp.TestType)
 	}
-	if resp.Module != "benchmark" {
-		t.Errorf("Expected module 'benchmark', got '%s'", resp.Module)
+	if resp.Module != testModuleBenchmark {
+		t.Errorf("Expected module '%s', got '%s'", testModuleBenchmark, resp.Module)
 	}
 }
 
@@ -192,14 +207,14 @@ func TestHandleTestStartWithInterface(t *testing.T) {
 	}
 
 	// Module should be benchmark for latency test on all platforms
-	if resp.Module != "benchmark" {
-		t.Errorf("Expected module 'benchmark' for latency test, got '%s'", resp.Module)
+	if resp.Module != testModuleBenchmark {
+		t.Errorf("Expected module '%s' for latency test, got '%s'", testModuleBenchmark, resp.Module)
 	}
 }
 
 func TestHandleTestStartUnknownType(t *testing.T) {
 	s := NewServer(8080)
-	s.selectedIface = "eth0"
+	s.selectedIface = testIfaceEth0
 
 	body := strings.NewReader(`{"testType": "nonexistent_test"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/test/start", body)
@@ -214,7 +229,8 @@ func TestHandleTestStartUnknownType(t *testing.T) {
 
 func TestHandleTestStartNoInterface(t *testing.T) {
 	s := NewServer(8080)
-	// No interface set
+	// Explicitly clear the auto-selected interface to test "no interface" scenario
+	s.selectedIface = ""
 
 	body := strings.NewReader(`{"testType": "throughput"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/test/start", body)
@@ -229,8 +245,8 @@ func TestHandleTestStartNoInterface(t *testing.T) {
 
 func TestHandleTestStartConflict(t *testing.T) {
 	s := NewServer(8080)
-	s.testStatus = "running"
-	s.selectedIface = "eth0"
+	s.testStatus = testStatusRunning
+	s.selectedIface = testIfaceEth0
 
 	body := strings.NewReader(`{"testType": "throughput"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/test/start", body)
@@ -260,7 +276,7 @@ func TestHandleTestStartModuleRouting(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.testType, func(t *testing.T) {
 			s := NewServer(8080)
-			s.selectedIface = "eth0"
+			s.selectedIface = testIfaceEth0
 
 			body := strings.NewReader(`{"testType": "` + tc.testType + `"}`)
 			req := httptest.NewRequest(http.MethodPost, "/api/test/start", body)
@@ -299,8 +315,8 @@ func TestHandleTestStartModuleRouting(t *testing.T) {
 
 func TestHandleTestStop(t *testing.T) {
 	s := NewServer(8080)
-	s.testStatus = "running"
-	s.currentTest = "throughput"
+	s.testStatus = testStatusRunning
+	s.currentTest = testTypeThroughput
 
 	req := httptest.NewRequest(http.MethodPost, "/api/test/stop", nil)
 	w := httptest.NewRecorder()
@@ -312,8 +328,8 @@ func TestHandleTestStop(t *testing.T) {
 	}
 
 	// Test stop now sets status to "cancelled" (not "completed")
-	if s.testStatus != "cancelled" {
-		t.Errorf("Expected testStatus 'cancelled', got '%s'", s.testStatus)
+	if s.testStatus != testStatusCancelled {
+		t.Errorf("Expected testStatus '%s', got '%s'", testStatusCancelled, s.testStatus)
 	}
 	if s.currentTest != "" {
 		t.Errorf("Expected currentTest '', got '%s'", s.currentTest)
@@ -335,7 +351,7 @@ func TestHandleTestStopNoTestRunning(t *testing.T) {
 
 func TestHandleSettingsGet(t *testing.T) {
 	s := NewServer(8080)
-	s.selectedIface = "eth0"
+	s.selectedIface = testIfaceEth0
 
 	req := httptest.NewRequest(http.MethodGet, "/api/settings", nil)
 	w := httptest.NewRecorder()
@@ -351,8 +367,8 @@ func TestHandleSettingsGet(t *testing.T) {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
 
-	if resp["interface"] != "eth0" {
-		t.Errorf("Expected interface 'eth0', got '%v'", resp["interface"])
+	if resp["interface"] != testIfaceEth0 {
+		t.Errorf("Expected interface '%s', got '%v'", testIfaceEth0, resp["interface"])
 	}
 }
 
@@ -412,7 +428,7 @@ func TestHandleSettingsInvalidJSON(t *testing.T) {
 
 func TestHandleModeGet(t *testing.T) {
 	s := NewServer(8080)
-	s.mode = "reflector"
+	s.mode = testModeReflector
 
 	req := httptest.NewRequest(http.MethodGet, "/api/mode", nil)
 	w := httptest.NewRecorder()
@@ -428,15 +444,15 @@ func TestHandleModeGet(t *testing.T) {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
 
-	if resp["mode"] != "reflector" {
-		t.Errorf("Expected mode 'reflector', got '%s'", resp["mode"])
+	if resp["mode"] != testModeReflector {
+		t.Errorf("Expected mode '%s', got '%s'", testModeReflector, resp["mode"])
 	}
 }
 
 func TestHandleModePost(t *testing.T) {
 	s := NewServer(8080)
 
-	body := bytes.NewBufferString(`{"mode": "reflector"}`)
+	body := bytes.NewBufferString(`{"mode": "` + testModeReflector + `"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/mode", body)
 	w := httptest.NewRecorder()
 
@@ -446,8 +462,8 @@ func TestHandleModePost(t *testing.T) {
 		t.Errorf("Expected status 200, got %d", w.Code)
 	}
 
-	if s.mode != "reflector" {
-		t.Errorf("Expected mode 'reflector', got '%s'", s.mode)
+	if s.mode != testModeReflector {
+		t.Errorf("Expected mode '%s', got '%s'", testModeReflector, s.mode)
 	}
 }
 
@@ -493,7 +509,7 @@ func TestHandleReflectorConfigGet(t *testing.T) {
 func TestHandleReflectorConfigPost(t *testing.T) {
 	s := NewServer(8080)
 
-	body := bytes.NewBufferString(`{"profile": "netally", "portFilter": 9999}`)
+	body := bytes.NewBufferString(`{"profile": "` + testProfileNetally + `", "portFilter": 9999}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/reflector/config", body)
 	w := httptest.NewRecorder()
 
@@ -503,8 +519,8 @@ func TestHandleReflectorConfigPost(t *testing.T) {
 		t.Errorf("Expected status 200, got %d", w.Code)
 	}
 
-	if s.reflectorConfig.Profile != "netally" {
-		t.Errorf("Expected profile 'netally', got '%s'", s.reflectorConfig.Profile)
+	if s.reflectorConfig.Profile != testProfileNetally {
+		t.Errorf("Expected profile '%s', got '%s'", testProfileNetally, s.reflectorConfig.Profile)
 	}
 	if s.reflectorConfig.PortFilter != 9999 {
 		t.Errorf("Expected port 9999, got %d", s.reflectorConfig.PortFilter)
@@ -527,8 +543,8 @@ func TestHandleReflectorConfigPostInvalidProfile(t *testing.T) {
 
 func TestHandleReflectorStats(t *testing.T) {
 	s := NewServer(8080)
-	s.mode = "reflector"
-	s.testStatus = "running"
+	s.mode = testModeReflector
+	s.testStatus = testStatusRunning
 	s.stats.PacketsReceived = 5000
 	s.stats.PacketsSent = 4900
 
@@ -696,27 +712,27 @@ func TestServerStructFields(t *testing.T) {
 		stats:      &Stats{},
 		testStatus: "idle",
 		startTime:  time.Now(),
-		mode:       "test_master",
+		mode:       testModeTestMaster,
 	}
 
 	if s.port != 8080 {
 		t.Errorf("Expected port 8080, got %d", s.port)
 	}
-	if s.mode != "test_master" {
-		t.Errorf("Expected mode 'test_master', got '%s'", s.mode)
+	if s.mode != testModeTestMaster {
+		t.Errorf("Expected mode '%s', got '%s'", testModeTestMaster, s.mode)
 	}
 }
 
 func TestReflectorConfigStruct(t *testing.T) {
 	cfg := ReflectorConfig{
-		Profile:         "netally",
+		Profile:         testProfileNetally,
 		SignatureFilter: []string{"rfc2544", "y1564"},
 		OUIFilter:       "00:c0:17",
 		PortFilter:      3842,
 	}
 
-	if cfg.Profile != "netally" {
-		t.Errorf("Expected profile 'netally', got '%s'", cfg.Profile)
+	if cfg.Profile != testProfileNetally {
+		t.Errorf("Expected profile '%s', got '%s'", testProfileNetally, cfg.Profile)
 	}
 	if len(cfg.SignatureFilter) != 2 {
 		t.Errorf("Expected 2 signature filters, got %d", len(cfg.SignatureFilter))
@@ -838,8 +854,12 @@ func TestConcurrentStatsAccess(t *testing.T) {
 
 	// Concurrent writes
 	go func() {
-		for i := 0; i < 100; i++ {
-			s.UpdateStats(uint64(i), uint64(i), uint64(i*64), uint64(i*64), float64(i*10), float64(i))
+		// Use uint64 loop variable to avoid int->uint64 conversion
+		for i := uint64(0); i < 100; i++ {
+			bytes := i * 64
+			pps := float64(i * 10)
+			mbps := float64(i)
+			s.UpdateStats(i, i, bytes, bytes, pps, mbps)
 		}
 	}()
 
@@ -1142,8 +1162,8 @@ func TestModuleRoutesRegistered(t *testing.T) {
 // Test cancellation behavior (issue #23)
 func TestHandleTestStopCancelsRunningTest(t *testing.T) {
 	s := NewServer(8080)
-	s.testStatus = "running"
-	s.currentTest = "throughput"
+	s.testStatus = testStatusRunning
+	s.currentTest = testTypeThroughput
 
 	req := httptest.NewRequest(http.MethodPost, "/api/test/stop", nil)
 	w := httptest.NewRecorder()
@@ -1154,8 +1174,8 @@ func TestHandleTestStopCancelsRunningTest(t *testing.T) {
 		t.Errorf("Expected status 200, got %d", w.Code)
 	}
 
-	if s.testStatus != "cancelled" {
-		t.Errorf("Expected testStatus 'cancelled', got '%s'", s.testStatus)
+	if s.testStatus != testStatusCancelled {
+		t.Errorf("Expected testStatus '%s', got '%s'", testStatusCancelled, s.testStatus)
 	}
 
 	if s.currentTest != "" {
@@ -1174,7 +1194,7 @@ func TestHandleTestStopCancelsRunningTest(t *testing.T) {
 
 func TestHandleTestStopCancelsStartingTest(t *testing.T) {
 	s := NewServer(8080)
-	s.testStatus = "starting"
+	s.testStatus = testStatusStarting
 	s.currentTest = "latency"
 
 	req := httptest.NewRequest(http.MethodPost, "/api/test/stop", nil)
@@ -1186,8 +1206,8 @@ func TestHandleTestStopCancelsStartingTest(t *testing.T) {
 		t.Errorf("Expected status 200, got %d", w.Code)
 	}
 
-	if s.testStatus != "cancelled" {
-		t.Errorf("Expected testStatus 'cancelled', got '%s'", s.testStatus)
+	if s.testStatus != testStatusCancelled {
+		t.Errorf("Expected testStatus '%s', got '%s'", testStatusCancelled, s.testStatus)
 	}
 }
 
@@ -1206,8 +1226,8 @@ func TestHandleTestStopWrongMethod(t *testing.T) {
 
 func TestHandleTestStopIdempotent(t *testing.T) {
 	s := NewServer(8080)
-	s.testStatus = "running"
-	s.currentTest = "throughput"
+	s.testStatus = testStatusRunning
+	s.currentTest = testTypeThroughput
 
 	// First stop should succeed
 	req1 := httptest.NewRequest(http.MethodPost, "/api/test/stop", nil)

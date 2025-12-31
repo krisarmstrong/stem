@@ -9,6 +9,9 @@ import (
 	"time"
 )
 
+// Test constants for repeated strings.
+const testIfaceEth0 = "eth0"
+
 // ============================================================================
 // DefaultConfig Tests
 // ============================================================================
@@ -222,7 +225,7 @@ func TestValidateNoInterface(t *testing.T) {
 
 func TestValidateValidConfig(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.Interface = "eth0"
+	cfg.Interface = testIfaceEth0
 
 	err := cfg.Validate()
 	if err != nil {
@@ -232,7 +235,7 @@ func TestValidateValidConfig(t *testing.T) {
 
 func TestValidateInvalidTestType(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.Interface = "eth0"
+	cfg.Interface = testIfaceEth0
 	cfg.TestType = "invalid_test"
 
 	err := cfg.Validate()
@@ -243,7 +246,7 @@ func TestValidateInvalidTestType(t *testing.T) {
 
 func TestValidateInvalidFrameSize(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.Interface = "eth0"
+	cfg.Interface = testIfaceEth0
 	cfg.FrameSize = 100 // Not a standard size
 
 	err := cfg.Validate()
@@ -257,7 +260,7 @@ func TestValidateValidFrameSizes(t *testing.T) {
 
 	for _, size := range validSizes {
 		cfg := DefaultConfig()
-		cfg.Interface = "eth0"
+		cfg.Interface = testIfaceEth0
 		cfg.FrameSize = size
 
 		err := cfg.Validate()
@@ -269,7 +272,7 @@ func TestValidateValidFrameSizes(t *testing.T) {
 
 func TestValidateInvalidResolution(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.Interface = "eth0"
+	cfg.Interface = testIfaceEth0
 	cfg.Throughput.ResolutionPct = 0.0
 
 	err := cfg.Validate()
@@ -286,7 +289,7 @@ func TestValidateInvalidResolution(t *testing.T) {
 
 func TestValidateInvalidFrameLoss(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.Interface = "eth0"
+	cfg.Interface = testIfaceEth0
 	cfg.FrameLoss.StartPct = 10.0
 	cfg.FrameLoss.EndPct = 100.0 // Start < End is invalid
 
@@ -298,7 +301,7 @@ func TestValidateInvalidFrameLoss(t *testing.T) {
 
 func TestValidateY1564NoServices(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.Interface = "eth0"
+	cfg.Interface = testIfaceEth0
 	cfg.TestType = TestY1564Full
 	cfg.Y1564.Services = []Y1564Service{} // No services
 
@@ -310,7 +313,7 @@ func TestValidateY1564NoServices(t *testing.T) {
 
 func TestValidateY1564ZeroCIR(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.Interface = "eth0"
+	cfg.Interface = testIfaceEth0
 	cfg.TestType = TestY1564Full
 	cfg.Y1564.Services = []Y1564Service{
 		{ServiceID: 1, Enabled: true, SLA: Y1564SLA{CIRMbps: 0}},
@@ -324,7 +327,7 @@ func TestValidateY1564ZeroCIR(t *testing.T) {
 
 func TestValidateRFC2889InsufficientPorts(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.Interface = "eth0"
+	cfg.Interface = testIfaceEth0
 	cfg.TestType = TestRFC2889Forwarding
 	cfg.RFC2889.PortCount = 1 // Need at least 2
 
@@ -336,7 +339,7 @@ func TestValidateRFC2889InsufficientPorts(t *testing.T) {
 
 func TestValidateRFC6349ZeroMSS(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.Interface = "eth0"
+	cfg.Interface = testIfaceEth0
 	cfg.TestType = TestRFC6349Throughput
 	cfg.RFC6349.MSS = 0
 
@@ -348,7 +351,7 @@ func TestValidateRFC6349ZeroMSS(t *testing.T) {
 
 func TestValidateY1731ZeroMEPID(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.Interface = "eth0"
+	cfg.Interface = testIfaceEth0
 	cfg.TestType = TestY1731Delay
 	cfg.Y1731.MEPID = 0
 
@@ -360,7 +363,7 @@ func TestValidateY1731ZeroMEPID(t *testing.T) {
 
 func TestValidateMEFZeroCIR(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.Interface = "eth0"
+	cfg.Interface = testIfaceEth0
 	cfg.TestType = TestMEFFull
 	cfg.MEF.CIRMbps = 0
 
@@ -372,7 +375,7 @@ func TestValidateMEFZeroCIR(t *testing.T) {
 
 func TestValidateTSNZeroCycleTime(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.Interface = "eth0"
+	cfg.Interface = testIfaceEth0
 	cfg.TestType = TestTSNFull
 	cfg.TSN.CycleTimeNs = 0
 
@@ -431,7 +434,7 @@ func TestSaveAndLoad(t *testing.T) {
 
 	// Create config
 	cfg := DefaultConfig()
-	cfg.Interface = "eth0"
+	cfg.Interface = testIfaceEth0
 	cfg.TestType = TestLatency
 	cfg.FrameSize = 1518
 
@@ -478,7 +481,7 @@ func TestLoadInvalidYAML(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "invalid.yaml")
 
 	// Write invalid YAML
-	err = os.WriteFile(configPath, []byte("{{{{invalid yaml"), 0644)
+	err = os.WriteFile(configPath, []byte("{{{{invalid yaml"), 0o600)
 	if err != nil {
 		t.Fatalf("Failed to write file: %v", err)
 	}
@@ -499,7 +502,7 @@ func TestLoadInvalidConfig(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "invalid-config.yaml")
 
 	// Write config missing interface
-	err = os.WriteFile(configPath, []byte("test_type: throughput\n"), 0644)
+	err = os.WriteFile(configPath, []byte("test_type: throughput\n"), 0o600)
 	if err != nil {
 		t.Fatalf("Failed to write file: %v", err)
 	}
@@ -566,7 +569,7 @@ func BenchmarkDefaultConfig(b *testing.B) {
 
 func BenchmarkValidate(b *testing.B) {
 	cfg := DefaultConfig()
-	cfg.Interface = "eth0"
+	cfg.Interface = testIfaceEth0
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

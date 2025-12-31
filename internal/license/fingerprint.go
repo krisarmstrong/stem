@@ -7,6 +7,7 @@
 package license
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // DeviceFingerprint contains hardware identifiers for device binding
@@ -132,7 +134,9 @@ func getLinuxCPUSerial() string {
 	}
 
 	// Try dmidecode (requires root)
-	out, err := exec.Command("dmidecode", "-s", "processor-id").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "dmidecode", "-s", "processor-id").Output()
 	if err == nil {
 		serial := strings.TrimSpace(string(out))
 		if serial != "" {
@@ -151,7 +155,9 @@ func getLinuxCPUSerial() string {
 
 // getDarwinCPUSerial reads hardware UUID on macOS
 func getDarwinCPUSerial() string {
-	out, err := exec.Command("ioreg", "-rd1", "-c", "IOPlatformExpertDevice").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "ioreg", "-rd1", "-c", "IOPlatformExpertDevice").Output()
 	if err != nil {
 		return "DARWIN-DEFAULT"
 	}
@@ -203,7 +209,9 @@ func getLinuxDiskSerial() string {
 	}
 
 	// Try udevadm
-	out, err := exec.Command("udevadm", "info", "--query=property", "--name=/dev/sda").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "udevadm", "info", "--query=property", "--name=/dev/sda").Output()
 	if err == nil {
 		lines := strings.Split(string(out), "\n")
 		for _, line := range lines {
@@ -218,7 +226,9 @@ func getLinuxDiskSerial() string {
 
 // getDarwinDiskSerial reads disk serial on macOS
 func getDarwinDiskSerial() string {
-	out, err := exec.Command("system_profiler", "SPSerialATADataType").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "system_profiler", "SPSerialATADataType").Output()
 	if err == nil {
 		lines := strings.Split(string(out), "\n")
 		for _, line := range lines {
@@ -232,7 +242,9 @@ func getDarwinDiskSerial() string {
 	}
 
 	// Try NVMe
-	out, err = exec.Command("system_profiler", "SPNVMeDataType").Output()
+	ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel2()
+	out, err = exec.CommandContext(ctx2, "system_profiler", "SPNVMeDataType").Output()
 	if err == nil {
 		lines := strings.Split(string(out), "\n")
 		for _, line := range lines {

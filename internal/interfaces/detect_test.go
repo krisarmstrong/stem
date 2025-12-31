@@ -6,6 +6,11 @@ import (
 	"testing"
 )
 
+// Test constants for repeated strings.
+const (
+	testValueUnknown = "unknown"
+)
+
 func TestCalculateScore(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -162,16 +167,16 @@ func TestGetSpeed(t *testing.T) {
 func TestGetDuplex(t *testing.T) {
 	// Non-existent interface should return "unknown"
 	duplex := getDuplex("nonexistent_if_101112")
-	if duplex != "unknown" {
-		t.Errorf("Expected 'unknown' duplex for non-existent interface, got %s", duplex)
+	if duplex != testValueUnknown {
+		t.Errorf("Expected '%s' duplex for non-existent interface, got %s", testValueUnknown, duplex)
 	}
 }
 
 func TestGetDriver(t *testing.T) {
 	// Non-existent interface should return "unknown"
 	driver := getDriver("nonexistent_if_131415")
-	if driver != "unknown" {
-		t.Errorf("Expected 'unknown' driver for non-existent interface, got %s", driver)
+	if driver != testValueUnknown {
+		t.Errorf("Expected '%s' driver for non-existent interface, got %s", testValueUnknown, driver)
 	}
 }
 

@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"os/signal"
 	"strconv"
@@ -44,6 +45,12 @@ const (
 	DefaultProfile         = "all"
 	DefaultReflectionMode  = "all"
 	DefaultSignatureFilter = "all"
+)
+
+// Test result display constants
+const (
+	resultPass = "PASS"
+	resultFail = "FAIL"
 )
 
 // All supported test types
@@ -345,13 +352,19 @@ func reflectCmd(args []string) {
 		sigFilter = DefaultSignatureFilter
 	}
 
+	// Validate port range before conversion
+	if *port < 0 || *port > math.MaxUint16 {
+		fmt.Printf("Error: port %d out of valid range (0-%d)\n", *port, math.MaxUint16)
+		os.Exit(1)
+	}
+
 	// Build reflector config with defaults
 	cfg := &reflectorConfig.Config{
 		Interface:       *iface,
 		SignatureFilter: sigFilter,
 		Filtering: reflectorConfig.FilterConfig{
-			Port: uint16(*port),
-			OUI:  "00:c0:17", // Default NetAlly OUI
+			Port: uint16(*port), // Safe: validated above
+			OUI:  "00:c0:17",    // Default NetAlly OUI
 		},
 		Reflection: reflectorConfig.ReflectConfig{
 			Mode: DefaultReflectionMode,
@@ -491,7 +504,8 @@ func testCmd(args []string) {
 		fmt.Printf("Warning: License check failed: %v\n", err)
 	} else {
 		state := mgr.GetState()
-		if state == nil {
+		switch {
+		case state == nil:
 			fmt.Println("No active license. Starting 14-day trial...")
 			result := mgr.StartTrial()
 			if !result.Success {
@@ -499,11 +513,11 @@ func testCmd(args []string) {
 				os.Exit(1)
 			}
 			fmt.Printf("%s\n\n", result.Message)
-		} else if !mgr.IsActivated() {
+		case !mgr.IsActivated():
 			fmt.Println("Error: License expired. Please activate a valid license.")
 			fmt.Println("Run 'stem license --status' for details")
 			os.Exit(1)
-		} else if state.Tier < license.TierTestSuite && !state.IsTrialMode {
+		case state.Tier < license.TierTestSuite && !state.IsTrialMode:
 			fmt.Println("Error: Test Suite requires Tier 2 license")
 			fmt.Println("Your license: Tier 1 (Reflector only)")
 			os.Exit(1)
@@ -569,7 +583,12 @@ func testCmd(args []string) {
 
 	for _, testType := range tests {
 		for _, frameSize := range frameSizeList {
-			ctx.SetFrameSize(uint32(frameSize))
+			// frameSize is validated by parseFrameSizes to be in [64, 9216] range
+			if frameSize < 0 || frameSize > math.MaxUint32 {
+				fmt.Printf("Error: frame size %d out of valid range\n", frameSize)
+				continue
+			}
+			ctx.SetFrameSize(uint32(frameSize)) // Safe: validated above
 
 			fmt.Printf("\n[Running %s test with frame size %d bytes]\n", testType, frameSize)
 
@@ -597,8 +616,9 @@ func testCmd(args []string) {
 
 // parseFrameSizes parses comma-separated frame sizes with validation warnings
 func parseFrameSizes(s string) []int {
-	var sizes []int
-	for _, part := range strings.Split(s, ",") {
+	parts := strings.Split(s, ",")
+	sizes := make([]int, 0, len(parts))
+	for _, part := range parts {
 		trimmed := strings.TrimSpace(part)
 		if trimmed == "" {
 			continue
@@ -669,7 +689,11 @@ func runTest(ctx *testmasterDP.Context, testType string, cir, eir, fdThreshold, 
 			FrameSize: 1518,
 			Enabled:   true,
 		}
-		return ctx.RunY1564PerfTest(service, uint32(duration))
+		// Validate duration before conversion
+		if duration < 0 || duration > math.MaxUint32 {
+			return nil, fmt.Errorf("duration %d out of valid range (0-%d)", duration, math.MaxUint32)
+		}
+		return ctx.RunY1564PerfTest(service, uint32(duration)) // Safe: validated above
 
 	default:
 		// For tests not yet implemented in dataplane, return a placeholder
@@ -721,24 +745,24 @@ func printTestResult(testType string, result interface{}, jsonOutput bool) {
 		fmt.Printf("  Frames Lost: %d\n", r.FramesLost)
 
 	case *testmasterDP.Y1564ConfigResult:
-		passStr := "PASS"
+		passStr := resultPass
 		if !r.ServicePass {
-			passStr = "FAIL"
+			passStr = resultFail
 		}
 		fmt.Printf("  Service %d: %s\n", r.ServiceID, passStr)
 		for i, step := range r.Steps {
-			stepPass := "PASS"
+			stepPass := resultPass
 			if !step.StepPass {
-				stepPass = "FAIL"
+				stepPass = resultFail
 			}
 			fmt.Printf("    Step %d: %.0f%% rate, FLR=%.4f%% FD=%.2fms FDV=%.2fms [%s]\n",
 				i+1, step.OfferedRatePct, step.FLRPct, step.FDAvgMs, step.FDVMs, stepPass)
 		}
 
 	case *testmasterDP.Y1564PerfResult:
-		passStr := "PASS"
+		passStr := resultPass
 		if !r.ServicePass {
-			passStr = "FAIL"
+			passStr = resultFail
 		}
 		fmt.Printf("  Service %d Performance: %s\n", r.ServiceID, passStr)
 		fmt.Printf("    Duration:  %d sec\n", r.DurationSec)
@@ -760,9 +784,9 @@ func printTestResult(testType string, result interface{}, jsonOutput bool) {
 
 func boolToPassFail(b bool) string {
 	if b {
-		return "PASS"
+		return resultPass
 	}
-	return "FAIL"
+	return resultFail
 }
 
 func printCSVResults(results []interface{}) {
@@ -770,8 +794,7 @@ func printCSVResults(results []interface{}) {
 	fmt.Println("\ntest_type,frame_size,max_rate_pct,max_rate_mbps,loss_pct,latency_avg_us")
 
 	for _, r := range results {
-		switch result := r.(type) {
-		case *testmasterDP.ThroughputResultCLI:
+		if result, ok := r.(*testmasterDP.ThroughputResultCLI); ok {
 			fmt.Printf("throughput,%d,%.2f,%.2f,0,%.2f\n",
 				result.FrameSize, result.MaxRatePct, result.MaxRateMbps, result.Latency.AvgNs/1000)
 		}
@@ -1060,13 +1083,14 @@ func licenseCmd(args []string) {
 		fmt.Printf("%s - License Status\n", ProductName)
 		fmt.Println(strings.Repeat("=", 50))
 
-		if state == nil {
+		switch {
+		case state == nil:
 			fmt.Println("Status:    Not Activated")
 			fmt.Println("\nTo start a 14-day trial:")
 			fmt.Println("  stem license --trial")
 			fmt.Println("\nTo activate with a license key:")
 			fmt.Println("  stem license --activate XXXX-XXXX-XXXX-XXXX")
-		} else if state.IsTrialMode {
+		case state.IsTrialMode:
 			remaining := mgr.TrialDaysRemaining()
 			fmt.Println("Status:    Trial Mode")
 			fmt.Printf("Days Left: %d\n", remaining)
@@ -1075,7 +1099,7 @@ func licenseCmd(args []string) {
 				fmt.Println("\nWarning: Trial ending soon!")
 				fmt.Println("Activate a license to continue using The Stem")
 			}
-		} else {
+		default:
 			fmt.Println("Status:    Licensed")
 			fmt.Printf("Tier:      %s\n", state.Tier)
 			fmt.Printf("Key:       %s\n", license.FormatKey(state.LicenseKey))

@@ -322,7 +322,7 @@ func (m *Manager) saveState() error {
 	}
 
 	// Ensure directory exists
-	if err := os.MkdirAll(m.configDir, 0700); err != nil {
+	if err := os.MkdirAll(m.configDir, 0o700); err != nil {
 		return err
 	}
 
@@ -340,7 +340,7 @@ func (m *Manager) saveState() error {
 
 	// Write
 	licensePath := filepath.Join(m.configDir, licenseFileName)
-	return os.WriteFile(licensePath, encrypted, 0600)
+	return os.WriteFile(licensePath, encrypted, 0o600)
 }
 
 // encrypt encrypts data using AES-GCM with device-derived key

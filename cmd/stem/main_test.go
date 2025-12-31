@@ -12,6 +12,12 @@ import (
 	"github.com/krisarmstrong/stem/internal/version"
 )
 
+// Test constants for repeated strings.
+const (
+	testResultPass = "PASS"
+	testResultFail = "FAIL"
+)
+
 // captureStdout captures stdout during function execution and returns the output.
 func captureStdout(t *testing.T, fn func()) string {
 	t.Helper()
@@ -246,11 +252,11 @@ func TestParseFrameSizesInvalid(t *testing.T) {
 }
 
 func TestBoolToPassFail(t *testing.T) {
-	if boolToPassFail(true) != "PASS" {
-		t.Error("Expected 'PASS' for true")
+	if boolToPassFail(true) != testResultPass {
+		t.Errorf("Expected '%s' for true", testResultPass)
 	}
-	if boolToPassFail(false) != "FAIL" {
-		t.Error("Expected 'FAIL' for false")
+	if boolToPassFail(false) != testResultFail {
+		t.Errorf("Expected '%s' for false", testResultFail)
 	}
 }
 

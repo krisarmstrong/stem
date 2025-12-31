@@ -260,8 +260,9 @@ func (e *Executor) extractY1564Params(cfg *TestConfig, service *dataplane.Y1564S
 				service.ServiceID = uint32(id)
 			}
 		case int:
-			if id >= 0 {
-				service.ServiceID = uint32(id)
+			const maxUint32 = 4294967295 // math.MaxUint32
+			if id >= 0 && id <= maxUint32 {
+				service.ServiceID = uint32(id) // Safe: validated above
 			}
 		}
 	}
