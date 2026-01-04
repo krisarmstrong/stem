@@ -4,6 +4,7 @@ package servicetest
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/krisarmstrong/stem/internal/modules/modtypes"
@@ -12,16 +13,21 @@ import (
 
 // Default Y.1564 test parameters.
 const (
-	defaultServiceID       = 1
-	defaultServiceName     = "Service-1"
-	defaultFrameSize       = 1518
-	defaultCIRMbps         = 100.0
-	defaultEIRMbps         = 0.0
-	defaultFDThresholdMs   = 10.0
-	defaultFDVThresholdMs  = 5.0
-	defaultFLRThresholdPct = 0.01
-	defaultPerfDurationSec = 900 // 15 minutes
-	maxUint32              = 4294967295
+	defaultServiceID            = 1
+	defaultServiceName          = "Service-1"
+	defaultFrameSize            = 1518
+	defaultCIRMbps              = 100.0
+	defaultEIRMbps              = 0.0
+	defaultFDThresholdMs        = 10.0
+	defaultFDVThresholdMs       = 5.0
+	defaultFLRThresholdPct      = 0.01
+	defaultPerfDurationSec      = 900 // 15 minutes
+	defaultMEFConfigDurationSec = 60
+	defaultMEFPerfDurationMin   = 15
+	secondsPerMinute            = 60
+	defaultAvailabilityPct      = 99.99
+	microsecondsPerMillisecond  = 1000.0
+	maxUint32                   = 4294967295
 )
 
 // Executor wraps the ServiceTest module with test execution capability.
@@ -93,44 +99,10 @@ func (e *Executor) Execute(testType string, cfg *modtypes.TestConfig) (*modtypes
 	var runErr error
 
 	switch testType {
-	case "y1564_config":
-		service := e.buildY1564Service(cfg)
-		data, runErr = e.ctx.RunY1564ConfigTest(service)
-
-	case "y1564_perf":
-		service := e.buildY1564Service(cfg)
-		duration := e.safeDuration(cfg.Duration, defaultPerfDurationSec)
-		data, runErr = e.ctx.RunY1564PerfTest(service, duration)
-
-	case "y1564":
-		// Full Y.1564 test: config + performance.
-		service := e.buildY1564Service(cfg)
-
-		// Run config test first.
-		configResult, configErr := e.ctx.RunY1564ConfigTest(service)
-		if configErr != nil {
-			result.Error = fmt.Sprintf("config test failed: %v", configErr)
-			return result, fmt.Errorf("y1564 config test: %w", configErr)
-		}
-
-		// Run performance test.
-		duration := e.safeDuration(cfg.Duration, defaultPerfDurationSec)
-		perfResult, perfErr := e.ctx.RunY1564PerfTest(service, duration)
-		if perfErr != nil {
-			result.Error = fmt.Sprintf("perf test failed: %v", perfErr)
-			return result, fmt.Errorf("y1564 perf test: %w", perfErr)
-		}
-
-		// Combine results.
-		data = map[string]any{
-			"config":      configResult,
-			"performance": perfResult,
-		}
-
+	case "y1564_config", "y1564_perf", "y1564":
+		data, runErr = e.runY1564(testType, cfg)
 	case "mef_config", "mef_perf", "mef":
-		// MEF tests are similar to Y.1564, but not yet implemented in dataplane.
-		return nil, modtypes.ErrTestNotImplemented
-
+		data, runErr = e.runMEF(testType, cfg)
 	default:
 		return nil, modtypes.ErrTestNotImplemented
 	}
@@ -143,6 +115,75 @@ func (e *Executor) Execute(testType string, cfg *modtypes.TestConfig) (*modtypes
 	result.Success = true
 	result.Data = data
 	return result, nil
+}
+
+func (e *Executor) runY1564(testType string, cfg *modtypes.TestConfig) (any, error) {
+	switch testType {
+	case "y1564_config":
+		service := e.buildY1564Service(cfg)
+		data, err := e.ctx.RunY1564ConfigTest(service)
+		if err != nil {
+			return nil, fmt.Errorf("y1564 config test: %w", err)
+		}
+		return data, nil
+	case "y1564_perf":
+		service := e.buildY1564Service(cfg)
+		duration := e.safeDuration(cfg.Duration, defaultPerfDurationSec)
+		data, err := e.ctx.RunY1564PerfTest(service, duration)
+		if err != nil {
+			return nil, fmt.Errorf("y1564 perf test: %w", err)
+		}
+		return data, nil
+	case "y1564":
+		service := e.buildY1564Service(cfg)
+		configResult, configErr := e.ctx.RunY1564ConfigTest(service)
+		if configErr != nil {
+			return nil, fmt.Errorf("y1564 config test: %w", configErr)
+		}
+
+		duration := e.safeDuration(cfg.Duration, defaultPerfDurationSec)
+		perfResult, perfErr := e.ctx.RunY1564PerfTest(service, duration)
+		if perfErr != nil {
+			return nil, fmt.Errorf("y1564 perf test: %w", perfErr)
+		}
+
+		return map[string]any{
+			"config":      configResult,
+			"performance": perfResult,
+		}, nil
+	default:
+		return nil, modtypes.ErrTestNotImplemented
+	}
+}
+
+func (e *Executor) runMEF(testType string, cfg *modtypes.TestConfig) (any, error) {
+	mefConfig := e.buildMEFConfig(cfg)
+
+	switch testType {
+	case "mef_config":
+		data, err := e.ctx.RunMEFConfigTest(mefConfig)
+		if err != nil {
+			return nil, fmt.Errorf("mef config test: %w", err)
+		}
+		return data, nil
+	case "mef_perf":
+		data, err := e.ctx.RunMEFPerfTest(mefConfig)
+		if err != nil {
+			return nil, fmt.Errorf("mef performance test: %w", err)
+		}
+		return data, nil
+	case "mef":
+		configResult, perfResult, runErr := e.ctx.RunMEFFullTest(mefConfig)
+		if runErr != nil {
+			return nil, fmt.Errorf("mef full test: %w", runErr)
+		}
+		return map[string]any{
+			"config":      configResult,
+			"performance": perfResult,
+		}, nil
+	default:
+		return nil, modtypes.ErrTestNotImplemented
+	}
 }
 
 // configureContext sets up the dataplane context from test config.
@@ -208,6 +249,68 @@ func (e *Executor) buildY1564Service(cfg *modtypes.TestConfig) *dataplane.Y1564S
 	return service
 }
 
+func (e *Executor) buildMEFConfig(cfg *modtypes.TestConfig) *dataplane.MEFConfig {
+	mefConfig := &dataplane.MEFConfig{
+		ServiceID: "",
+		CIRMbps:   modtypes.GetFloat64Param(cfg.Params, "cir", defaultCIRMbps),
+		EIRMbps:   modtypes.GetFloat64Param(cfg.Params, "eir", defaultEIRMbps),
+		CBSBytes:  modtypes.GetUint32Param(cfg.Params, "cbs", 0),
+		EBSBytes:  modtypes.GetUint32Param(cfg.Params, "ebs", 0),
+		FDThresholdUs: modtypes.GetFloat64Param(
+			cfg.Params,
+			"fd_threshold_us",
+			defaultFDThresholdMs*microsecondsPerMillisecond,
+		),
+		FDVThresholdUs: modtypes.GetFloat64Param(
+			cfg.Params,
+			"fdv_threshold_us",
+			defaultFDVThresholdMs*microsecondsPerMillisecond,
+		),
+		FLRThresholdPct: modtypes.GetFloat64Param(
+			cfg.Params,
+			"flr_threshold_pct",
+			defaultFLRThresholdPct,
+		),
+		AvailabilityPct: modtypes.GetFloat64Param(
+			cfg.Params,
+			"availability_pct",
+			defaultAvailabilityPct,
+		),
+		ConfigDurationSec: modtypes.GetUint32Param(
+			cfg.Params,
+			"config_duration_sec",
+			defaultMEFConfigDurationSec,
+		),
+		PerfDurationMin: modtypes.GetUint32Param(
+			cfg.Params,
+			"perf_duration_min",
+			defaultMEFPerfDurationMin,
+		),
+		CoS:        modtypes.GetUint32Param(cfg.Params, "cos", 0),
+		FrameSizes: nil,
+	}
+
+	if cfg.Duration > 0 {
+		converted := safeUint32FromInt(cfg.Duration/secondsPerMinute, 0)
+		if converted == 0 {
+			converted = safeUint32FromInt(cfg.Duration, 0)
+		}
+		if converted > 0 {
+			mefConfig.PerfDurationMin = converted
+		}
+	}
+
+	if cfg.FrameSize > 0 {
+		mefConfig.FrameSizes = []uint32{cfg.FrameSize}
+	}
+
+	if serviceID, ok := cfg.Params["service_id"].(string); ok {
+		mefConfig.ServiceID = serviceID
+	}
+
+	return mefConfig
+}
+
 // extractY1564Params extracts SLA and service parameters from config using type-safe helpers.
 func (e *Executor) extractY1564Params(cfg *modtypes.TestConfig, service *dataplane.Y1564Service) {
 	if cfg.Params == nil {
@@ -222,48 +325,69 @@ func (e *Executor) extractY1564Params(cfg *modtypes.TestConfig, service *datapla
 	if _, ok := cfg.Params["eir"]; ok {
 		service.SLA.EIRMbps = modtypes.GetFloat64Param(cfg.Params, "eir", service.SLA.EIRMbps)
 	}
-	if _, ok := cfg.Params["fd_threshold"]; ok {
+	if _, ok := cfg.Params["cbs"]; ok {
+		service.SLA.CBSBytes = modtypes.GetUint32Param(cfg.Params, "cbs", service.SLA.CBSBytes)
+	}
+	if _, ok := cfg.Params["ebs"]; ok {
+		service.SLA.EBSBytes = modtypes.GetUint32Param(cfg.Params, "ebs", service.SLA.EBSBytes)
+	}
+	if _, ok := cfg.Params["fd_threshold_ms"]; ok {
 		service.SLA.FDThresholdMs = modtypes.GetFloat64Param(
-			cfg.Params, "fd_threshold", service.SLA.FDThresholdMs,
+			cfg.Params,
+			"fd_threshold_ms",
+			service.SLA.FDThresholdMs,
 		)
 	}
-	if _, ok := cfg.Params["fdv_threshold"]; ok {
+	if _, ok := cfg.Params["fdv_threshold_ms"]; ok {
 		service.SLA.FDVThresholdMs = modtypes.GetFloat64Param(
-			cfg.Params, "fdv_threshold", service.SLA.FDVThresholdMs,
+			cfg.Params,
+			"fdv_threshold_ms",
+			service.SLA.FDVThresholdMs,
 		)
 	}
-	if _, ok := cfg.Params["flr_threshold"]; ok {
+	if _, ok := cfg.Params["flr_threshold_pct"]; ok {
 		service.SLA.FLRThresholdPct = modtypes.GetFloat64Param(
-			cfg.Params, "flr_threshold", service.SLA.FLRThresholdPct,
+			cfg.Params,
+			"flr_threshold_pct",
+			service.SLA.FLRThresholdPct,
 		)
 	}
 
-	// Extract service identification.
-	if name, ok := cfg.Params["service_name"].(string); ok {
-		service.ServiceName = name
+	// Service-specific parameters
+	if _, ok := cfg.Params["frame_size"]; ok {
+		service.FrameSize = modtypes.GetUint32Param(cfg.Params, "frame_size", service.FrameSize)
 	}
-	if v, ok := cfg.Params["service_id"]; ok {
-		// Handle both uint32 and float64 (from JSON).
-		switch id := v.(type) {
-		case uint32:
-			service.ServiceID = id
-		case float64:
-			if id >= 0 && id <= maxUint32 {
-				service.ServiceID = uint32(id)
-			}
-		case int:
-			if id >= 0 && id <= maxUint32 {
-				service.ServiceID = uint32(id) // Safe: validated above.
-			}
+	if _, ok := cfg.Params["cos"]; ok {
+		service.CoS = clampUint8(modtypes.GetUint32Param(cfg.Params, "cos", uint32(service.CoS)))
+	}
+	if val, ok := cfg.Params["enabled"]; ok {
+		if enabled, okBool := val.(bool); okBool {
+			service.Enabled = enabled
 		}
 	}
 }
 
-// safeDuration converts an int duration to uint32 safely.
-// Returns defaultVal if duration is <= 0 or would overflow uint32.
-func (e *Executor) safeDuration(duration int, defaultVal uint32) uint32 {
-	if duration <= 0 || duration > maxUint32 {
-		return defaultVal
+// safeDuration returns duration as uint32 seconds, clamping to max if needed.
+func (e *Executor) safeDuration(duration int, fallback uint32) uint32 {
+	if duration <= 0 {
+		return fallback
+	}
+	if duration > int(maxUint32) {
+		return maxUint32
 	}
 	return uint32(duration)
+}
+
+func safeUint32FromInt(value int, fallback uint32) uint32 {
+	if value < 0 || value > math.MaxUint32 {
+		return fallback
+	}
+	return uint32(value)
+}
+
+func clampUint8(value uint32) uint8 {
+	if value > math.MaxUint8 {
+		return math.MaxUint8
+	}
+	return uint8(value)
 }

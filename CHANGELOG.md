@@ -7,6 +7,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.1.12] - 2026-01-04
+
+### Added
+
+- Wire RFC 2889, RFC 6349, Y.1731, MEF, TSN, and custom stream configs into the dataplane wrapper.
+
+### Changed
+
+- Route Measure, TrafficGen, ServiceTest, and Certify executors through the dataplane API.
+- Update module status documentation to reflect implemented test execution.
+
 ## [0.1.11] - 2026-01-04
 
 ### Changed

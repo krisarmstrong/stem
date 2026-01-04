@@ -12,10 +12,10 @@ This document tracks which modules and tests are fully implemented vs stubbed.
 | Module | Status | Executable Tests | Notes |
 |--------|--------|------------------|-------|
 | **Benchmark** | ✅ Implemented | 6/6 | Full RFC 2544 support |
-| **ServiceTest** | ⚠️ Partial | 3/6 | Y.1564 works, MEF stubbed |
-| **TrafficGen** | ❌ Stub | 0/1 | Requires C dataplane work |
-| **Measure** | ❌ Stub | 0/4 | Requires Y.1731 C implementation |
-| **Certify** | ❌ Stub | 0/12 | Requires RFC 2889/6349/TSN C implementation |
+| **ServiceTest** | ✅ Implemented | 6/6 | Y.1564 and MEF tests supported |
+| **TrafficGen** | ✅ Implemented | 1/1 | Custom stream generation supported |
+| **Measure** | ✅ Implemented | 4/4 | Y.1731 OAM tests supported |
+| **Certify** | ✅ Implemented | 11/11 | RFC 2889, RFC 6349, and TSN tests supported |
 
 ---
 
@@ -43,113 +43,100 @@ This document tracks which modules and tests are fully implemented vs stubbed.
 
 ---
 
-### ServiceTest (Y.1564 / MEF) ⚠️ PARTIAL
+### ServiceTest (Y.1564 / MEF) ✅ IMPLEMENTED
 
 **Location:** `internal/modules/servicetest/`
 **Dataplane:** Uses `internal/testmaster/dataplane`
-**Status:** Y.1564 tests work; MEF tests return `ErrTestNotImplemented`
+**Status:** Y.1564 and MEF tests are implemented.
 
 | Test Type | Status | Command |
 |-----------|--------|---------|
 | `y1564_config` | ✅ Works | `stem test -t y1564_config --cir 100` |
 | `y1564_perf` | ✅ Works | `stem test -t y1564_perf --cir 100` |
 | `y1564` | ✅ Works | `stem test -t y1564 --cir 100` |
-| `mef_config` | ❌ Stub | Returns `ErrTestNotImplemented` |
-| `mef_perf` | ❌ Stub | Returns `ErrTestNotImplemented` |
-| `mef` | ❌ Stub | Returns `ErrTestNotImplemented` |
+| `mef_config` | ✅ Works | `stem test -t mef_config --cir 100` |
+| `mef_perf` | ✅ Works | `stem test -t mef_perf --cir 100` |
+| `mef` | ✅ Works | `stem test -t mef --cir 100` |
 
 **Notes:**
-- Y.1564 (ITU-T) tests are fully implemented
-- MEF tests require additional C dataplane implementation
-- MEF tests share similar structure to Y.1564 but need MEF-specific validation logic
-
-**Required Work for MEF:**
-- Implement MEF 14/48 bandwidth profile validation in C
-- Add CoS (Class of Service) identification support
-- Integrate MEF-specific SLA parameters
+- Requires CGO-enabled Linux builds for dataplane execution
+- MEF tests use MEF 48/49 defaults with configurable SLA parameters
 
 ---
 
-### TrafficGen (Custom Traffic) ❌ STUB
+---
+
+### TrafficGen (Custom Traffic) ✅ IMPLEMENTED
 
 **Location:** `internal/modules/trafficgen/`
-**Dataplane:** Would use `internal/reflector/dataplane`
-**Status:** All tests return `ErrTestNotImplemented`
+**Dataplane:** Uses `internal/testmaster/dataplane`
+**Status:** Custom stream generation is supported via the dataplane.
 
 | Test Type | Status | Command |
 |-----------|--------|---------|
-| `custom_stream` | ❌ Stub | Returns `ErrTestNotImplemented` |
+| `custom_stream` | ✅ Works | `stem test -t custom_stream --rate_pct 10` |
 
 **Notes:**
-- Custom traffic generation is planned but not implemented
-- The reflector mode works for packet reflection but not arbitrary traffic generation
-- Would require new C code in `src/dataplane/` for:
-  - Programmable packet templates
-  - Rate-controlled transmission
-  - Pattern generation
+- Uses the dataplane custom trial path for rate-controlled streams
+- Stream parameters are provided via test config params
 
 ---
 
-### Measure (Y.1731 OAM) ❌ STUB
+---
+
+### Measure (Y.1731 OAM) ✅ IMPLEMENTED
 
 **Location:** `internal/modules/measure/`
-**Dataplane:** Would use `internal/testmaster/dataplane`
-**Status:** All tests return `ErrTestNotImplemented`
+**Dataplane:** Uses `internal/testmaster/dataplane`
+**Status:** Y.1731 delay, loss, synthetic loss, and loopback tests are supported.
 
 | Test Type | Status | Command |
 |-----------|--------|---------|
-| `y1731_delay` | ❌ Stub | Returns `ErrTestNotImplemented` |
-| `y1731_loss` | ❌ Stub | Returns `ErrTestNotImplemented` |
-| `y1731_slm` | ❌ Stub | Returns `ErrTestNotImplemented` |
-| `y1731_loopback` | ❌ Stub | Returns `ErrTestNotImplemented` |
+| `y1731_delay` | ✅ Works | `stem test -t y1731_delay --count 10` |
+| `y1731_loss` | ✅ Works | `stem test -t y1731_loss --duration 60` |
+| `y1731_slm` | ✅ Works | `stem test -t y1731_slm --count 10` |
+| `y1731_loopback` | ✅ Works | `stem test -t y1731_loopback --count 10` |
 
 **Notes:**
-- Y.1731 OAM requires carrier network support on the path
-- Would require C implementation of:
-  - DMM/DMR (Delay Measurement Message/Reply)
-  - LMM/LMR (Loss Measurement Message/Reply)
-  - SLM/SLR (Synthetic Loss Measurement)
-  - LBM/LBR (Loopback Message/Reply)
-- Needs MEP (Maintenance Entity Group End Point) support
+- Requires a Y.1731-capable path and suitable MEP configuration
 
 ---
 
-### Certify (RFC 2889 / RFC 6349 / TSN) ❌ STUB
+---
+
+### Certify (RFC 2889 / RFC 6349 / TSN) ✅ IMPLEMENTED
 
 **Location:** `internal/modules/certify/`
-**Dataplane:** Would use `internal/testmaster/dataplane`
-**Status:** All tests return `ErrTestNotImplemented`
+**Dataplane:** Uses `internal/testmaster/dataplane`
+**Status:** RFC 2889, RFC 6349, and TSN tests are implemented.
 
 #### RFC 2889 (LAN Switching)
 
 | Test Type | Status | Notes |
 |-----------|--------|-------|
-| `rfc2889_forwarding` | ❌ Stub | Multi-port forwarding rate |
-| `rfc2889_caching` | ❌ Stub | MAC address table capacity |
-| `rfc2889_learning` | ❌ Stub | Address learning rate |
-| `rfc2889_broadcast` | ❌ Stub | Broadcast frame handling |
-| `rfc2889_congestion` | ❌ Stub | Congestion control behavior |
+| `rfc2889_forwarding` | ✅ Works | Multi-port forwarding rate |
+| `rfc2889_caching` | ✅ Works | MAC address table capacity |
+| `rfc2889_learning` | ✅ Works | Address learning rate |
+| `rfc2889_broadcast` | ✅ Works | Broadcast frame handling |
+| `rfc2889_congestion` | ✅ Works | Congestion control behavior |
 
 #### RFC 6349 (TCP Throughput)
 
 | Test Type | Status | Notes |
 |-----------|--------|-------|
-| `rfc6349_throughput` | ❌ Stub | TCP throughput measurement |
-| `rfc6349_path` | ❌ Stub | Path analysis (RTT, BDP) |
+| `rfc6349_throughput` | ✅ Works | TCP throughput measurement |
+| `rfc6349_path` | ✅ Works | Path analysis (RTT, BDP) |
 
 #### TSN (IEEE 802.1Qbv)
 
 | Test Type | Status | Notes |
 |-----------|--------|-------|
-| `tsn_timing` | ❌ Stub | Gate timing accuracy |
-| `tsn_isolation` | ❌ Stub | Traffic class isolation |
-| `tsn_latency` | ❌ Stub | Scheduled latency |
-| `tsn` | ❌ Stub | Full TSN validation |
+| `tsn_timing` | ✅ Works | Gate timing accuracy |
+| `tsn_isolation` | ✅ Works | Traffic class isolation |
+| `tsn_latency` | ✅ Works | Scheduled latency |
+| `tsn` | ✅ Works | Full TSN validation |
 
-**Required Work:**
-- RFC 2889: Multi-port traffic generation, MAC table manipulation
-- RFC 6349: TCP stack integration, BDP calculation
-- TSN: IEEE 1588 PTP synchronization, time-aware shaping support
+---
 
 ---
 

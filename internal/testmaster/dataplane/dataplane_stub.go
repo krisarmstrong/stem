@@ -171,6 +171,306 @@ type Y1564PerfResult struct {
 	ServicePass bool
 }
 
+// RFC 2889 configuration and results
+
+type RFC2889Config struct {
+	FrameSize         uint32
+	DurationSec       uint32
+	WarmupSec         uint32
+	AddressCount      uint32
+	AcceptableLossPct float64
+	PortCount         uint32
+	Pattern           uint32
+}
+
+type RFC2889ForwardingResult struct {
+	FrameSize         uint32
+	PortCount         uint32
+	Pattern           uint32
+	MaxRatePct        float64
+	MaxRateFps        float64
+	AggregateRateMbps float64
+	FramesTx          uint64
+	FramesRx          uint64
+}
+
+type RFC2889CachingResult struct {
+	AddressCount uint32
+	FrameSize    uint32
+	PortCount    uint32
+	FramesTx     uint64
+	FramesRx     uint64
+	LossPct      float64
+	Passed       bool
+}
+
+type RFC2889LearningResult struct {
+	FrameSize           uint32
+	PortCount           uint32
+	LearningRateFps     float64
+	AddressesLearned    uint32
+	LearningTimeMs      float64
+	VerificationFrames  uint32
+	VerificationLossPct float64
+}
+
+type RFC2889BroadcastResult struct {
+	FrameSize         uint32
+	IngressPorts      uint32
+	EgressPorts       uint32
+	BroadcastRateFps  float64
+	BroadcastRateMbps float64
+	FramesTx          uint64
+	FramesRx          uint64
+	ReplicationFactor float64
+}
+
+type RFC2889CongestionResult struct {
+	FrameSize            uint32
+	OverloadRatePct      float64
+	FramesTx             uint64
+	FramesRx             uint64
+	FramesDropped        uint64
+	HeadOfLineBlocking   float64
+	BackpressureObserved bool
+	PauseFramesRx        uint64
+}
+
+// RFC 6349 configuration and results
+
+type RFC6349Config struct {
+	TargetRateMbps  float64
+	MinRTTMs        float64
+	MaxRTTMs        float64
+	RWNDSize        uint32
+	DurationSec     uint32
+	ParallelStreams uint32
+	MSS             uint32
+	Mode            uint32
+}
+
+type RFC6349Result struct {
+	AchievedRateMbps    float64
+	TheoreticalRateMbps float64
+	RTTMinMs            float64
+	RTTAvgMs            float64
+	RTTMaxMs            float64
+	BDPBytes            uint64
+	RWNDUsed            uint32
+	BytesTransferred    uint64
+	Retransmissions     uint64
+	TestDurationMs      uint32
+	TCPEfficiency       float64
+	BufferDelayPct      float64
+	TransferTimeRatio   float64
+	Passed              bool
+}
+
+type TCPPathInfo struct {
+	PathMTU          uint32
+	MSS              uint32
+	RTTMinMs         float64
+	RTTAvgMs         float64
+	RTTMaxMs         float64
+	BDPBytes         uint64
+	IdealRWND        uint32
+	BottleneckBWMbps float64
+}
+
+// Y.1731 configuration and results
+
+type Y1731Config struct {
+	MEPID          uint32
+	MEGLevel       uint32
+	MEGID          string
+	CCMInterval    uint32
+	Priority       uint8
+	DurationSec    uint32
+	IntervalMs     uint32
+	Count          uint32
+	FrameSize      uint32
+	PriorityTagged bool
+}
+
+type Y1731DelayResult struct {
+	FramesSent       uint32
+	FramesReceived   uint32
+	FramesLost       uint32
+	DelayMinUs       float64
+	DelayAvgUs       float64
+	DelayMaxUs       float64
+	DelayVariationUs float64
+}
+
+type Y1731LossResult struct {
+	FramesTx         uint64
+	FramesRx         uint64
+	NearEndLoss      uint64
+	FarEndLoss       uint64
+	NearEndLossRatio float64
+	FarEndLossRatio  float64
+	AvailabilityPct  float64
+}
+
+type Y1731LoopbackResult struct {
+	LBMSent     uint64
+	LBRReceived uint64
+	RTTMinMs    float64
+	RTTAvgMs    float64
+	RTTMaxMs    float64
+}
+
+// MEF configuration and results
+
+type MEFConfig struct {
+	ServiceID         string
+	CoS               uint32
+	CIRMbps           float64
+	EIRMbps           float64
+	CBSBytes          uint32
+	EBSBytes          uint32
+	FDThresholdUs     float64
+	FDVThresholdUs    float64
+	FLRThresholdPct   float64
+	AvailabilityPct   float64
+	ConfigDurationSec uint32
+	PerfDurationMin   uint32
+	FrameSizes        []uint32
+}
+
+type MEFStepResult struct {
+	StepPct          uint32
+	OfferedRateKbps  uint32
+	AchievedRateKbps uint32
+	FramesTx         uint64
+	FramesRx         uint64
+	FDUs             float64
+	FDMinUs          float64
+	FDMaxUs          float64
+	FDVUs            float64
+	FLRPct           float64
+	Passed           bool
+}
+
+type MEFConfigResult struct {
+	ServiceID     string
+	Steps         [4]MEFStepResult
+	NumSteps      uint32
+	OverallPassed bool
+}
+
+type MEFPerfResult struct {
+	ServiceID       string
+	DurationSec     uint32
+	FramesTx        uint64
+	FramesRx        uint64
+	ThroughputKbps  uint32
+	FDMinUs         float64
+	FDAvgUs         float64
+	FDMaxUs         float64
+	FDVUs           float64
+	FLRPct          float64
+	AvailabilityPct float64
+	FDPassed        bool
+	FDVPassed       bool
+	FLRPassed       bool
+	AvailPassed     bool
+	OverallPassed   bool
+}
+
+// TSN configuration and results
+
+type TSNConfig struct {
+	DurationSec       uint32
+	WarmupSec         uint32
+	FrameSize         uint32
+	MaxLatencyNs      uint32
+	MaxJitterNs       uint32
+	RequirePTPSync    bool
+	MaxSyncOffsetNs   uint32
+	PTPEnabled        bool
+	PreemptionEnabled bool
+	NumTrafficClasses uint32
+	BaseTimeNs        uint64
+	CycleTimeNs       uint32
+	TrafficClass      uint32
+}
+
+type TSNTimingResult struct {
+	CyclesTested       uint32
+	TimingErrors       uint32
+	MaxGateDeviationNs float64
+	AvgGateDeviationNs float64
+	GateTimingPassed   bool
+}
+
+type TSNClassResult struct {
+	FramesTx         uint64
+	FramesRx         uint64
+	FramesInterfered uint64
+	IsolationPct     float64
+	LatencyAvgNs     float64
+	LatencyMaxNs     float64
+	Passed           bool
+}
+
+type TSNIsolationResult struct {
+	NumClasses    uint32
+	ClassResults  [8]TSNClassResult
+	OverallPassed bool
+}
+
+type TSNLatencyResult struct {
+	TrafficClass  uint32
+	Samples       uint32
+	LatencyMinNs  float64
+	LatencyAvgNs  float64
+	LatencyMaxNs  float64
+	Latency99Ns   float64
+	Latency999Ns  float64
+	JitterNs      float64
+	LatencyPassed bool
+	JitterPassed  bool
+	OverallPassed bool
+}
+
+type TSNPTPResult struct {
+	Samples        uint32
+	OffsetAvgNs    float64
+	OffsetMaxNs    float64
+	OffsetStddevNs float64
+	SyncAchieved   bool
+}
+
+type TSNFullResult struct {
+	TimingResult    TSNTimingResult
+	IsolationResult TSNIsolationResult
+	LatencyResults  [8]TSNLatencyResult
+	PTPResult       TSNPTPResult
+	OverallPassed   bool
+}
+
+// Traffic generation configuration and results
+
+type TrafficGenConfig struct {
+	FrameSize   uint32
+	RatePct     float64
+	DurationSec uint32
+	WarmupSec   uint32
+	StreamID    uint32
+}
+
+type TrafficGenResult struct {
+	PacketsSent  uint64
+	PacketsRecv  uint64
+	BytesSent    uint64
+	LossPct      float64
+	ElapsedSec   float64
+	AchievedPPS  float64
+	AchievedMbps float64
+	Latency      LatencyStats
+}
+
 // Config holds dataplane test configuration parameters.
 type Config struct {
 	Interface      string
@@ -342,6 +642,101 @@ func (c *Context) RunY1564ConfigTest(_ *Y1564Service) (*Y1564ConfigResult, error
 
 // RunY1564PerfTest executes Y.1564 performance test (stub).
 func (c *Context) RunY1564PerfTest(_ *Y1564Service, _ uint32) (*Y1564PerfResult, error) {
+	return nil, ErrNotSupported
+}
+
+// RunRFC2889ForwardingTest executes RFC 2889 forwarding test (stub).
+func (c *Context) RunRFC2889ForwardingTest(_ *RFC2889Config) (*RFC2889ForwardingResult, error) {
+	return nil, ErrNotSupported
+}
+
+// RunRFC2889CachingTest executes RFC 2889 caching test (stub).
+func (c *Context) RunRFC2889CachingTest(_ *RFC2889Config) (*RFC2889CachingResult, error) {
+	return nil, ErrNotSupported
+}
+
+// RunRFC2889LearningTest executes RFC 2889 learning test (stub).
+func (c *Context) RunRFC2889LearningTest(_ *RFC2889Config) (*RFC2889LearningResult, error) {
+	return nil, ErrNotSupported
+}
+
+// RunRFC2889BroadcastTest executes RFC 2889 broadcast test (stub).
+func (c *Context) RunRFC2889BroadcastTest(_ *RFC2889Config) (*RFC2889BroadcastResult, error) {
+	return nil, ErrNotSupported
+}
+
+// RunRFC2889CongestionTest executes RFC 2889 congestion test (stub).
+func (c *Context) RunRFC2889CongestionTest(_ *RFC2889Config) (*RFC2889CongestionResult, error) {
+	return nil, ErrNotSupported
+}
+
+// RunRFC6349PathTest executes RFC 6349 path test (stub).
+func (c *Context) RunRFC6349PathTest(_ *RFC6349Config) (*TCPPathInfo, error) {
+	return nil, ErrNotSupported
+}
+
+// RunRFC6349ThroughputTest executes RFC 6349 throughput test (stub).
+func (c *Context) RunRFC6349ThroughputTest(_ *RFC6349Config) (*RFC6349Result, error) {
+	return nil, ErrNotSupported
+}
+
+// RunY1731DelayTest executes Y.1731 delay test (stub).
+func (c *Context) RunY1731DelayTest(_ *Y1731Config) (*Y1731DelayResult, error) {
+	return nil, ErrNotSupported
+}
+
+// RunY1731LossTest executes Y.1731 loss test (stub).
+func (c *Context) RunY1731LossTest(_ *Y1731Config) (*Y1731LossResult, error) {
+	return nil, ErrNotSupported
+}
+
+// RunY1731SyntheticLossTest executes Y.1731 synthetic loss test (stub).
+func (c *Context) RunY1731SyntheticLossTest(_ *Y1731Config) (*Y1731LossResult, error) {
+	return nil, ErrNotSupported
+}
+
+// RunY1731LoopbackTest executes Y.1731 loopback test (stub).
+func (c *Context) RunY1731LoopbackTest(_ *Y1731Config) (*Y1731LoopbackResult, error) {
+	return nil, ErrNotSupported
+}
+
+// RunMEFConfigTest executes MEF config test (stub).
+func (c *Context) RunMEFConfigTest(_ *MEFConfig) (*MEFConfigResult, error) {
+	return nil, ErrNotSupported
+}
+
+// RunMEFPerfTest executes MEF performance test (stub).
+func (c *Context) RunMEFPerfTest(_ *MEFConfig) (*MEFPerfResult, error) {
+	return nil, ErrNotSupported
+}
+
+// RunMEFFullTest executes MEF full test (stub).
+func (c *Context) RunMEFFullTest(_ *MEFConfig) (*MEFConfigResult, *MEFPerfResult, error) {
+	return nil, nil, ErrNotSupported
+}
+
+// RunTSNGateTimingTest executes TSN gate timing test (stub).
+func (c *Context) RunTSNGateTimingTest(_ *TSNConfig) (*TSNTimingResult, error) {
+	return nil, ErrNotSupported
+}
+
+// RunTSNIsolationTest executes TSN isolation test (stub).
+func (c *Context) RunTSNIsolationTest(_ *TSNConfig) (*TSNIsolationResult, error) {
+	return nil, ErrNotSupported
+}
+
+// RunTSNLatencyTest executes TSN latency test (stub).
+func (c *Context) RunTSNLatencyTest(_ *TSNConfig) (*TSNLatencyResult, error) {
+	return nil, ErrNotSupported
+}
+
+// RunTSNFullTest executes TSN full test (stub).
+func (c *Context) RunTSNFullTest(_ *TSNConfig) (*TSNFullResult, error) {
+	return nil, ErrNotSupported
+}
+
+// RunCustomStreamTest executes custom traffic generation (stub).
+func (c *Context) RunCustomStreamTest(_ *TrafficGenConfig) (*TrafficGenResult, error) {
 	return nil, ErrNotSupported
 }
 

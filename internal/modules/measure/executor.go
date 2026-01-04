@@ -4,23 +4,38 @@ package measure
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/krisarmstrong/stem/internal/modules/modtypes"
+	"github.com/krisarmstrong/stem/internal/testmaster/dataplane"
 )
 
 // Executor wraps the Measure module with test execution capability.
-// Y.1731 OAM tests are not yet implemented in the dataplane.
+// Y.1731 OAM tests execute via the dataplane on supported platforms.
+const (
+	defaultMEPID       = 1
+	defaultMEGLevel    = 0
+	defaultCCMInterval = 4
+	defaultIntervalMs  = 1000
+	defaultCount       = 10
+)
+
 type Executor struct {
 	*Module
 
-	iface string
+	ctx *dataplane.Context
 }
 
-// NewExecutor creates a new Measure executor.
+// NewExecutor creates a new Measure executor with a dataplane context.
 func NewExecutor(iface string) (*Executor, error) {
+	ctx, err := dataplane.NewContext(iface)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create dataplane context: %w", err)
+	}
+
 	return &Executor{
 		Module: New(),
-		iface:  iface,
+		ctx:    ctx,
 	}, nil
 }
 
@@ -31,14 +46,19 @@ func (e *Executor) SupportsExecution() bool {
 
 // Close releases any resources.
 func (e *Executor) Close() {
-	// No resources to release yet.
+	if e.ctx != nil {
+		e.ctx.Close()
+	}
 }
 
 // Execute runs a Y.1731 OAM test.
-// Currently returns ErrTestNotImplemented as Y.1731 is not yet in the dataplane.
-func (e *Executor) Execute(testType string, _ *modtypes.TestConfig) (*modtypes.Result, error) {
+func (e *Executor) Execute(testType string, cfg *modtypes.TestConfig) (*modtypes.Result, error) {
 	if !e.CanRun(testType) {
 		return nil, fmt.Errorf("measure module cannot run test type: %s", testType)
+	}
+
+	if cfg == nil {
+		return nil, modtypes.ErrInvalidConfig
 	}
 
 	result := &modtypes.Result{
@@ -49,12 +69,69 @@ func (e *Executor) Execute(testType string, _ *modtypes.TestConfig) (*modtypes.R
 		Data:       nil,
 	}
 
-	// Y.1731 tests are defined but not yet implemented in the C dataplane.
+	ycfg := buildY1731Config(cfg)
+
+	var data any
+	var runErr error
+
 	switch testType {
-	case "y1731_delay", "y1731_loss", "y1731_slm", "y1731_loopback":
-		result.Error = "Y.1731 OAM tests require additional dataplane implementation"
-		return result, modtypes.ErrTestNotImplemented
+	case "y1731_delay":
+		data, runErr = e.ctx.RunY1731DelayTest(ycfg)
+	case "y1731_loss":
+		data, runErr = e.ctx.RunY1731LossTest(ycfg)
+	case "y1731_slm":
+		data, runErr = e.ctx.RunY1731SyntheticLossTest(ycfg)
+	case "y1731_loopback":
+		data, runErr = e.ctx.RunY1731LoopbackTest(ycfg)
 	default:
 		return nil, modtypes.ErrTestNotImplemented
 	}
+
+	if runErr != nil {
+		result.Error = runErr.Error()
+		return result, fmt.Errorf("measure %s failed: %w", testType, runErr)
+	}
+
+	result.Success = true
+	result.Data = data
+	return result, nil
+}
+
+func buildY1731Config(cfg *modtypes.TestConfig) *dataplane.Y1731Config {
+	config := &dataplane.Y1731Config{
+		MEPID:          modtypes.GetUint32Param(cfg.Params, "mep_id", defaultMEPID),
+		MEGLevel:       modtypes.GetUint32Param(cfg.Params, "meg_level", defaultMEGLevel),
+		MEGID:          "",
+		CCMInterval:    modtypes.GetUint32Param(cfg.Params, "ccm_interval", defaultCCMInterval),
+		Priority:       clampUint8(modtypes.GetUint32Param(cfg.Params, "priority", 0)),
+		DurationSec:    safeUint32FromInt(cfg.Duration, 0),
+		IntervalMs:     modtypes.GetUint32Param(cfg.Params, "interval_ms", defaultIntervalMs),
+		Count:          modtypes.GetUint32Param(cfg.Params, "count", defaultCount),
+		FrameSize:      cfg.FrameSize,
+		PriorityTagged: false,
+	}
+
+	if megID, ok := cfg.Params["meg_id"].(string); ok {
+		config.MEGID = megID
+	}
+
+	if tagged, ok := cfg.Params["priority_tagged"].(bool); ok {
+		config.PriorityTagged = tagged
+	}
+
+	return config
+}
+
+func safeUint32FromInt(value int, fallback uint32) uint32 {
+	if value < 0 || value > math.MaxUint32 {
+		return fallback
+	}
+	return uint32(value)
+}
+
+func clampUint8(value uint32) uint8 {
+	if value > math.MaxUint8 {
+		return math.MaxUint8
+	}
+	return uint8(value)
 }
