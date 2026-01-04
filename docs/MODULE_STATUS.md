@@ -1,4 +1,4 @@
-# Stem Module Implementation Status
+# The Stem Module Implementation Status
 
 This document tracks which modules and tests are fully implemented vs stubbed.
 

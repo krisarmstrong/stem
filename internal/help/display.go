@@ -439,7 +439,7 @@ func DisplayTestListByModule() {
 		totalTests += len(m.TestTypes())
 	}
 
-	_, _ = fmt.Fprintf(w, "Stem supports %d test types across %d modules.\n", totalTests, len(allModules))
+	_, _ = fmt.Fprintf(w, "The Stem supports %d test types across %d modules.\n", totalTests, len(allModules))
 	_, _ = fmt.Fprintf(w, "Usage: %sstem test -i <interface> -t <test-type>%s\n", colorGreen, colorReset)
 	_, _ = fmt.Fprintln(w)
 

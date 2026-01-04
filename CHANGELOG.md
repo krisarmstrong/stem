@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.1.13] - 2026-01-04
+
+### Changed
+
+- Standardize branding to use "The Stem" in CLI and documentation headings.
+
 ## [0.1.12] - 2026-01-04
 
 ### Added
