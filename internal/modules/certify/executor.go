@@ -162,7 +162,7 @@ func buildRFC6349Config(cfg *modtypes.TestConfig) *dataplane.RFC6349Config {
 func buildTSNConfig(cfg *modtypes.TestConfig) *dataplane.TSNConfig {
 	config := &dataplane.TSNConfig{
 		DurationSec:       safeUint32FromInt(cfg.Duration, 0),
-		WarmupSec:         modtypes.GetUint32Param(cfg.Params, "warmup_sec", defaultRFC2889WarmupSec),
+		WarmupSec:         modtypes.GetUint32Param(cfg.Params, "warmup_sec", defaultTSNWarmupSec),
 		FrameSize:         cfg.FrameSize,
 		MaxLatencyNs:      modtypes.GetUint32Param(cfg.Params, "max_latency_ns", 0),
 		MaxJitterNs:       modtypes.GetUint32Param(cfg.Params, "max_jitter_ns", 0),

@@ -2005,7 +2005,12 @@ func (c *Context) RunMEFConfigTest(cfg *MEFConfig) (*MEFConfigResult, error) {
 		OverallPassed: bool(cResult.overall_passed),
 	}
 
-	for i := 0; i < len(result.Steps); i++ {
+	numSteps := int(cResult.num_steps)
+	if numSteps > len(result.Steps) {
+		numSteps = len(result.Steps)
+	}
+
+	for i := 0; i < numSteps; i++ {
 		step := cResult.steps[i]
 		result.Steps[i] = MEFStepResult{
 			StepPct:          uint32(step.step_pct),

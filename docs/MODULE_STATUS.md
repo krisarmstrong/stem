@@ -2,8 +2,8 @@
 
 This document tracks which modules and tests are fully implemented vs stubbed.
 
-**Last Updated:** 2025-12-30
-**Version:** v0.1.5
+**Last Updated:** 2026-01-04
+**Version:** v0.1.13
 
 ---
 
