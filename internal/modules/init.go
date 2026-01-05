@@ -31,15 +31,11 @@ func init() {
 }
 
 // GetModule returns a module by name from the default registry.
-//
-//nolint:ireturn // Returns Module interface by design for polymorphism.
 func GetModule(name string) Module {
 	return DefaultRegistry.Get(name)
 }
 
 // GetModuleForTest returns the module that handles a given test type.
-//
-//nolint:ireturn // Returns Module interface by design for polymorphism.
 func GetModuleForTest(testType string) Module {
 	return DefaultRegistry.ModuleForTest(testType)
 }

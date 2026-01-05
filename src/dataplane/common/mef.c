@@ -393,11 +393,106 @@ void mef_print_perf_results(const mef_perf_result_t *result)
 	printf("\nOverall: %s\n", result->overall_passed ? "PASS" : "FAIL");
 }
 
+static void mef_print_json(const mef_config_result_t *config_result,
+                           const mef_perf_result_t *perf_result)
+{
+	printf("{\"type\":\"mef\",\"config\":");
+	if (config_result) {
+		printf("{\"service_id\":\"%s\",\"overall_passed\":%s,\"steps\":[", config_result->service_id,
+		       config_result->overall_passed ? "true" : "false");
+		for (uint32_t i = 0; i < config_result->num_steps; i++) {
+			const mef_step_result_t *step = &config_result->steps[i];
+			if (i > 0)
+				printf(",");
+			printf("{\"step_pct\":%u,"
+			       "\"offered_rate_kbps\":%u,"
+			       "\"achieved_rate_kbps\":%u,"
+			       "\"fd_us\":%.1f,"
+			       "\"fd_min_us\":%.1f,"
+			       "\"fd_max_us\":%.1f,"
+			       "\"fdv_us\":%.1f,"
+			       "\"flr_pct\":%.4f,"
+			       "\"passed\":%s}",
+			       step->step_pct, step->offered_rate_kbps, step->achieved_rate_kbps, step->fd_us,
+			       step->fd_min_us, step->fd_max_us, step->fdv_us, step->flr_pct,
+			       step->passed ? "true" : "false");
+		}
+		printf("]}");
+	} else {
+		printf("null");
+	}
+	printf(",\"perf\":");
+	if (perf_result) {
+		printf("{\"service_id\":\"%s\","
+		       "\"duration_sec\":%u,"
+		       "\"throughput_kbps\":%u,"
+		       "\"frames_tx\":%" PRIu64 ","
+		       "\"frames_rx\":%" PRIu64 ","
+		       "\"fd_avg_us\":%.1f,"
+		       "\"fd_min_us\":%.1f,"
+		       "\"fd_max_us\":%.1f,"
+		       "\"fdv_us\":%.1f,"
+		       "\"flr_pct\":%.4f,"
+		       "\"availability_pct\":%.4f,"
+		       "\"fd_passed\":%s,"
+		       "\"fdv_passed\":%s,"
+		       "\"flr_passed\":%s,"
+		       "\"avail_passed\":%s,"
+		       "\"overall_passed\":%s}",
+		       perf_result->service_id, perf_result->duration_sec, perf_result->throughput_kbps,
+		       perf_result->frames_tx, perf_result->frames_rx, perf_result->fd_avg_us,
+		       perf_result->fd_min_us, perf_result->fd_max_us, perf_result->fdv_us,
+		       perf_result->flr_pct, perf_result->availability_pct,
+		       perf_result->fd_passed ? "true" : "false", perf_result->fdv_passed ? "true" : "false",
+		       perf_result->flr_passed ? "true" : "false",
+		       perf_result->avail_passed ? "true" : "false",
+		       perf_result->overall_passed ? "true" : "false");
+	} else {
+		printf("null");
+	}
+	printf("}\n");
+}
+
+static void mef_print_csv(const mef_config_result_t *config_result,
+                          const mef_perf_result_t *perf_result)
+{
+	if (config_result) {
+		printf("test_phase,service_id,step_pct,offered_kbps,achieved_kbps,fd_us,fdv_us,flr_pct,"
+		       "result\n");
+		for (uint32_t i = 0; i < config_result->num_steps; i++) {
+			const mef_step_result_t *step = &config_result->steps[i];
+			printf("config,%s,%u,%u,%u,%.1f,%.1f,%.4f,%s\n", config_result->service_id,
+			       step->step_pct, step->offered_rate_kbps, step->achieved_rate_kbps, step->fd_us,
+			       step->fdv_us, step->flr_pct, step->passed ? "PASS" : "FAIL");
+		}
+	}
+	if (perf_result) {
+		if (!config_result) {
+			printf("test_phase,service_id,duration_sec,throughput_kbps,frames_tx,frames_rx,"
+			       "fd_avg_us,fdv_us,flr_pct,availability_pct,result\n");
+		}
+		printf("perf,%s,%u,%u,%" PRIu64 ",%" PRIu64 ",%.1f,%.1f,%.4f,%.4f,%s\n",
+		       perf_result->service_id, perf_result->duration_sec, perf_result->throughput_kbps,
+		       perf_result->frames_tx, perf_result->frames_rx, perf_result->fd_avg_us,
+		       perf_result->fdv_us, perf_result->flr_pct, perf_result->availability_pct,
+		       perf_result->overall_passed ? "PASS" : "FAIL");
+	}
+}
+
 void mef_print_results(const mef_config_result_t *config_result,
                        const mef_perf_result_t *perf_result, stats_format_t format)
 {
-	(void)format; /* TODO: implement JSON/CSV output */
+	if (format == STATS_FORMAT_JSON) {
+		mef_print_json(config_result, perf_result);
+		return;
+	}
 
+	if (format == STATS_FORMAT_CSV) {
+		mef_print_csv(config_result, perf_result);
+		return;
+	}
+
+	/* Default: TEXT format */
 	if (config_result)
 		mef_print_config_results(config_result);
 

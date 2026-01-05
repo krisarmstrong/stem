@@ -35,8 +35,6 @@ func (r *Registry) Register(m Module) {
 }
 
 // Get returns a module by name, or nil if not found.
-//
-//nolint:ireturn // Returns Module interface by design for polymorphism.
 func (r *Registry) Get(name string) Module {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -45,8 +43,6 @@ func (r *Registry) Get(name string) Module {
 
 // ModuleForTest returns the module that can execute the given test type.
 // Returns nil if no module handles this test type.
-//
-//nolint:ireturn // Returns Module interface by design for polymorphism.
 func (r *Registry) ModuleForTest(testType string) Module {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

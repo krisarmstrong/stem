@@ -3,7 +3,6 @@
 package server
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -100,9 +99,7 @@ func (s *Server) handleLicenseActivate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req LicenseActivateRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+	if !decodeJSONStrict(w, r, &req, maxRequestBodySize) {
 		return
 	}
 

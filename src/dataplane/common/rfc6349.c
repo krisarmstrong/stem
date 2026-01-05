@@ -245,15 +245,54 @@ void rfc6349_print_results(const rfc6349_result_t *result, stats_format_t format
 	if (!result)
 		return;
 
-	(void)format; /* TODO: implement JSON/CSV output */
-
-	printf("\n=== RFC 6349 TCP Throughput Results ===\n");
-	printf("Throughput:           %.2f Mbps\n", result->achieved_rate_mbps);
-	printf("Theoretical Max:      %.2f Mbps\n", result->theoretical_rate_mbps);
 	double efficiency_pct =
 	    (result->theoretical_rate_mbps > 0.0)
 	        ? (100.0 * result->achieved_rate_mbps / result->theoretical_rate_mbps)
 	        : 0.0;
+
+	/* JSON format */
+	if (format == STATS_FORMAT_JSON) {
+		printf("{\"type\":\"rfc6349\","
+		       "\"achieved_rate_mbps\":%.2f,"
+		       "\"theoretical_rate_mbps\":%.2f,"
+		       "\"efficiency_pct\":%.1f,"
+		       "\"tcp_efficiency\":%.2f,"
+		       "\"buffer_delay_pct\":%.2f,"
+		       "\"transfer_time_ratio\":%.3f,"
+		       "\"rtt_min_ms\":%.3f,"
+		       "\"rtt_avg_ms\":%.3f,"
+		       "\"rtt_max_ms\":%.3f,"
+		       "\"bdp_bytes\":%" PRIu64 ","
+		       "\"rwnd_used\":%u,"
+		       "\"bytes_transferred\":%" PRIu64 ","
+		       "\"retransmissions\":%" PRIu64 ","
+		       "\"test_duration_ms\":%u,"
+		       "\"passed\":%s}\n",
+		       result->achieved_rate_mbps, result->theoretical_rate_mbps, efficiency_pct,
+		       result->tcp_efficiency, result->buffer_delay_pct, result->transfer_time_ratio,
+		       result->rtt_min_ms, result->rtt_avg_ms, result->rtt_max_ms, result->bdp_bytes,
+		       result->rwnd_used, result->bytes_transferred, result->retransmissions,
+		       result->test_duration_ms, result->passed ? "true" : "false");
+		return;
+	}
+
+	/* CSV format */
+	if (format == STATS_FORMAT_CSV) {
+		printf("achieved_mbps,theoretical_mbps,efficiency_pct,tcp_efficiency,buffer_delay_pct,"
+		       "rtt_min_ms,rtt_avg_ms,rtt_max_ms,bdp_bytes,bytes_transferred,retransmissions,"
+		       "duration_ms,result\n");
+		printf("%.2f,%.2f,%.1f,%.2f,%.2f,%.3f,%.3f,%.3f,%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%u,%s\n",
+		       result->achieved_rate_mbps, result->theoretical_rate_mbps, efficiency_pct,
+		       result->tcp_efficiency, result->buffer_delay_pct, result->rtt_min_ms,
+		       result->rtt_avg_ms, result->rtt_max_ms, result->bdp_bytes, result->bytes_transferred,
+		       result->retransmissions, result->test_duration_ms, result->passed ? "PASS" : "FAIL");
+		return;
+	}
+
+	/* Default: TEXT format */
+	printf("\n=== RFC 6349 TCP Throughput Results ===\n");
+	printf("Throughput:           %.2f Mbps\n", result->achieved_rate_mbps);
+	printf("Theoretical Max:      %.2f Mbps\n", result->theoretical_rate_mbps);
 	printf("Efficiency:           %.1f%%\n", efficiency_pct);
 	printf("\nTCP Metrics:\n");
 	printf("  TCP Efficiency:     %.2f%%\n", result->tcp_efficiency);

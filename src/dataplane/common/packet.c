@@ -195,6 +195,128 @@ rfc2544_payload_t *rfc2544_create_packet_template(uint8_t *buffer, uint32_t fram
 }
 
 /**
+ * Create a packet template with custom signature
+ *
+ * @param buffer Output buffer (must be at least frame_size bytes)
+ * @param frame_size Total frame size including Ethernet header
+ * @param src_mac Source MAC address
+ * @param dst_mac Destination MAC address
+ * @param src_ip Source IP (network order)
+ * @param dst_ip Destination IP (network order)
+ * @param src_port Source UDP port (host order)
+ * @param dst_port Destination UDP port (host order)
+ * @param stream_id Stream identifier
+ * @param signature Custom 7-byte signature (NULL uses default RFC2544)
+ * @return Pointer to payload area, or NULL on error
+ */
+rfc2544_payload_t *custom_create_packet_template(uint8_t *buffer, uint32_t frame_size,
+                                                 const uint8_t *src_mac, const uint8_t *dst_mac,
+                                                 uint32_t src_ip, uint32_t dst_ip, uint16_t src_port,
+                                                 uint16_t dst_port, uint32_t stream_id,
+                                                 const char *signature)
+{
+	/* Create standard packet template first */
+	rfc2544_payload_t *payload = rfc2544_create_packet_template(
+	    buffer, frame_size, src_mac, dst_mac, src_ip, dst_ip, src_port, dst_port, stream_id);
+
+	if (!payload) {
+		return NULL;
+	}
+
+	/* Override signature if custom one provided */
+	if (signature) {
+		memset(payload->signature, ' ', RFC2544_SIG_LEN); /* Pad with spaces */
+		size_t sig_len = strlen(signature);
+		if (sig_len > RFC2544_SIG_LEN) {
+			sig_len = RFC2544_SIG_LEN;
+		}
+		memcpy(payload->signature, signature, sig_len);
+	}
+
+	return payload;
+}
+
+/**
+ * Check if packet is a valid response with custom signature
+ *
+ * @param data Packet data
+ * @param len Packet length
+ * @param signature Expected signature (7 bytes)
+ * @return true if valid packet with matching signature
+ */
+bool custom_is_valid_response(const uint8_t *data, uint32_t len, const char *signature)
+{
+	if (!data || len < RFC2544_MIN_FRAME || !signature) {
+		return false;
+	}
+
+	/* Skip to payload */
+	const rfc2544_payload_t *payload =
+	    (const rfc2544_payload_t *)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
+	                                sizeof(udp_header_t));
+
+	/* Build padded signature for comparison */
+	char padded_sig[RFC2544_SIG_LEN];
+	memset(padded_sig, ' ', RFC2544_SIG_LEN);
+	size_t sig_len = strlen(signature);
+	if (sig_len > RFC2544_SIG_LEN) {
+		sig_len = RFC2544_SIG_LEN;
+	}
+	memcpy(padded_sig, signature, sig_len);
+
+	/* Check signature */
+	if (memcmp(payload->signature, padded_sig, RFC2544_SIG_LEN) != 0) {
+		return false;
+	}
+
+	return true;
+}
+
+/**
+ * Extract sequence number from packet with custom signature
+ *
+ * @param data Packet data
+ * @param len Packet length
+ * @param signature Expected signature for validation
+ * @return Sequence number, or 0 on error
+ */
+uint32_t custom_get_seq_num(const uint8_t *data, uint32_t len, const char *signature)
+{
+	if (!custom_is_valid_response(data, len, signature)) {
+		return 0;
+	}
+
+	const rfc2544_payload_t *payload =
+	    (const rfc2544_payload_t *)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
+	                                sizeof(udp_header_t));
+
+	return ntohl(payload->seq_num);
+}
+
+/**
+ * Extract TX timestamp from packet with custom signature
+ *
+ * @param data Packet data
+ * @param len Packet length
+ * @param signature Expected signature for validation
+ * @return TX timestamp in nanoseconds, or 0 on error
+ */
+uint64_t custom_get_tx_timestamp(const uint8_t *data, uint32_t len, const char *signature)
+{
+	if (!custom_is_valid_response(data, len, signature)) {
+		return 0;
+	}
+
+	const rfc2544_payload_t *payload =
+	    (const rfc2544_payload_t *)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
+	                                sizeof(udp_header_t));
+
+	/* Convert from network byte order */
+	uint64_t ts_be = payload->timestamp;
+	return ((uint64_t)ntohl(ts_be & 0xFFFFFFFF) << 32) | ntohl(ts_be >> 32);
+}
+
+/**
  * Update packet with new sequence number and timestamp
  *
  * @param payload Pointer to payload (from create_packet_template)

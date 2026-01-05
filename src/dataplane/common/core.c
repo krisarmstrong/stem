@@ -70,10 +70,18 @@ rfc2544_payload_t *rfc2544_create_packet_template(uint8_t *buffer, uint32_t fram
                                                   uint32_t src_ip, uint32_t dst_ip,
                                                   uint16_t src_port, uint16_t dst_port,
                                                   uint32_t stream_id);
+rfc2544_payload_t *custom_create_packet_template(uint8_t *buffer, uint32_t frame_size,
+                                                 const uint8_t *src_mac, const uint8_t *dst_mac,
+                                                 uint32_t src_ip, uint32_t dst_ip, uint16_t src_port,
+                                                 uint16_t dst_port, uint32_t stream_id,
+                                                 const char *signature);
 void rfc2544_stamp_packet(rfc2544_payload_t *payload, uint32_t seq_num, uint64_t timestamp_ns);
 bool rfc2544_is_valid_response(const uint8_t *data, uint32_t len);
+bool custom_is_valid_response(const uint8_t *data, uint32_t len, const char *signature);
 uint32_t rfc2544_get_seq_num(const uint8_t *data, uint32_t len);
+uint32_t custom_get_seq_num(const uint8_t *data, uint32_t len, const char *signature);
 uint64_t rfc2544_get_tx_timestamp(const uint8_t *data, uint32_t len);
+uint64_t custom_get_tx_timestamp(const uint8_t *data, uint32_t len, const char *signature);
 void rfc2544_calc_latency_stats(const uint64_t *samples, uint32_t count, latency_stats_t *stats);
 
 /* Forward declarations for pacing.c */
@@ -951,18 +959,218 @@ int run_trial(rfc2544_ctx_t *ctx, uint32_t frame_size, double rate_pct, uint32_t
 
 /**
  * Run a trial with custom signature (for Y.1564, Y.1731, MEF, TSN, etc.)
- * Currently delegates to run_trial - signature support planned for future
+ *
+ * @param ctx Test context
+ * @param frame_size Frame size in bytes
+ * @param rate_pct Percentage of line rate
+ * @param duration_sec Test duration in seconds
+ * @param warmup_sec Warmup period in seconds
+ * @param signature Custom 7-byte signature (e.g., "Y.1564 ", "MEF48 ")
+ * @param stream_id Stream identifier for multi-stream tests
+ * @param result Output trial result
+ * @return 0 on success, negative on error
  */
 int run_trial_custom(rfc2544_ctx_t *ctx, uint32_t frame_size, double rate_pct,
                      uint32_t duration_sec, uint32_t warmup_sec, const char *signature,
                      uint32_t stream_id, trial_result_t *result)
 {
-	/* TODO: Use custom signature and stream_id in packet generation */
-	(void)signature;
-	(void)stream_id;
+	if (!ctx || !result || !signature)
+		return -EINVAL;
 
-	/* For now, delegate to standard run_trial */
-	return run_trial(ctx, frame_size, rate_pct, duration_sec, warmup_sec, result);
+	memset(result, 0, sizeof(*result));
+
+	worker_ctx_t *wctx = &ctx->workers[0];
+
+	/* Create packet template */
+	uint8_t *pkt_buffer = malloc(frame_size);
+	if (!pkt_buffer)
+		return -ENOMEM;
+
+	/* Default addresses - in real use, would be configured */
+	uint8_t src_mac[6] = {0x02, 0x00, 0x00, 0x00, 0x00, 0x01};
+	uint8_t dst_mac[6] = {0x02, 0x00, 0x00, 0x00, 0x00, 0x02};
+	uint32_t src_ip = htonl(0x0A000001); /* 10.0.0.1 */
+	uint32_t dst_ip = htonl(0x0A000002); /* 10.0.0.2 */
+
+	/* Use configured MAC if available */
+	if (ctx->local_mac[0] || ctx->local_mac[1] || ctx->local_mac[2]) {
+		memcpy(src_mac, ctx->local_mac, 6);
+	}
+	if (ctx->remote_mac[0] || ctx->remote_mac[1] || ctx->remote_mac[2]) {
+		memcpy(dst_mac, ctx->remote_mac, 6);
+	}
+
+	/* Create packet with custom signature */
+	rfc2544_payload_t *payload = custom_create_packet_template(
+	    pkt_buffer, frame_size, src_mac, dst_mac, src_ip, dst_ip, 12345, 3842, stream_id, signature);
+
+	if (!payload) {
+		free(pkt_buffer);
+		return -EINVAL;
+	}
+
+	/* Create pacing context */
+	pacing_ctx_t *pacer = pacing_create(ctx->line_rate, frame_size, rate_pct);
+	if (!pacer) {
+		free(pkt_buffer);
+		return -ENOMEM;
+	}
+
+	/* Create trial timer */
+	trial_timer_t *timer = trial_timer_create(duration_sec, warmup_sec);
+	if (!timer) {
+		pacing_destroy(pacer);
+		free(pkt_buffer);
+		return -ENOMEM;
+	}
+
+	/* Create sequence tracker */
+	uint64_t expected_packets =
+	    (uint64_t)(calc_max_pps(ctx->line_rate, frame_size) * rate_pct / 100.0 * duration_sec);
+	uint32_t tracker_capacity =
+	    (expected_packets + 1000 > UINT32_MAX) ? UINT32_MAX : (uint32_t)(expected_packets + 1000);
+	seq_tracker_t *tracker = rfc2544_seq_tracker_create(tracker_capacity);
+	if (!tracker) {
+		trial_timer_destroy(timer);
+		pacing_destroy(pacer);
+		free(pkt_buffer);
+		return -ENOMEM;
+	}
+
+	/* Prepare TX packet */
+	packet_t tx_pkt;
+	tx_pkt.data = pkt_buffer;
+	tx_pkt.len = frame_size;
+
+	/* RX buffer */
+	packet_t rx_pkts[64];
+	memset(rx_pkts, 0, sizeof(rx_pkts));
+
+	/* Latency samples */
+	uint64_t *latency_samples = NULL;
+	uint32_t latency_count = 0;
+	uint32_t latency_capacity = 10000;
+	if (ctx->config.measure_latency) {
+		latency_samples = malloc(latency_capacity * sizeof(uint64_t));
+	}
+
+	/* Start trial */
+	uint32_t seq_num = 0;
+	uint64_t packets_sent = 0;
+	uint64_t packets_recv = 0;
+	uint64_t bytes_sent = 0;
+	bool in_measurement = false;
+
+	trial_timer_start(timer);
+	pacing_reset(pacer);
+
+	rfc2544_log(LOG_DEBUG, "Custom trial started: sig=%.7s, rate=%.2f%%, duration=%us", signature,
+	            rate_pct, duration_sec);
+
+	while (!trial_timer_expired(timer) && !ctx->cancel_requested) {
+		/* Check if we've exited warmup */
+		if (!in_measurement && !trial_timer_in_warmup(timer)) {
+			in_measurement = true;
+			seq_num = 0;
+			packets_sent = 0;
+			packets_recv = 0;
+			bytes_sent = 0;
+			pacing_reset(pacer);
+		}
+
+		/* TX: Send packet at paced rate */
+		uint64_t tx_ts = pacing_wait(pacer);
+		rfc2544_stamp_packet(payload, seq_num, tx_ts);
+		tx_pkt.timestamp = tx_ts;
+		tx_pkt.seq_num = seq_num;
+
+		int sent = ctx->platform->send_batch(wctx, &tx_pkt, 1);
+		if (sent > 0 && in_measurement) {
+			packets_sent++;
+			bytes_sent += frame_size;
+			seq_num++;
+			pacing_record_tx(pacer, 1, frame_size);
+		}
+
+		/* RX: Check for returned packets using custom signature validation */
+		int recv_count = ctx->platform->recv_batch(wctx, rx_pkts, 64);
+		for (int i = 0; i < recv_count; i++) {
+			if (custom_is_valid_response(rx_pkts[i].data, rx_pkts[i].len, signature)) {
+				uint32_t rx_seq = custom_get_seq_num(rx_pkts[i].data, rx_pkts[i].len, signature);
+
+				if (in_measurement) {
+					rfc2544_seq_tracker_record(tracker, rx_seq);
+					packets_recv++;
+
+					/* Record latency if enabled */
+					if (latency_samples && latency_count < latency_capacity) {
+						uint64_t tx_ts_pkt =
+						    custom_get_tx_timestamp(rx_pkts[i].data, rx_pkts[i].len, signature);
+						uint64_t latency = rx_pkts[i].timestamp - tx_ts_pkt;
+						latency_samples[latency_count++] = latency;
+					}
+				}
+			}
+		}
+
+		if (recv_count > 0) {
+			ctx->platform->release_batch(wctx, rx_pkts, recv_count);
+		}
+	}
+
+	/* Wait for straggler packets */
+	for (int i = 0; i < 10 && !ctx->cancel_requested; i++) {
+		usleep(10000);
+		int recv_count = ctx->platform->recv_batch(wctx, rx_pkts, 64);
+		for (int j = 0; j < recv_count; j++) {
+			if (custom_is_valid_response(rx_pkts[j].data, rx_pkts[j].len, signature)) {
+				uint32_t rx_seq = custom_get_seq_num(rx_pkts[j].data, rx_pkts[j].len, signature);
+				rfc2544_seq_tracker_record(tracker, rx_seq);
+				packets_recv++;
+			}
+		}
+		if (recv_count > 0) {
+			ctx->platform->release_batch(wctx, rx_pkts, recv_count);
+		}
+	}
+
+	/* Calculate results */
+	double elapsed = trial_timer_elapsed(timer);
+	result->packets_sent = packets_sent;
+	result->packets_recv = packets_recv;
+	result->bytes_sent = bytes_sent;
+	result->elapsed_sec = elapsed;
+
+	if (packets_sent > 0) {
+		if (packets_recv >= packets_sent) {
+			result->loss_pct = 0.0;
+		} else {
+			result->loss_pct = 100.0 * (packets_sent - packets_recv) / packets_sent;
+		}
+	} else {
+		result->loss_pct = 0.0;
+	}
+
+	if (elapsed > 0) {
+		result->achieved_pps = packets_sent / elapsed;
+		result->achieved_mbps = (bytes_sent * 8.0) / (elapsed * 1e6);
+	}
+
+	if (latency_samples && latency_count > 0) {
+		rfc2544_calc_latency_stats(latency_samples, latency_count, &result->latency);
+	}
+
+	rfc2544_log(LOG_DEBUG, "Custom trial complete: sent=%lu, recv=%lu, loss=%.4f%%", packets_sent,
+	            packets_recv, result->loss_pct);
+
+	/* Cleanup */
+	free(latency_samples);
+	rfc2544_seq_tracker_destroy(tracker);
+	trial_timer_destroy(timer);
+	pacing_destroy(pacer);
+	free(pkt_buffer);
+
+	return 0;
 }
 
 /* ============================================================================

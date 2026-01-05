@@ -14,15 +14,13 @@ Checks: >
   readability-*,
   -modernize-use-trailing-return-type,
   -readability-identifier-length,
-  -cppcoreguidelines-avoid-magic-numbers,
-  -readability-magic-numbers,
   -bugprone-easily-swappable-parameters,
   -cppcoreguidelines-pro-bounds-pointer-arithmetic,
   -cppcoreguidelines-pro-type-reinterpret-cast,
   -hicpp-no-array-decay,
   -cppcoreguidelines-pro-bounds-array-to-pointer-decay
 
-WarningsAsErrors: ''
+WarningsAsErrors: '*'
 
 HeaderFilterRegex: '.*'
 
@@ -58,5 +56,17 @@ CheckOptions:
   - key: bugprone-easily-swappable-parameters.MinimumLength
     value: 3
   - key: bugprone-argument-comment.StrictMode
+    value: true
+  - key: readability-magic-numbers.IgnoredIntegerValues
+    value: '0;1;2;-1;8;10;16;100;1000'
+  - key: readability-magic-numbers.IgnoredFloatingPointValues
+    value: '0.0;1.0;100.0;1000.0'
+  - key: readability-magic-numbers.IgnorePowersOf2IntegerValues
+    value: true
+  - key: cppcoreguidelines-avoid-magic-numbers.IgnoredIntegerValues
+    value: '0;1;2;-1;8;10;16;100;1000'
+  - key: cppcoreguidelines-avoid-magic-numbers.IgnoredFloatingPointValues
+    value: '0.0;1.0;100.0;1000.0'
+  - key: cppcoreguidelines-avoid-magic-numbers.IgnorePowersOf2IntegerValues
     value: true
 ...

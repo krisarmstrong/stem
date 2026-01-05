@@ -417,13 +417,145 @@ int rfc2889_congestion_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
  * Print Functions
  * ============================================================================ */
 
+static void rfc2889_print_json(const void *result, rfc2889_test_type_t type)
+{
+	switch (type) {
+	case RFC2889_FORWARDING_RATE: {
+		const rfc2889_fwd_result_t *r = result;
+		printf("{\"type\":\"rfc2889_forwarding\","
+		       "\"frame_size\":%u,"
+		       "\"port_count\":%u,"
+		       "\"max_rate_pct\":%.2f,"
+		       "\"max_rate_fps\":%.0f,"
+		       "\"aggregate_rate_mbps\":%.2f,"
+		       "\"frames_tx\":%" PRIu64 ","
+		       "\"frames_rx\":%" PRIu64 ","
+		       "\"loss_pct\":%.4f}\n",
+		       r->frame_size, r->port_count, r->max_rate_pct, r->max_rate_fps,
+		       r->aggregate_rate_mbps, r->frames_tx, r->frames_rx, r->loss_pct);
+		break;
+	}
+	case RFC2889_ADDRESS_CACHING: {
+		const rfc2889_cache_result_t *r = result;
+		printf("{\"type\":\"rfc2889_caching\","
+		       "\"frame_size\":%u,"
+		       "\"addresses_tested\":%u,"
+		       "\"addresses_cached\":%u,"
+		       "\"cache_capacity\":%u,"
+		       "\"overflow_loss_pct\":%.2f}\n",
+		       r->frame_size, r->addresses_tested, r->addresses_cached, r->cache_capacity,
+		       r->overflow_loss_pct);
+		break;
+	}
+	case RFC2889_ADDRESS_LEARNING: {
+		const rfc2889_learning_result_t *r = result;
+		printf("{\"type\":\"rfc2889_learning\","
+		       "\"frame_size\":%u,"
+		       "\"learning_rate_fps\":%.0f,"
+		       "\"addresses_learned\":%u,"
+		       "\"learning_time_ms\":%.3f}\n",
+		       r->frame_size, r->learning_rate_fps, r->addresses_learned, r->learning_time_ms);
+		break;
+	}
+	case RFC2889_BROADCAST_FORWARDING: {
+		const rfc2889_broadcast_result_t *r = result;
+		printf("{\"type\":\"rfc2889_broadcast\","
+		       "\"frame_size\":%u,"
+		       "\"ingress_ports\":%u,"
+		       "\"egress_ports\":%u,"
+		       "\"broadcast_rate_fps\":%.0f,"
+		       "\"broadcast_rate_mbps\":%.2f,"
+		       "\"replication_factor\":%.2f}\n",
+		       r->frame_size, r->ingress_ports, r->egress_ports, r->broadcast_rate_fps,
+		       r->broadcast_rate_mbps, r->replication_factor);
+		break;
+	}
+	case RFC2889_CONGESTION_CONTROL: {
+		const rfc2889_congestion_result_t *r = result;
+		printf("{\"type\":\"rfc2889_congestion\","
+		       "\"frame_size\":%u,"
+		       "\"overload_rate_pct\":%.1f,"
+		       "\"frames_tx\":%" PRIu64 ","
+		       "\"frames_rx\":%" PRIu64 ","
+		       "\"frames_dropped\":%" PRIu64 ","
+		       "\"head_of_line_blocking\":%.2f,"
+		       "\"backpressure_observed\":%s}\n",
+		       r->frame_size, r->overload_rate_pct, r->frames_tx, r->frames_rx, r->frames_dropped,
+		       r->head_of_line_blocking, r->backpressure_observed ? "true" : "false");
+		break;
+	}
+	default:
+		printf("{\"type\":\"rfc2889_unknown\"}\n");
+		break;
+	}
+}
+
+static void rfc2889_print_csv(const void *result, rfc2889_test_type_t type)
+{
+	switch (type) {
+	case RFC2889_FORWARDING_RATE: {
+		const rfc2889_fwd_result_t *r = result;
+		printf("test_type,frame_size,port_count,max_rate_pct,max_rate_fps,aggregate_mbps,"
+		       "frames_tx,frames_rx,loss_pct\n");
+		printf("forwarding,%u,%u,%.2f,%.0f,%.2f,%" PRIu64 ",%" PRIu64 ",%.4f\n", r->frame_size,
+		       r->port_count, r->max_rate_pct, r->max_rate_fps, r->aggregate_rate_mbps, r->frames_tx,
+		       r->frames_rx, r->loss_pct);
+		break;
+	}
+	case RFC2889_ADDRESS_CACHING: {
+		const rfc2889_cache_result_t *r = result;
+		printf("test_type,frame_size,addresses_tested,addresses_cached,cache_capacity,"
+		       "overflow_loss_pct\n");
+		printf("caching,%u,%u,%u,%u,%.2f\n", r->frame_size, r->addresses_tested, r->addresses_cached,
+		       r->cache_capacity, r->overflow_loss_pct);
+		break;
+	}
+	case RFC2889_ADDRESS_LEARNING: {
+		const rfc2889_learning_result_t *r = result;
+		printf("test_type,frame_size,learning_rate_fps,addresses_learned,learning_time_ms\n");
+		printf("learning,%u,%.0f,%u,%.3f\n", r->frame_size, r->learning_rate_fps,
+		       r->addresses_learned, r->learning_time_ms);
+		break;
+	}
+	case RFC2889_BROADCAST_FORWARDING: {
+		const rfc2889_broadcast_result_t *r = result;
+		printf("test_type,frame_size,ingress_ports,egress_ports,rate_fps,rate_mbps,"
+		       "replication_factor\n");
+		printf("broadcast,%u,%u,%u,%.0f,%.2f,%.2f\n", r->frame_size, r->ingress_ports,
+		       r->egress_ports, r->broadcast_rate_fps, r->broadcast_rate_mbps, r->replication_factor);
+		break;
+	}
+	case RFC2889_CONGESTION_CONTROL: {
+		const rfc2889_congestion_result_t *r = result;
+		printf("test_type,frame_size,overload_pct,frames_tx,frames_rx,frames_dropped,"
+		       "hol_blocking,backpressure\n");
+		printf("congestion,%u,%.1f,%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%.2f,%s\n", r->frame_size,
+		       r->overload_rate_pct, r->frames_tx, r->frames_rx, r->frames_dropped,
+		       r->head_of_line_blocking, r->backpressure_observed ? "yes" : "no");
+		break;
+	}
+	default:
+		printf("test_type\nunknown\n");
+		break;
+	}
+}
+
 void rfc2889_print_results(const void *result, rfc2889_test_type_t type, stats_format_t format)
 {
 	if (!result)
 		return;
 
-	(void)format; /* TODO: implement JSON/CSV output */
+	if (format == STATS_FORMAT_JSON) {
+		rfc2889_print_json(result, type);
+		return;
+	}
 
+	if (format == STATS_FORMAT_CSV) {
+		rfc2889_print_csv(result, type);
+		return;
+	}
+
+	/* Default: TEXT format */
 	switch (type) {
 	case RFC2889_FORWARDING_RATE: {
 		const rfc2889_fwd_result_t *r = result;

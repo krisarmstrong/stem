@@ -3,13 +3,13 @@
 package server
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/krisarmstrong/stem/internal/logging"
 	"github.com/krisarmstrong/stem/internal/modules"
+	"github.com/krisarmstrong/stem/internal/netif"
 	"github.com/krisarmstrong/stem/internal/testmaster/dataplane"
 )
 
@@ -23,9 +23,7 @@ func (s *Server) handleTestStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req TestStartRequest
-	decodeErr := json.NewDecoder(r.Body).Decode(&req)
-	if decodeErr != nil {
-		http.Error(w, "Invalid JSON request body", http.StatusBadRequest)
+	if !decodeJSONStrict(w, r, &req, maxRequestBodySize) {
 		return
 	}
 
@@ -42,6 +40,11 @@ func (s *Server) handleTestStart(w http.ResponseWriter, r *http.Request) {
 	iface, ifaceErr := s.resolveTestInterface(req.Interface)
 	if ifaceErr != nil {
 		http.Error(w, ifaceErr.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Re-validate interface exists before starting test (#42).
+	if !s.validateInterfaceForTest(w, iface) {
 		return
 	}
 
@@ -147,13 +150,13 @@ func (s *Server) handleTestResult(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) resolveTestModule(testType string) (*modules.Module, error) {
+func (s *Server) resolveTestModule(testType string) (modules.Module, error) {
 	mod := modules.GetModuleForTest(testType)
 	if mod == nil {
-		return nil, fmt.Errorf("Unknown test type: %s", testType)
+		return nil, fmt.Errorf("unknown test type: %s", testType)
 	}
 	if !mod.CanRun(testType) {
-		return nil, fmt.Errorf("Module %s cannot run test type: %s", mod.Name(), testType)
+		return nil, fmt.Errorf("module %s cannot run test type: %s", mod.Name(), testType)
 	}
 	return mod, nil
 }
@@ -162,10 +165,34 @@ func (s *Server) resolveTestInterface(requested string) (string, error) {
 	if requested != "" {
 		return requested, nil
 	}
-	if s.selectedIface == "" {
-		return "", errors.New("No interface specified")
+
+	s.statsMu.RLock()
+	iface := s.selectedIface
+	s.statsMu.RUnlock()
+
+	if iface == "" {
+		return "", errors.New("no interface specified")
 	}
-	return s.selectedIface, nil
+	return iface, nil
+}
+
+// validateInterfaceForTest re-validates the interface exists before starting a test.
+func (s *Server) validateInterfaceForTest(w http.ResponseWriter, ifaceName string) bool {
+	ifaces, err := netif.DetectInterfaces()
+	if err != nil {
+		logging.Error("failed to detect interfaces for test validation", "error", err)
+		http.Error(w, "Failed to validate interface", http.StatusInternalServerError)
+		return false
+	}
+
+	for _, iface := range ifaces {
+		if iface.Name == ifaceName {
+			return true
+		}
+	}
+
+	http.Error(w, fmt.Sprintf("Interface '%s' no longer exists", ifaceName), http.StatusBadRequest)
+	return false
 }
 
 func (s *Server) beginTestRun(testType, module string) error {

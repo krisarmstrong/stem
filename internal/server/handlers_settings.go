@@ -3,7 +3,6 @@
 package server
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -15,42 +14,32 @@ import (
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
+		s.statsMu.RLock()
+		mode := s.mode
+		iface := s.selectedIface
+		s.statsMu.RUnlock()
+
 		writeJSON(w, SettingsResponse{
-			Mode:      s.mode,
-			Interface: s.selectedIface,
+			Mode:      mode,
+			Interface: iface,
 			Theme:     "system",
 		})
 
 	case http.MethodPost:
 		var update SettingsUpdate
-		decodeErr := json.NewDecoder(r.Body).Decode(&update)
-		if decodeErr != nil {
-			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		if !decodeJSONStrict(w, r, &update, maxRequestBodySize) {
 			return
 		}
 
 		if update.Interface != "" {
 			// Validate that the interface exists.
-			ifaces, detectErr := netif.DetectInterfaces()
-			if detectErr != nil {
-				logging.Error("failed to detect interfaces for validation", "error", detectErr)
-				http.Error(w, "Failed to validate interface", http.StatusInternalServerError)
+			if !validateInterfaceExists(w, update.Interface) {
 				return
 			}
 
-			found := false
-			for _, iface := range ifaces {
-				if iface.Name == update.Interface {
-					found = true
-					break
-				}
-			}
-			if !found {
-				http.Error(w, fmt.Sprintf("Interface '%s' not found", update.Interface), http.StatusBadRequest)
-				return
-			}
-
+			s.statsMu.Lock()
 			s.selectedIface = update.Interface
+			s.statsMu.Unlock()
 			logging.Info("interface selected", "interface", update.Interface)
 		}
 
@@ -65,14 +54,14 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleMode(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		writeJSON(w, ModeResponse{Mode: s.mode})
+		s.statsMu.RLock()
+		mode := s.mode
+		s.statsMu.RUnlock()
+		writeJSON(w, ModeResponse{Mode: mode})
 
 	case http.MethodPost:
 		var req ModeRequest
-		err := json.NewDecoder(r.Body).Decode(&req)
-		if err != nil {
-			logging.Warn("mode update failed: invalid JSON", "error", err)
-			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		if !decodeJSONStrict(w, r, &req, maxRequestBodySize) {
 			return
 		}
 
@@ -82,12 +71,33 @@ func (s *Server) handleMode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		s.statsMu.Lock()
 		oldMode := s.mode
 		s.mode = req.Mode
-		logging.Info("mode changed", "from", oldMode, "to", s.mode)
-		writeJSON(w, ModeUpdateResponse{Status: "updated", Mode: s.mode})
+		s.statsMu.Unlock()
+		logging.Info("mode changed", "from", oldMode, "to", req.Mode)
+		writeJSON(w, ModeUpdateResponse{Status: "updated", Mode: req.Mode})
 
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+// validateInterfaceExists checks if an interface exists and returns false if not (writing error to response).
+func validateInterfaceExists(w http.ResponseWriter, ifaceName string) bool {
+	ifaces, detectErr := netif.DetectInterfaces()
+	if detectErr != nil {
+		logging.Error("failed to detect interfaces for validation", "error", detectErr)
+		http.Error(w, "Failed to validate interface", http.StatusInternalServerError)
+		return false
+	}
+
+	for _, iface := range ifaces {
+		if iface.Name == ifaceName {
+			return true
+		}
+	}
+
+	http.Error(w, fmt.Sprintf("Interface '%s' not found", ifaceName), http.StatusBadRequest)
+	return false
 }

@@ -75,6 +75,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+
 	"github.com/krisarmstrong/stem/internal/auth"
 	"github.com/krisarmstrong/stem/internal/license"
 	"github.com/krisarmstrong/stem/internal/logging"
@@ -95,6 +96,7 @@ const (
 	defaultAuthSessionTimeout = 30 * time.Minute
 	wsWriteTimeout            = 5 * time.Second
 	defaultWSBufferSize       = 1024
+	maxRequestBodySize        = 1024 * 1024 // 1 MB max request body
 )
 
 //go:embed dist/*
@@ -317,6 +319,46 @@ func (s *Server) writeAuthError(w http.ResponseWriter, err error) {
 	http.Error(w, message, status)
 }
 
+// corsMiddleware enforces localhost-only CORS for API security.
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+
+		// Allow requests without Origin header (same-origin, curl, etc.).
+		if origin == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Only allow localhost origins.
+		if !isLocalhostOrigin(origin) {
+			http.Error(w, "CORS: origin not allowed", http.StatusForbidden)
+			return
+		}
+
+		// Set CORS headers for allowed origins.
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Max-Age", "3600")
+
+		// Handle preflight requests.
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// isLocalhostOrigin checks if an origin is localhost.
+func isLocalhostOrigin(origin string) bool {
+	return strings.Contains(origin, "localhost") ||
+		strings.Contains(origin, "127.0.0.1") ||
+		strings.Contains(origin, "[::1]")
+}
+
 // Run starts the web server.
 func (s *Server) Run() error {
 	addr := fmt.Sprintf(":%d", s.port)
@@ -325,8 +367,8 @@ func (s *Server) Run() error {
 		"version", version.Version,
 	)
 
-	// Wrap with logging middleware.
-	handler := logging.RequestIDMiddleware(logging.Middleware(s.mux))
+	// Wrap with middleware stack: CORS -> RequestID -> Logging -> Handler.
+	handler := corsMiddleware(logging.RequestIDMiddleware(logging.Middleware(s.mux)))
 	server := &http.Server{
 		Addr:              addr,
 		Handler:           handler,
@@ -369,6 +411,29 @@ func writeJSON(w http.ResponseWriter, v any) {
 	if writeErr != nil {
 		logging.Error("failed to write JSON response", "error", writeErr)
 	}
+}
+
+// decodeJSONStrict decodes JSON from the request body with size limits and strict validation.
+// Returns false if decoding fails (error response already written to w).
+func decodeJSONStrict(w http.ResponseWriter, r *http.Request, v any, maxSize int64) bool {
+	// Limit request body size.
+	r.Body = http.MaxBytesReader(w, r.Body, maxSize)
+
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+
+	err := dec.Decode(v)
+	if err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			http.Error(w, "Request body too large", http.StatusRequestEntityTooLarge)
+			return false
+		}
+		logging.Warn("JSON decode failed", "error", err)
+		http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
+		return false
+	}
+	return true
 }
 
 func (s *Server) publishTestState(status, module, testType string, resp *TestResultResponse) {

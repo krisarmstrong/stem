@@ -3,7 +3,6 @@
 package server
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"net/http"
@@ -25,7 +24,10 @@ const (
 func (s *Server) handleReflectorConfig(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		writeJSON(w, s.reflectorConfig)
+		s.statsMu.RLock()
+		cfg := s.reflectorConfig
+		s.statsMu.RUnlock()
+		writeJSON(w, cfg)
 	case http.MethodPost:
 		s.handleReflectorConfigUpdate(w, r)
 	default:
@@ -36,14 +38,11 @@ func (s *Server) handleReflectorConfig(w http.ResponseWriter, r *http.Request) {
 // handleReflectorConfigUpdate handles POST requests to update reflector configuration.
 func (s *Server) handleReflectorConfigUpdate(w http.ResponseWriter, r *http.Request) {
 	var cfg ReflectorConfig
-	err := json.NewDecoder(r.Body).Decode(&cfg)
-	if err != nil {
-		logging.Warn("reflector config update failed: invalid JSON", "error", err)
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+	if !decodeJSONStrict(w, r, &cfg, maxRequestBodySize) {
 		return
 	}
 
-	err = s.validateReflectorProfile(cfg.Profile)
+	err := s.validateReflectorProfile(cfg.Profile)
 	if err != nil {
 		logging.Warn("reflector config update failed: invalid profile", "profile", cfg.Profile)
 		http.Error(w, "Invalid profile", http.StatusBadRequest)
@@ -87,9 +86,10 @@ func (s *Server) validateReflectorProfile(profile string) error {
 func (s *Server) buildReflectorConfigUpdate(cfg *ReflectorConfig) ([]string, *reflectorDP.ConfigUpdate, error) {
 	var changes []string
 
-	s.statsMu.RLock()
+	s.statsMu.Lock()
+	defer s.statsMu.Unlock()
+
 	exec := s.reflectorExec
-	s.statsMu.RUnlock()
 
 	var dpUpdate *reflectorDP.ConfigUpdate
 	if exec != nil {
