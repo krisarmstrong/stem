@@ -4,6 +4,7 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"strings"
 	"testing"
@@ -15,10 +16,16 @@ import (
 func TestGenerateTokenID_Success(t *testing.T) {
 	t.Parallel()
 
+	// Create a manager to access generateTokenID method.
+	mgr, mgrErr := NewManager("test-secret", AccessTokenDuration, "admin", "admin")
+	if mgrErr != nil {
+		t.Fatalf("NewManager() error: %v", mgrErr)
+	}
+
 	// Generate multiple token IDs and verify they are unique.
 	ids := make(map[string]bool)
 	for range 100 {
-		id, err := generateTokenID()
+		id, err := mgr.generateTokenID()
 		if err != nil {
 			t.Fatalf("generateTokenID() error: %v", err)
 		}
@@ -35,7 +42,13 @@ func TestGenerateTokenID_Success(t *testing.T) {
 func TestGenerateTokenID_Length(t *testing.T) {
 	t.Parallel()
 
-	id, err := generateTokenID()
+	// Create a manager to access generateTokenID method.
+	mgr, err := NewManager("test-secret", AccessTokenDuration, "admin", "admin")
+	if err != nil {
+		t.Fatalf("NewManager() error: %v", err)
+	}
+
+	id, err := mgr.generateTokenID()
 	if err != nil {
 		t.Fatalf("generateTokenID() error: %v", err)
 	}
@@ -504,8 +517,14 @@ func TestManagerBlacklistIntegration(t *testing.T) {
 func TestGenerateTokenID_Base64URLSafe(t *testing.T) {
 	t.Parallel()
 
+	// Create a manager to access generateTokenID method.
+	mgr, mgrErr := NewManager("test-secret", AccessTokenDuration, "admin", "admin")
+	if mgrErr != nil {
+		t.Fatalf("NewManager() error: %v", mgrErr)
+	}
+
 	for range 100 {
-		id, err := generateTokenID()
+		id, err := mgr.generateTokenID()
 		if err != nil {
 			t.Fatalf("generateTokenID() error: %v", err)
 		}
@@ -558,7 +577,7 @@ func TestCleanup_RangeCallback(t *testing.T) {
 }
 
 // -----------------------------------------------------------------------------
-// Error Injection Tests (using randReader)
+// Error Injection Tests (using SetRandReader and GenerateJWTSecretFrom)
 // -----------------------------------------------------------------------------
 
 // errorReader is a mock io.Reader that always returns an error.
@@ -571,14 +590,16 @@ func (e *errorReader) Read(_ []byte) (int, error) {
 }
 
 func TestGenerateTokenID_RandReadError(t *testing.T) {
-	// Save original randReader and restore after test.
-	origReader := randReader
-	defer func() { randReader = origReader }()
+	// Create a valid manager.
+	mgr, err := NewManager("test-secret", AccessTokenDuration, "admin", "admin")
+	if err != nil {
+		t.Fatalf("NewManager() error: %v", err)
+	}
 
-	// Inject error reader.
-	randReader = &errorReader{err: errors.New("mock random error")}
+	// Inject error reader via SetRandReader.
+	mgr.SetRandReader(&errorReader{err: errors.New("mock random error")})
 
-	_, err := generateTokenID()
+	_, err = mgr.generateTokenID()
 	if err == nil {
 		t.Error("generateTokenID() expected error, got nil")
 	}
@@ -587,54 +608,41 @@ func TestGenerateTokenID_RandReadError(t *testing.T) {
 	}
 }
 
-func TestGenerateJWTSecret_RandReadError(t *testing.T) {
-	// Save original randReader and restore after test.
-	origReader := randReader
-	defer func() { randReader = origReader }()
-
-	// Inject error reader.
-	randReader = &errorReader{err: errors.New("mock random error")}
-
-	_, err := GenerateJWTSecret()
+func TestGenerateJWTSecretFrom_RandReadError(t *testing.T) {
+	// Test GenerateJWTSecretFrom directly with error reader.
+	_, err := GenerateJWTSecretFrom(&errorReader{err: errors.New("mock random error")})
 	if err == nil {
-		t.Error("GenerateJWTSecret() expected error, got nil")
+		t.Error("GenerateJWTSecretFrom() expected error, got nil")
 	}
 	if !errors.Is(err, ErrSecretGenerationFailed) {
 		t.Errorf("Error should be ErrSecretGenerationFailed, got: %v", err)
 	}
 }
 
-func TestNewManager_GenerateJWTSecretError(t *testing.T) {
-	// Save original randReader and restore after test.
-	origReader := randReader
-	defer func() { randReader = origReader }()
-
-	// Inject error reader.
-	randReader = &errorReader{err: errors.New("mock random error")}
-
-	// NewManager with empty secret should try to generate one and fail.
-	_, err := NewManager("", AccessTokenDuration, "admin", "admin")
-	if err == nil {
-		t.Error("NewManager() expected error, got nil")
+func TestGenerateJWTSecretFrom_Success(t *testing.T) {
+	// Test GenerateJWTSecretFrom with crypto/rand.Reader works.
+	secret, err := GenerateJWTSecretFrom(rand.Reader)
+	if err != nil {
+		t.Errorf("GenerateJWTSecretFrom() unexpected error: %v", err)
 	}
-	if !errors.Is(err, ErrSecretGenerationFailed) {
-		t.Errorf("Error should be ErrSecretGenerationFailed, got: %v", err)
+	if secret == "" {
+		t.Error("GenerateJWTSecretFrom() returned empty secret")
+	}
+	// Check base64url encoding (no + or / chars).
+	if strings.ContainsAny(secret, "+/") {
+		t.Error("GenerateJWTSecretFrom() should use base64url encoding")
 	}
 }
 
 func TestGenerateTokenWithType_TokenIDError(t *testing.T) {
-	// Save original randReader and restore after test.
-	origReader := randReader
-	defer func() { randReader = origReader }()
-
 	// First create a valid manager.
 	mgr, err := NewManager("test-secret", AccessTokenDuration, "admin", "admin")
 	if err != nil {
 		t.Fatalf("NewManager() error: %v", err)
 	}
 
-	// Now inject error reader.
-	randReader = &errorReader{err: errors.New("mock random error")}
+	// Inject error reader via SetRandReader.
+	mgr.SetRandReader(&errorReader{err: errors.New("mock random error")})
 
 	_, err = mgr.generateTokenWithType("testuser", "access", AccessTokenDuration)
 	if err == nil {
@@ -648,18 +656,14 @@ func TestGenerateTokenWithType_TokenIDError(t *testing.T) {
 func TestAuthenticate_TokenGenerationError(t *testing.T) {
 	ctx := context.Background()
 
-	// Save original randReader and restore after test.
-	origReader := randReader
-	defer func() { randReader = origReader }()
-
 	// First create a valid manager.
 	mgr, err := NewManager("test-secret", AccessTokenDuration, "admin", "admin")
 	if err != nil {
 		t.Fatalf("NewManager() error: %v", err)
 	}
 
-	// Now inject error reader.
-	randReader = &errorReader{err: errors.New("mock random error")}
+	// Inject error reader via SetRandReader.
+	mgr.SetRandReader(&errorReader{err: errors.New("mock random error")})
 
 	_, err = mgr.Authenticate(ctx, "admin", "admin")
 	if err == nil {
@@ -670,18 +674,14 @@ func TestAuthenticate_TokenGenerationError(t *testing.T) {
 func TestAuthenticateWithRefresh_TokenGenerationError(t *testing.T) {
 	ctx := context.Background()
 
-	// Save original randReader and restore after test.
-	origReader := randReader
-	defer func() { randReader = origReader }()
-
 	// First create a valid manager.
 	mgr, err := NewManager("test-secret", AccessTokenDuration, "admin", "admin")
 	if err != nil {
 		t.Fatalf("NewManager() error: %v", err)
 	}
 
-	// Now inject error reader.
-	randReader = &errorReader{err: errors.New("mock random error")}
+	// Inject error reader via SetRandReader.
+	mgr.SetRandReader(&errorReader{err: errors.New("mock random error")})
 
 	_, _, err = mgr.AuthenticateWithRefresh(ctx, "admin", "admin")
 	if err == nil {
@@ -690,18 +690,14 @@ func TestAuthenticateWithRefresh_TokenGenerationError(t *testing.T) {
 }
 
 func TestGenerateRefreshToken_TokenIDError(t *testing.T) {
-	// Save original randReader and restore after test.
-	origReader := randReader
-	defer func() { randReader = origReader }()
-
 	// First create a valid manager.
 	mgr, err := NewManager("test-secret", AccessTokenDuration, "admin", "admin")
 	if err != nil {
 		t.Fatalf("NewManager() error: %v", err)
 	}
 
-	// Now inject error reader.
-	randReader = &errorReader{err: errors.New("mock random error")}
+	// Inject error reader via SetRandReader.
+	mgr.SetRandReader(&errorReader{err: errors.New("mock random error")})
 
 	_, err = mgr.GenerateRefreshToken("admin")
 	if err == nil {
@@ -709,12 +705,15 @@ func TestGenerateRefreshToken_TokenIDError(t *testing.T) {
 	}
 }
 
+// readerFunc adapts a function to the io.Reader interface.
+type readerFunc func(p []byte) (int, error)
+
+func (f readerFunc) Read(p []byte) (int, error) {
+	return f(p)
+}
+
 func TestAuthenticateWithRefresh_RefreshTokenGenerationError(t *testing.T) {
 	ctx := context.Background()
-
-	// Save original randReader and restore after test.
-	origReader := randReader
-	defer func() { randReader = origReader }()
 
 	// First create a valid manager.
 	mgr, err := NewManager("test-secret", AccessTokenDuration, "admin", "admin")
@@ -724,25 +723,18 @@ func TestAuthenticateWithRefresh_RefreshTokenGenerationError(t *testing.T) {
 
 	// Create a reader that succeeds once (for access token) then fails.
 	callCount := 0
-	randReader = readerFunc(func(p []byte) (int, error) {
+	mgr.SetRandReader(readerFunc(func(p []byte) (int, error) {
 		callCount++
 		if callCount == 1 {
 			// First call - generate access token ID successfully.
-			return origReader.Read(p)
+			return rand.Reader.Read(p)
 		}
 		// Second call - fail for refresh token.
 		return 0, errors.New("mock error on second call")
-	})
+	}))
 
 	_, _, err = mgr.AuthenticateWithRefresh(ctx, "admin", "admin")
 	if err == nil {
 		t.Error("AuthenticateWithRefresh() expected error on refresh token generation, got nil")
 	}
-}
-
-// readerFunc adapts a function to the io.Reader interface.
-type readerFunc func(p []byte) (int, error)
-
-func (f readerFunc) Read(p []byte) (int, error) {
-	return f(p)
 }

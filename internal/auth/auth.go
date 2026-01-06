@@ -17,10 +17,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// randReader is the random source used for generating secrets and token IDs.
-// It can be overridden in tests to inject failures.
-var randReader io.Reader = rand.Reader
-
 var (
 	// ErrInvalidCredentials indicates the username or password was wrong.
 	ErrInvalidCredentials = errors.New("invalid credentials")
@@ -67,6 +63,7 @@ type Manager struct {
 	passwordHash   []byte
 	issuer         string
 	blacklist      *TokenBlacklist
+	randReader     io.Reader
 }
 
 // NewManager creates an auth manager that can sign tokens.
@@ -103,6 +100,7 @@ func NewManager(jwtSecret string, sessionTimeout time.Duration, username, passwo
 		passwordHash:   hash,
 		issuer:         "The Stem",
 		blacklist:      NewTokenBlacklist(),
+		randReader:     rand.Reader,
 	}, nil
 }
 
@@ -162,7 +160,7 @@ func (m *Manager) generateTokenWithType(username, tokenType string, duration tim
 	now := time.Now()
 
 	// Generate unique token ID for revocation support.
-	tokenID, err := generateTokenID()
+	tokenID, err := m.generateTokenID()
 	if err != nil {
 		return "", fmt.Errorf("generate token ID: %w", err)
 	}
@@ -190,9 +188,9 @@ func (m *Manager) generateTokenWithType(username, tokenType string, duration tim
 }
 
 // generateTokenID creates a unique identifier for tokens.
-func generateTokenID() (string, error) {
+func (m *Manager) generateTokenID() (string, error) {
 	bytes := make([]byte, tokenIDLength)
-	_, err := io.ReadFull(randReader, bytes)
+	_, err := io.ReadFull(m.randReader, bytes)
 	if err != nil {
 		return "", fmt.Errorf("read random bytes: %w", err)
 	}
@@ -204,6 +202,14 @@ func (m *Manager) SessionDuration() time.Duration {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.sessionTimeout
+}
+
+// SetRandReader sets the random reader for token ID generation.
+// This is primarily useful for testing to inject error conditions.
+func (m *Manager) SetRandReader(r io.Reader) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.randReader = r
 }
 
 // RevokeToken adds a token to the blacklist, invalidating it for future use.
@@ -272,8 +278,14 @@ func (m *Manager) AuthenticateWithRefresh(
 
 // GenerateJWTSecret returns a new 256-bit base64url JWT secret.
 func GenerateJWTSecret() (string, error) {
+	return GenerateJWTSecretFrom(rand.Reader)
+}
+
+// GenerateJWTSecretFrom returns a new 256-bit base64url JWT secret using the provided reader.
+// This is useful for testing to inject error conditions.
+func GenerateJWTSecretFrom(r io.Reader) (string, error) {
 	bytes := make([]byte, jwtSecretLength)
-	read, err := io.ReadFull(randReader, bytes)
+	read, err := io.ReadFull(r, bytes)
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrSecretGenerationFailed, err)
 	}
