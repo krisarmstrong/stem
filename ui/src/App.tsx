@@ -26,6 +26,7 @@ import type { FormEvent, ReactElement } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { HelpDrawer } from './components/HelpDrawer';
 import { SettingsDrawer } from './components/SettingsDrawer';
+import { defaultY1564Config, type Y1564Config } from './components/Y1564ConfigForm';
 
 interface Stats {
   packetsReceived: number;
@@ -173,47 +174,141 @@ function InterfaceDetails({ iface }: InterfaceDetailsProps): ReactElement {
 
 interface TestResultsProps {
   testStatus: Stats['testStatus'];
+  result: TestResult | null;
 }
 
-function TestResults({ testStatus }: TestResultsProps): ReactElement {
-  let message: string;
-  switch (testStatus) {
-    case 'idle':
-      message = 'No tests running. Configure tests in Settings and click Start.';
-      break;
-    case 'starting':
-      message = 'Test is starting. Results will stream in shortly.';
-      break;
-    case 'running':
-      message = 'Test in progress... Results will appear here when complete.';
-      break;
-    case 'completed':
-      message = 'Test completed. Detailed results coming soon.';
-      break;
-    case 'cancelled':
-      message = 'Test cancelled. Adjust settings or restart when ready.';
-      break;
-    case 'error':
-      message = 'An error occurred during the test.';
-      break;
-    default:
-      message = 'Waiting for the backend to report a status.';
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  const minutes = Math.floor(ms / 60000);
+  const seconds = ((ms % 60000) / 1000).toFixed(0);
+  return `${minutes}m ${seconds}s`;
+}
+
+function TestResults({ testStatus, result }: TestResultsProps): ReactElement {
+  // Show placeholder messages when no result data
+  if (!result) {
+    let message: string;
+    switch (testStatus) {
+      case 'idle':
+        message = 'No tests running. Configure tests in Settings and click Start.';
+        break;
+      case 'starting':
+        message = 'Test is starting. Results will stream in shortly.';
+        break;
+      case 'running':
+        message = 'Test in progress... Results will appear here when complete.';
+        break;
+      case 'cancelled':
+        message = 'Test cancelled. Adjust settings or restart when ready.';
+        break;
+      case 'error':
+        message = 'An error occurred during the test.';
+        break;
+      default:
+        message = 'Waiting for the backend to report a status.';
+    }
+
+    return (
+      <div className="card">
+        <div className="card-header">
+          <AlertTriangle className="w-4 h-4" />
+          Test Results
+        </div>
+        <div className="text-center py-12 text-[var(--color-text-muted)]">
+          <p>{message}</p>
+        </div>
+      </div>
+    );
   }
+
+  // Show actual test results
+  const statusColor = result.success
+    ? 'text-[var(--color-status-success)]'
+    : 'text-[var(--color-status-error)]';
 
   return (
     <div className="card">
       <div className="card-header">
-        <AlertTriangle className="w-4 h-4" />
+        <Activity className="w-4 h-4" />
         Test Results
       </div>
-      <div className="text-center py-12 text-[var(--color-text-muted)]">
-        <p>{message}</p>
+
+      {/* Test Header */}
+      <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-surface-border)]">
+        <div>
+          <div className="text-lg font-semibold text-[var(--color-text-primary)]">
+            {result.testType}
+          </div>
+          <div className="text-sm text-[var(--color-text-muted)]">Module: {result.module}</div>
+        </div>
+        <div className="text-right">
+          <div className={`text-lg font-semibold ${statusColor}`}>
+            {result.success ? 'PASSED' : 'FAILED'}
+          </div>
+          {result.duration !== undefined && (
+            <div className="text-sm text-[var(--color-text-muted)]">
+              Duration: {formatDuration(result.duration)}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Error Message */}
+      {result.error && (
+        <div className="mb-4 p-3 rounded-lg bg-[var(--color-status-error)]/10 border border-[var(--color-status-error)]/20">
+          <div className="text-sm font-medium text-[var(--color-status-error)]">Error</div>
+          <div className="text-sm text-[var(--color-text-primary)]">{result.error}</div>
+        </div>
+      )}
+
+      {/* Metrics Grid */}
+      {result.metrics && Object.keys(result.metrics).length > 0 && (
+        <div className="mb-4">
+          <div className="text-sm font-semibold text-[var(--color-text-muted)] mb-2">Metrics</div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {Object.entries(result.metrics).map(([key, value]) => (
+              <div
+                key={key}
+                className="p-3 rounded-lg bg-[var(--color-surface-base)] border border-[var(--color-surface-border)]"
+              >
+                <div className="text-xs text-[var(--color-text-muted)] capitalize">
+                  {key.replace(/_/g, ' ')}
+                </div>
+                <div className="text-lg font-semibold text-[var(--color-text-primary)]">
+                  {typeof value === 'number' ? formatNumber(value) : String(value)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Timestamps */}
+      <div className="text-xs text-[var(--color-text-muted)] flex gap-4">
+        {result.startedAt && <span>Started: {new Date(result.startedAt).toLocaleString()}</span>}
+        {result.completedAt && (
+          <span>Completed: {new Date(result.completedAt).toLocaleString()}</span>
+        )}
       </div>
     </div>
   );
 }
 
 const TOKEN_STORAGE_KEY = 'stem-token';
+
+interface TestResult {
+  testType: string;
+  module: string;
+  status: string;
+  startedAt?: string;
+  completedAt?: string;
+  duration?: number;
+  success?: boolean;
+  error?: string;
+  metrics?: Record<string, number | string>;
+  data?: Record<string, unknown>;
+}
 
 interface TestEventPayload {
   status?: string;
@@ -222,7 +317,7 @@ interface TestEventPayload {
   success?: boolean;
   error?: string;
   message?: string;
-  data?: unknown;
+  data?: TestResult;
 }
 
 function normalizeTestStatus(status?: string): Stats['testStatus'] {
@@ -282,6 +377,7 @@ function App(): ReactElement {
     return false;
   });
   const [stats, setStats] = useState<Stats>(initialStats);
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [interfaces, setInterfaces] = useState<InterfaceInfo[]>([]);
   const [selectedInterface, setSelectedInterface] = useState<string>('');
   const [mode, setMode] = useState<'reflector' | 'test_master'>('test_master');
@@ -292,6 +388,7 @@ function App(): ReactElement {
     'rfc2544_back_to_back',
   ]);
   const [reflectorProfile, setReflectorProfile] = useState<string>('all');
+  const [y1564Config, setY1564Config] = useState<Y1564Config>(defaultY1564Config);
 
   const expireSession = useCallback((message = 'Session expired. Please sign in again.') => {
     setToken(null);
@@ -437,6 +534,22 @@ function App(): ReactElement {
         testStatus: normalizedStatus,
         currentTest: payload.testType ?? prev.currentTest,
       }));
+
+      // Capture test result data when test completes
+      if (normalizedStatus === 'completed' || normalizedStatus === 'error') {
+        const result: TestResult = {
+          testType: payload.testType ?? 'unknown',
+          module: payload.module ?? 'unknown',
+          status: normalizedStatus,
+          success: payload.success ?? normalizedStatus === 'completed',
+          error: payload.error,
+          ...(payload.data ?? {}),
+        };
+        setTestResult(result);
+      } else if (normalizedStatus === 'starting') {
+        // Clear previous results when starting a new test
+        setTestResult(null);
+      }
     } catch (_error) {
       // Ignore malformed websocket messages
     }
@@ -671,7 +784,7 @@ function App(): ReactElement {
         {selectedIface && <InterfaceDetails iface={selectedIface} />}
 
         {/* Results Area */}
-        <TestResults testStatus={stats.testStatus} />
+        <TestResults testStatus={stats.testStatus} result={testResult} />
       </main>
 
       {/* Settings Drawer */}
@@ -687,6 +800,8 @@ function App(): ReactElement {
         setSelectedTests={setSelectedTests}
         reflectorProfile={reflectorProfile}
         setReflectorProfile={setReflectorProfile}
+        y1564Config={y1564Config}
+        setY1564Config={setY1564Config}
       />
 
       {/* Help Drawer */}

@@ -26,6 +26,7 @@ import { CollapsibleSection } from './CollapsibleSection';
 import { HelpIcon } from './HelpIcon';
 import { LicenseSection } from './LicenseSection';
 import { ModuleSelector } from './ModuleSelector';
+import { type Y1564Config, Y1564ConfigForm } from './Y1564ConfigForm';
 
 interface InterfaceInfo {
   name: string;
@@ -50,6 +51,8 @@ interface SettingsDrawerProps {
   setSelectedTests: (tests: string[]) => void;
   reflectorProfile: string;
   setReflectorProfile: (profile: string) => void;
+  y1564Config: Y1564Config;
+  setY1564Config: (config: Y1564Config) => void;
 }
 
 export function SettingsDrawer({
@@ -64,6 +67,8 @@ export function SettingsDrawer({
   setSelectedTests,
   reflectorProfile,
   setReflectorProfile,
+  y1564Config,
+  setY1564Config,
 }: SettingsDrawerProps) {
   const [viewMode, setViewMode] = useState<'standard' | 'module'>('standard');
 
@@ -670,6 +675,13 @@ export function SettingsDrawer({
                   </CollapsibleSection>
                 </>
               )}
+
+              {/* Y.1564/MEF Advanced Configuration */}
+              <Y1564ConfigForm
+                config={y1564Config}
+                setConfig={setY1564Config}
+                selectedTests={selectedTests}
+              />
             </>
           )}
 
