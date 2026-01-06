@@ -104,11 +104,18 @@ func TestLogSecurityEvent(t *testing.T) {
 	ctx = WithRequestID(ctx, "test-request-123")
 
 	event := &SecurityEvent{
-		EventType: EventLoginSuccess,
-		UserID:    "user-456",
-		Username:  "testuser",
-		IPAddress: "192.168.1.100",
-		UserAgent: "TestAgent/1.0",
+		Timestamp:      time.Time{},
+		EventType:      EventLoginSuccess,
+		UserID:         "user-456",
+		Username:       "testuser",
+		IPAddress:      "192.168.1.100",
+		UserAgent:      "TestAgent/1.0",
+		RequestID:      "",
+		Resource:       "",
+		Reason:         "",
+		SuspiciousType: "",
+		FailedAttempts: 0,
+		WindowDuration: "",
 	}
 
 	LogSecurityEvent(ctx, event)
@@ -157,9 +164,18 @@ func TestLogSecurityEvent_SetsTimestamp(t *testing.T) {
 
 	ctx := context.Background()
 	event := &SecurityEvent{
-		EventType: EventLoginSuccess,
-		IPAddress: "127.0.0.1",
-		UserAgent: "Test",
+		Timestamp:      time.Time{},
+		EventType:      EventLoginSuccess,
+		UserID:         "",
+		Username:       "",
+		IPAddress:      "127.0.0.1",
+		UserAgent:      "Test",
+		RequestID:      "",
+		Resource:       "",
+		Reason:         "",
+		SuspiciousType: "",
+		FailedAttempts: 0,
+		WindowDuration: "",
 	}
 
 	before := time.Now()
@@ -593,9 +609,18 @@ func TestLogSecurityEvent_LogLevels(t *testing.T) {
 			defer handler.Reset()
 
 			event := &SecurityEvent{
-				EventType: tt.eventType,
-				IPAddress: "127.0.0.1",
-				UserAgent: "Test",
+				Timestamp:      time.Time{},
+				EventType:      tt.eventType,
+				UserID:         "",
+				Username:       "",
+				IPAddress:      "127.0.0.1",
+				UserAgent:      "Test",
+				RequestID:      "",
+				Resource:       "",
+				Reason:         "",
+				SuspiciousType: "",
+				FailedAttempts: 0,
+				WindowDuration: "",
 			}
 
 			LogSecurityEvent(context.Background(), event)

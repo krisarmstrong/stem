@@ -208,10 +208,12 @@ func TestSaveTestResult(t *testing.T) {
 
 		ctx := context.Background()
 		result := &database.TestResult{
+			ID:         0,
 			TestType:   "throughput",
 			Module:     "benchmark",
 			Status:     "passed",
 			ResultJSON: json.RawMessage(`{"bandwidth": 1000}`),
+			CreatedAt:  time.Time{},
 		}
 
 		err := db.SaveTestResult(ctx, result)
@@ -234,11 +236,12 @@ func TestSaveTestResult(t *testing.T) {
 		ctx := context.Background()
 		customTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
 		result := &database.TestResult{
+			ID:         0,
 			TestType:   "latency",
 			Module:     "benchmark",
 			Status:     "passed",
-			CreatedAt:  customTime,
 			ResultJSON: json.RawMessage(`{"latency_ms": 5}`),
+			CreatedAt:  customTime,
 		}
 
 		err := db.SaveTestResult(ctx, result)
@@ -257,9 +260,12 @@ func TestSaveTestResult(t *testing.T) {
 
 		ctx := context.Background()
 		result := &database.TestResult{
-			TestType: "throughput",
-			Module:   "benchmark",
-			Status:   "passed",
+			ID:         0,
+			TestType:   "throughput",
+			Module:     "benchmark",
+			Status:     "passed",
+			ResultJSON: nil,
+			CreatedAt:  time.Time{},
 		}
 
 		err := db.SaveTestResult(ctx, result)
@@ -275,10 +281,12 @@ func TestGetTestResultBasic(t *testing.T) {
 
 	ctx := context.Background()
 	original := &database.TestResult{
+		ID:         0,
 		TestType:   "throughput",
 		Module:     "benchmark",
 		Status:     "passed",
 		ResultJSON: json.RawMessage(`{"bandwidth": 1000}`),
+		CreatedAt:  time.Time{},
 	}
 
 	saveErr := db.SaveTestResult(ctx, original)
@@ -336,9 +344,12 @@ func TestGetTestResultEmptyJSON(t *testing.T) {
 
 	ctx := context.Background()
 	original := &database.TestResult{
-		TestType: "throughput",
-		Module:   "benchmark",
-		Status:   "passed",
+		ID:         0,
+		TestType:   "throughput",
+		Module:     "benchmark",
+		Status:     "passed",
+		ResultJSON: nil,
+		CreatedAt:  time.Time{},
 	}
 
 	saveErr := db.SaveTestResult(ctx, original)
@@ -361,9 +372,12 @@ func saveTestResults(ctx context.Context, t *testing.T, db *database.Database, c
 	t.Helper()
 	for range count {
 		result := &database.TestResult{
-			TestType: "throughput",
-			Module:   "benchmark",
-			Status:   "passed",
+			ID:         0,
+			TestType:   "throughput",
+			Module:     "benchmark",
+			Status:     "passed",
+			ResultJSON: nil,
+			CreatedAt:  time.Time{},
 		}
 		err := db.SaveTestResult(ctx, result)
 		if err != nil {
@@ -398,9 +412,12 @@ func TestGetTestResultsFilterByModule(t *testing.T) {
 	modules := []string{"benchmark", "servicetest", "benchmark"}
 	for _, mod := range modules {
 		result := &database.TestResult{
-			TestType: "throughput",
-			Module:   mod,
-			Status:   "passed",
+			ID:         0,
+			TestType:   "throughput",
+			Module:     mod,
+			Status:     "passed",
+			ResultJSON: nil,
+			CreatedAt:  time.Time{},
 		}
 		err := db.SaveTestResult(ctx, result)
 		if err != nil {
@@ -408,7 +425,13 @@ func TestGetTestResultsFilterByModule(t *testing.T) {
 		}
 	}
 
-	results, err := db.GetTestResults(ctx, &database.TestResultFilter{Module: "benchmark"})
+	results, err := db.GetTestResults(ctx, &database.TestResultFilter{
+		Module:   "benchmark",
+		TestType: "",
+		Status:   "",
+		Limit:    0,
+		Offset:   0,
+	})
 	if err != nil {
 		t.Fatalf("GetTestResults failed: %v", err)
 	}
@@ -427,9 +450,12 @@ func TestGetTestResultsFilterByType(t *testing.T) {
 	types := []string{"throughput", "latency", "throughput"}
 	for _, tt := range types {
 		result := &database.TestResult{
-			TestType: tt,
-			Module:   "benchmark",
-			Status:   "passed",
+			ID:         0,
+			TestType:   tt,
+			Module:     "benchmark",
+			Status:     "passed",
+			ResultJSON: nil,
+			CreatedAt:  time.Time{},
 		}
 		err := db.SaveTestResult(ctx, result)
 		if err != nil {
@@ -437,7 +463,13 @@ func TestGetTestResultsFilterByType(t *testing.T) {
 		}
 	}
 
-	results, err := db.GetTestResults(ctx, &database.TestResultFilter{TestType: "latency"})
+	results, err := db.GetTestResults(ctx, &database.TestResultFilter{
+		Module:   "",
+		TestType: "latency",
+		Status:   "",
+		Limit:    0,
+		Offset:   0,
+	})
 	if err != nil {
 		t.Fatalf("GetTestResults failed: %v", err)
 	}
@@ -456,9 +488,12 @@ func TestGetTestResultsFilterByStatus(t *testing.T) {
 	statuses := []string{"passed", "failed", "passed"}
 	for _, status := range statuses {
 		result := &database.TestResult{
-			TestType: "throughput",
-			Module:   "benchmark",
-			Status:   status,
+			ID:         0,
+			TestType:   "throughput",
+			Module:     "benchmark",
+			Status:     status,
+			ResultJSON: nil,
+			CreatedAt:  time.Time{},
 		}
 		err := db.SaveTestResult(ctx, result)
 		if err != nil {
@@ -466,7 +501,13 @@ func TestGetTestResultsFilterByStatus(t *testing.T) {
 		}
 	}
 
-	results, err := db.GetTestResults(ctx, &database.TestResultFilter{Status: "failed"})
+	results, err := db.GetTestResults(ctx, &database.TestResultFilter{
+		Module:   "",
+		TestType: "",
+		Status:   "failed",
+		Limit:    0,
+		Offset:   0,
+	})
 	if err != nil {
 		t.Fatalf("GetTestResults failed: %v", err)
 	}
@@ -483,7 +524,13 @@ func TestGetTestResultsLimit(t *testing.T) {
 	ctx := context.Background()
 	saveTestResults(ctx, t, db, 5)
 
-	results, err := db.GetTestResults(ctx, &database.TestResultFilter{Limit: 2})
+	results, err := db.GetTestResults(ctx, &database.TestResultFilter{
+		Module:   "",
+		TestType: "",
+		Status:   "",
+		Limit:    2,
+		Offset:   0,
+	})
 	if err != nil {
 		t.Fatalf("GetTestResults failed: %v", err)
 	}
@@ -500,7 +547,13 @@ func TestGetTestResultsOffset(t *testing.T) {
 	ctx := context.Background()
 	saveTestResults(ctx, t, db, 5)
 
-	results, err := db.GetTestResults(ctx, &database.TestResultFilter{Limit: 2, Offset: 3})
+	results, err := db.GetTestResults(ctx, &database.TestResultFilter{
+		Module:   "",
+		TestType: "",
+		Status:   "",
+		Limit:    2,
+		Offset:   3,
+	})
 	if err != nil {
 		t.Fatalf("GetTestResults failed: %v", err)
 	}
@@ -529,9 +582,12 @@ func TestGetTestResultsCombinedFilters(t *testing.T) {
 
 	for _, td := range testData {
 		result := &database.TestResult{
-			TestType: td.testType,
-			Module:   td.module,
-			Status:   td.status,
+			ID:         0,
+			TestType:   td.testType,
+			Module:     td.module,
+			Status:     td.status,
+			ResultJSON: nil,
+			CreatedAt:  time.Time{},
 		}
 		err := db.SaveTestResult(ctx, result)
 		if err != nil {
@@ -543,6 +599,8 @@ func TestGetTestResultsCombinedFilters(t *testing.T) {
 		Module:   "benchmark",
 		TestType: "throughput",
 		Status:   "passed",
+		Limit:    0,
+		Offset:   0,
 	})
 	if err != nil {
 		t.Fatalf("GetTestResults failed: %v", err)
@@ -559,7 +617,13 @@ func TestGetTestResultsNoMatches(t *testing.T) {
 
 	ctx := context.Background()
 
-	results, err := db.GetTestResults(ctx, &database.TestResultFilter{Module: "nonexistent"})
+	results, err := db.GetTestResults(ctx, &database.TestResultFilter{
+		Module:   "nonexistent",
+		TestType: "",
+		Status:   "",
+		Limit:    0,
+		Offset:   0,
+	})
 	if err != nil {
 		t.Fatalf("GetTestResults failed: %v", err)
 	}
@@ -587,9 +651,11 @@ func TestSaveAuditLog(t *testing.T) {
 
 		ctx := context.Background()
 		entry := &database.AuditLogEntry{
+			ID:        0,
 			EventType: "login",
 			User:      "admin",
 			Details:   "Successful login",
+			CreatedAt: time.Time{},
 		}
 
 		err := db.SaveAuditLog(ctx, entry)
@@ -612,8 +678,10 @@ func TestSaveAuditLog(t *testing.T) {
 		ctx := context.Background()
 		customTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
 		entry := &database.AuditLogEntry{
+			ID:        0,
 			EventType: "login",
 			User:      "admin",
+			Details:   "",
 			CreatedAt: customTime,
 		}
 
@@ -633,7 +701,11 @@ func TestSaveAuditLog(t *testing.T) {
 
 		ctx := context.Background()
 		entry := &database.AuditLogEntry{
+			ID:        0,
 			EventType: "system_start",
+			User:      "",
+			Details:   "",
+			CreatedAt: time.Time{},
 		}
 
 		err := db.SaveAuditLog(ctx, entry)
@@ -652,7 +724,11 @@ func TestSaveAuditLog(t *testing.T) {
 
 		ctx := context.Background()
 		entry := &database.AuditLogEntry{
+			ID:        0,
 			EventType: "login",
+			User:      "",
+			Details:   "",
+			CreatedAt: time.Time{},
 		}
 
 		err := db.SaveAuditLog(ctx, entry)
@@ -666,8 +742,11 @@ func saveAuditLogs(ctx context.Context, t *testing.T, db *database.Database, cou
 	t.Helper()
 	for range count {
 		entry := &database.AuditLogEntry{
+			ID:        0,
 			EventType: "test_event",
 			User:      "user",
+			Details:   "",
+			CreatedAt: time.Time{},
 		}
 		err := db.SaveAuditLog(ctx, entry)
 		if err != nil {
@@ -719,7 +798,11 @@ func TestGetAuditLogsOrder(t *testing.T) {
 	events := []string{"first", "second", "third"}
 	for _, event := range events {
 		entry := &database.AuditLogEntry{
+			ID:        0,
 			EventType: event,
+			User:      "",
+			Details:   "",
+			CreatedAt: time.Time{},
 		}
 		err := db.SaveAuditLog(ctx, entry)
 		if err != nil {
@@ -747,7 +830,11 @@ func TestGetAuditLogsNullFields(t *testing.T) {
 	ctx := context.Background()
 
 	entry := &database.AuditLogEntry{
+		ID:        0,
 		EventType: "system_event",
+		User:      "",
+		Details:   "",
+		CreatedAt: time.Time{},
 	}
 	err := db.SaveAuditLog(ctx, entry)
 	if err != nil {
@@ -786,6 +873,7 @@ func TestSaveSessionBasic(t *testing.T) {
 	session := &database.Session{
 		TokenID:   "token-123",
 		ExpiresAt: time.Now().Add(time.Hour).UTC(),
+		CreatedAt: time.Time{},
 	}
 
 	err := db.SaveSession(ctx, session)
@@ -830,6 +918,7 @@ func TestSaveSessionReplace(t *testing.T) {
 	session1 := &database.Session{
 		TokenID:   "token-789",
 		ExpiresAt: time.Now().Add(time.Hour).UTC(),
+		CreatedAt: time.Time{},
 	}
 	err := db.SaveSession(ctx, session1)
 	if err != nil {
@@ -840,6 +929,7 @@ func TestSaveSessionReplace(t *testing.T) {
 	session2 := &database.Session{
 		TokenID:   "token-789",
 		ExpiresAt: time.Now().Add(2 * time.Hour).UTC(),
+		CreatedAt: time.Time{},
 	}
 	err = db.SaveSession(ctx, session2)
 	if err != nil {
@@ -871,6 +961,7 @@ func TestSaveSessionClosedDB(t *testing.T) {
 	session := &database.Session{
 		TokenID:   "token-abc",
 		ExpiresAt: time.Now().Add(time.Hour).UTC(),
+		CreatedAt: time.Time{},
 	}
 
 	err := db.SaveSession(ctx, session)
@@ -887,6 +978,7 @@ func TestIsSessionBlacklistedTrue(t *testing.T) {
 	session := &database.Session{
 		TokenID:   "blacklisted-token",
 		ExpiresAt: time.Now().Add(time.Hour).UTC(),
+		CreatedAt: time.Time{},
 	}
 	err := db.SaveSession(ctx, session)
 	if err != nil {
@@ -927,6 +1019,7 @@ func TestIsSessionBlacklistedExpired(t *testing.T) {
 	session := &database.Session{
 		TokenID:   "expired-token",
 		ExpiresAt: time.Now().Add(-time.Hour).UTC(), // Expired 1 hour ago.
+		CreatedAt: time.Time{},
 	}
 	err := db.SaveSession(ctx, session)
 	if err != nil {
@@ -964,6 +1057,7 @@ func TestDeleteExpiredSessions(t *testing.T) {
 	expiredSession := &database.Session{
 		TokenID:   "expired-token",
 		ExpiresAt: time.Now().Add(-time.Hour).UTC(),
+		CreatedAt: time.Time{},
 	}
 	err := db.SaveSession(ctx, expiredSession)
 	if err != nil {
@@ -974,6 +1068,7 @@ func TestDeleteExpiredSessions(t *testing.T) {
 	validSession := &database.Session{
 		TokenID:   "valid-token",
 		ExpiresAt: time.Now().Add(time.Hour).UTC(),
+		CreatedAt: time.Time{},
 	}
 	err = db.SaveSession(ctx, validSession)
 	if err != nil {
@@ -1008,6 +1103,7 @@ func TestDeleteExpiredSessionsNone(t *testing.T) {
 	session := &database.Session{
 		TokenID:   "valid-token",
 		ExpiresAt: time.Now().Add(time.Hour).UTC(),
+		CreatedAt: time.Time{},
 	}
 	err := db.SaveSession(ctx, session)
 	if err != nil {
@@ -1055,6 +1151,7 @@ func TestGetAllBlacklistedSessionsBasic(t *testing.T) {
 		session := &database.Session{
 			TokenID:   s.tokenID,
 			ExpiresAt: s.expiresAt,
+			CreatedAt: time.Time{},
 		}
 		err := db.SaveSession(ctx, session)
 		if err != nil {
@@ -1091,6 +1188,7 @@ func TestGetAllBlacklistedSessionsOrder(t *testing.T) {
 		session := &database.Session{
 			TokenID:   s.tokenID,
 			ExpiresAt: s.expiresAt,
+			CreatedAt: time.Time{},
 		}
 		err := db.SaveSession(ctx, session)
 		if err != nil {
@@ -1147,9 +1245,12 @@ func TestConcurrentAccess(t *testing.T) {
 	go func() {
 		for range iterations {
 			result := &database.TestResult{
-				TestType: "throughput",
-				Module:   "benchmark",
-				Status:   "passed",
+				ID:         0,
+				TestType:   "throughput",
+				Module:     "benchmark",
+				Status:     "passed",
+				ResultJSON: nil,
+				CreatedAt:  time.Time{},
 			}
 			_ = db.SaveTestResult(ctx, result)
 		}
@@ -1159,7 +1260,11 @@ func TestConcurrentAccess(t *testing.T) {
 	go func() {
 		for range iterations {
 			entry := &database.AuditLogEntry{
+				ID:        0,
 				EventType: "test",
+				User:      "",
+				Details:   "",
+				CreatedAt: time.Time{},
 			}
 			_ = db.SaveAuditLog(ctx, entry)
 		}
@@ -1196,9 +1301,12 @@ func TestContextCancellation(t *testing.T) {
 
 	// Operations should fail with context cancelled.
 	result := &database.TestResult{
-		TestType: "throughput",
-		Module:   "benchmark",
-		Status:   "passed",
+		ID:         0,
+		TestType:   "throughput",
+		Module:     "benchmark",
+		Status:     "passed",
+		ResultJSON: nil,
+		CreatedAt:  time.Time{},
 	}
 	err := db.SaveTestResult(ctx, result)
 	if err == nil {

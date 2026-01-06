@@ -65,8 +65,15 @@ func TestJSONFormat(t *testing.T) {
 
 	var buf bytes.Buffer
 	cfg := &Config{
-		Level:  "info",
-		Format: "json",
+		Level:      "info",
+		Format:     "json",
+		AddSource:  false,
+		File:       "",
+		MaxSize:    0,
+		MaxBackups: 0,
+		MaxAge:     0,
+		Compress:   false,
+		Component:  "",
 	}
 
 	err := InitWithWriter(cfg, &buf)
@@ -124,8 +131,15 @@ func TestTextFormat(t *testing.T) {
 
 	var buf bytes.Buffer
 	cfg := &Config{
-		Level:  "info",
-		Format: "text",
+		Level:      "info",
+		Format:     "text",
+		AddSource:  false,
+		File:       "",
+		MaxSize:    0,
+		MaxBackups: 0,
+		MaxAge:     0,
+		Compress:   false,
+		Component:  "",
 	}
 
 	err := InitWithWriter(cfg, &buf)
@@ -148,9 +162,15 @@ func TestComponentField(t *testing.T) {
 
 	var buf bytes.Buffer
 	cfg := &Config{
-		Level:     "info",
-		Format:    "json",
-		Component: "test-server",
+		Level:      "info",
+		Format:     "json",
+		AddSource:  false,
+		File:       "",
+		MaxSize:    0,
+		MaxBackups: 0,
+		MaxAge:     0,
+		Compress:   false,
+		Component:  "test-server",
 	}
 
 	err := InitWithWriter(cfg, &buf)
@@ -178,8 +198,15 @@ func TestRequestIDContext(t *testing.T) {
 
 	var buf bytes.Buffer
 	cfg := &Config{
-		Level:  "info",
-		Format: "json",
+		Level:      "info",
+		Format:     "json",
+		AddSource:  false,
+		File:       "",
+		MaxSize:    0,
+		MaxBackups: 0,
+		MaxAge:     0,
+		Compress:   false,
+		Component:  "",
 	}
 
 	err := InitWithWriter(cfg, &buf)
@@ -208,8 +235,15 @@ func TestUserIDContext(t *testing.T) {
 
 	var buf bytes.Buffer
 	cfg := &Config{
-		Level:  "info",
-		Format: "json",
+		Level:      "info",
+		Format:     "json",
+		AddSource:  false,
+		File:       "",
+		MaxSize:    0,
+		MaxBackups: 0,
+		MaxAge:     0,
+		Compress:   false,
+		Component:  "",
 	}
 
 	err := InitWithWriter(cfg, &buf)
@@ -238,8 +272,15 @@ func TestComponentContext(t *testing.T) {
 
 	var buf bytes.Buffer
 	cfg := &Config{
-		Level:  "info",
-		Format: "json",
+		Level:      "info",
+		Format:     "json",
+		AddSource:  false,
+		File:       "",
+		MaxSize:    0,
+		MaxBackups: 0,
+		MaxAge:     0,
+		Compress:   false,
+		Component:  "",
 	}
 
 	err := InitWithWriter(cfg, &buf)
@@ -268,8 +309,15 @@ func TestFullContextLog(t *testing.T) {
 
 	var buf bytes.Buffer
 	cfg := &Config{
-		Level:  "info",
-		Format: "json",
+		Level:      "info",
+		Format:     "json",
+		AddSource:  false,
+		File:       "",
+		MaxSize:    0,
+		MaxBackups: 0,
+		MaxAge:     0,
+		Compress:   false,
+		Component:  "",
 	}
 
 	err := InitWithWriter(cfg, &buf)
@@ -345,8 +393,15 @@ func TestLogLevels(t *testing.T) {
 
 			var buf bytes.Buffer
 			cfg := &Config{
-				Level:  tc.level,
-				Format: "json",
+				Level:      tc.level,
+				Format:     "json",
+				AddSource:  false,
+				File:       "",
+				MaxSize:    0,
+				MaxBackups: 0,
+				MaxAge:     0,
+				Compress:   false,
+				Component:  "",
 			}
 
 			err := InitWithWriter(cfg, &buf)
@@ -371,8 +426,15 @@ func TestWithComponentLogger(t *testing.T) {
 
 	var buf bytes.Buffer
 	cfg := &Config{
-		Level:  "info",
-		Format: "json",
+		Level:      "info",
+		Format:     "json",
+		AddSource:  false,
+		File:       "",
+		MaxSize:    0,
+		MaxBackups: 0,
+		MaxAge:     0,
+		Compress:   false,
+		Component:  "",
 	}
 
 	err := InitWithWriter(cfg, &buf)
@@ -401,8 +463,15 @@ func TestLogWithDuration(t *testing.T) {
 
 	var buf bytes.Buffer
 	cfg := &Config{
-		Level:  "info",
-		Format: "json",
+		Level:      "info",
+		Format:     "json",
+		AddSource:  false,
+		File:       "",
+		MaxSize:    0,
+		MaxBackups: 0,
+		MaxAge:     0,
+		Compress:   false,
+		Component:  "",
 	}
 
 	err := InitWithWriter(cfg, &buf)
@@ -501,8 +570,15 @@ func TestLogFormatEnvVariable(t *testing.T) {
 	t.Setenv("STEM_LOG_FORMAT", "")
 
 	cfg := &Config{
-		Level:  "info",
-		Format: "text", // This should be overridden by env var.
+		Level:      "info",
+		Format:     "text", // This should be overridden by env var.
+		AddSource:  false,
+		File:       "",
+		MaxSize:    0,
+		MaxBackups: 0,
+		MaxAge:     0,
+		Compress:   false,
+		Component:  "",
 	}
 
 	var buf bytes.Buffer
@@ -522,7 +598,17 @@ func TestLogFormatEnvVariable(t *testing.T) {
 	Reset()
 
 	// InitWithWriter should read env vars.
-	err = InitWithWriter(&Config{Level: "info", Format: "text"}, &buf)
+	err = InitWithWriter(&Config{
+		Level:      "info",
+		Format:     "text",
+		AddSource:  false,
+		File:       "",
+		MaxSize:    0,
+		MaxBackups: 0,
+		MaxAge:     0,
+		Compress:   false,
+		Component:  "",
+	}, &buf)
 	if err != nil {
 		t.Fatalf("InitWithWriter failed: %v", err)
 	}
@@ -543,8 +629,15 @@ func TestRedactionInJSONLogs(t *testing.T) {
 
 	var buf bytes.Buffer
 	cfg := &Config{
-		Level:  "info",
-		Format: "json",
+		Level:      "info",
+		Format:     "json",
+		AddSource:  false,
+		File:       "",
+		MaxSize:    0,
+		MaxBackups: 0,
+		MaxAge:     0,
+		Compress:   false,
+		Component:  "",
 	}
 
 	err := InitWithWriter(cfg, &buf)
@@ -676,8 +769,15 @@ func TestLoggingMiddleware(t *testing.T) {
 
 	var buf bytes.Buffer
 	cfg := &Config{
-		Level:  "info",
-		Format: "json",
+		Level:      "info",
+		Format:     "json",
+		AddSource:  false,
+		File:       "",
+		MaxSize:    0,
+		MaxBackups: 0,
+		MaxAge:     0,
+		Compress:   false,
+		Component:  "",
 	}
 
 	err := InitWithWriter(cfg, &buf)
@@ -729,8 +829,15 @@ func TestHealthCheckNotLogged(t *testing.T) {
 
 	var buf bytes.Buffer
 	cfg := &Config{
-		Level:  "info",
-		Format: "json",
+		Level:      "info",
+		Format:     "json",
+		AddSource:  false,
+		File:       "",
+		MaxSize:    0,
+		MaxBackups: 0,
+		MaxAge:     0,
+		Compress:   false,
+		Component:  "",
 	}
 
 	err := InitWithWriter(cfg, &buf)
@@ -839,8 +946,15 @@ func TestGetClientIP(t *testing.T) {
 
 	var buf bytes.Buffer
 	cfg := &Config{
-		Level:  "debug", // Need debug to see the log messages.
-		Format: "json",
+		Level:      "debug", // Need debug to see the log messages.
+		Format:     "json",
+		AddSource:  false,
+		File:       "",
+		MaxSize:    0,
+		MaxBackups: 0,
+		MaxAge:     0,
+		Compress:   false,
+		Component:  "",
 	}
 
 	err := InitWithWriter(cfg, &buf)
@@ -857,6 +971,7 @@ func TestGetClientIP(t *testing.T) {
 		{
 			name:       "remote addr only",
 			remoteAddr: "192.168.1.100:12345",
+			headers:    nil,
 			expected:   "192.168.1.100",
 		},
 		{
@@ -938,6 +1053,7 @@ func TestResponseWriter(t *testing.T) {
 		wrapped := &responseWriter{
 			ResponseWriter: rec,
 			status:         http.StatusOK,
+			wroteHeader:    false,
 		}
 
 		wrapped.WriteHeader(http.StatusNotFound)
@@ -952,6 +1068,7 @@ func TestResponseWriter(t *testing.T) {
 		wrapped := &responseWriter{
 			ResponseWriter: rec,
 			status:         http.StatusOK,
+			wroteHeader:    false,
 		}
 
 		_, err := wrapped.Write([]byte("hello"))
@@ -968,6 +1085,8 @@ func TestResponseWriter(t *testing.T) {
 		rec := httptest.NewRecorder()
 		wrapped := &responseWriter{
 			ResponseWriter: rec,
+			status:         0,
+			wroteHeader:    false,
 		}
 
 		if wrapped.Unwrap() != rec {
@@ -982,8 +1101,15 @@ func BenchmarkJSONLogging(b *testing.B) {
 
 	var buf bytes.Buffer
 	cfg := &Config{
-		Level:  "info",
-		Format: "json",
+		Level:      "info",
+		Format:     "json",
+		AddSource:  false,
+		File:       "",
+		MaxSize:    0,
+		MaxBackups: 0,
+		MaxAge:     0,
+		Compress:   false,
+		Component:  "",
 	}
 
 	_ = InitWithWriter(cfg, &buf)
@@ -1005,8 +1131,15 @@ func BenchmarkTextLogging(b *testing.B) {
 
 	var buf bytes.Buffer
 	cfg := &Config{
-		Level:  "info",
-		Format: "text",
+		Level:      "info",
+		Format:     "text",
+		AddSource:  false,
+		File:       "",
+		MaxSize:    0,
+		MaxBackups: 0,
+		MaxAge:     0,
+		Compress:   false,
+		Component:  "",
 	}
 
 	_ = InitWithWriter(cfg, &buf)

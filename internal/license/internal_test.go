@@ -412,9 +412,15 @@ func TestIsActivatedInternalEdgeCases(t *testing.T) {
 
 	// Create state with trial mode and valid trial.
 	mgr.state = &ActivationState{
-		IsTrialMode:    true,
-		TrialStartedAt: timeNow(),
-		DeviceHash:     mgr.fingerprint.Hash(),
+		LicenseKey:      "",
+		DeviceHash:      mgr.fingerprint.Hash(),
+		Tier:            TierInvalid,
+		ActivatedAt:     timeZero(),
+		LastValidatedAt: timeZero(),
+		ExpiresAt:       timeZero(),
+		TrialStartedAt:  timeNow(),
+		IsTrialMode:     true,
+		Features:        nil,
 	}
 	if !mgr.IsActivated() {
 		t.Error("Valid trial should be activated")
@@ -422,10 +428,15 @@ func TestIsActivatedInternalEdgeCases(t *testing.T) {
 
 	// Create state with non-trial, valid expiration, correct device hash.
 	mgr.state = &ActivationState{
-		IsTrialMode:    false,
-		ExpiresAt:      timeNow().AddDate(1, 0, 0),
-		DeviceHash:     mgr.fingerprint.Hash(),
-		TrialStartedAt: timeZero(),
+		LicenseKey:      "",
+		DeviceHash:      mgr.fingerprint.Hash(),
+		Tier:            TierInvalid,
+		ActivatedAt:     timeZero(),
+		LastValidatedAt: timeZero(),
+		ExpiresAt:       timeNow().AddDate(1, 0, 0),
+		TrialStartedAt:  timeZero(),
+		IsTrialMode:     false,
+		Features:        nil,
 	}
 	if !mgr.IsActivated() {
 		t.Error("Valid license should be activated")
@@ -433,10 +444,15 @@ func TestIsActivatedInternalEdgeCases(t *testing.T) {
 
 	// Create state with expired license.
 	mgr.state = &ActivationState{
-		IsTrialMode:    false,
-		ExpiresAt:      timeNow().AddDate(-1, 0, 0), // Expired 1 year ago.
-		DeviceHash:     mgr.fingerprint.Hash(),
-		TrialStartedAt: timeZero(),
+		LicenseKey:      "",
+		DeviceHash:      mgr.fingerprint.Hash(),
+		Tier:            TierInvalid,
+		ActivatedAt:     timeZero(),
+		LastValidatedAt: timeZero(),
+		ExpiresAt:       timeNow().AddDate(-1, 0, 0), // Expired 1 year ago.
+		TrialStartedAt:  timeZero(),
+		IsTrialMode:     false,
+		Features:        nil,
 	}
 	if mgr.IsActivated() {
 		t.Error("Expired license should not be activated")
@@ -444,10 +460,15 @@ func TestIsActivatedInternalEdgeCases(t *testing.T) {
 
 	// Create state with wrong device hash.
 	mgr.state = &ActivationState{
-		IsTrialMode:    false,
-		ExpiresAt:      timeNow().AddDate(1, 0, 0),
-		DeviceHash:     "WRONGDEVICEHASH", // Wrong hash.
-		TrialStartedAt: timeZero(),
+		LicenseKey:      "",
+		DeviceHash:      "WRONGDEVICEHASH", // Wrong hash.
+		Tier:            TierInvalid,
+		ActivatedAt:     timeZero(),
+		LastValidatedAt: timeZero(),
+		ExpiresAt:       timeNow().AddDate(1, 0, 0),
+		TrialStartedAt:  timeZero(),
+		IsTrialMode:     false,
+		Features:        nil,
 	}
 	if mgr.IsActivated() {
 		t.Error("Wrong device hash should not be activated")
@@ -478,8 +499,15 @@ func TestIsTrialValidInternalEdgeCases(t *testing.T) {
 
 	// Non-trial state should return false.
 	mgr.state = &ActivationState{
-		IsTrialMode:    false,
-		TrialStartedAt: timeNow(),
+		LicenseKey:      "",
+		DeviceHash:      "",
+		Tier:            TierInvalid,
+		ActivatedAt:     timeZero(),
+		LastValidatedAt: timeZero(),
+		ExpiresAt:       timeZero(),
+		TrialStartedAt:  timeNow(),
+		IsTrialMode:     false,
+		Features:        nil,
 	}
 	if mgr.IsTrialValid() {
 		t.Error("Non-trial state should not have valid trial")
@@ -487,8 +515,15 @@ func TestIsTrialValidInternalEdgeCases(t *testing.T) {
 
 	// Trial with zero start time should return false.
 	mgr.state = &ActivationState{
-		IsTrialMode:    true,
-		TrialStartedAt: timeZero(),
+		LicenseKey:      "",
+		DeviceHash:      "",
+		Tier:            TierInvalid,
+		ActivatedAt:     timeZero(),
+		LastValidatedAt: timeZero(),
+		ExpiresAt:       timeZero(),
+		TrialStartedAt:  timeZero(),
+		IsTrialMode:     true,
+		Features:        nil,
 	}
 	if mgr.IsTrialValid() {
 		t.Error("Trial with zero start time should not be valid")
@@ -496,8 +531,15 @@ func TestIsTrialValidInternalEdgeCases(t *testing.T) {
 
 	// Valid trial should return true.
 	mgr.state = &ActivationState{
-		IsTrialMode:    true,
-		TrialStartedAt: timeNow(),
+		LicenseKey:      "",
+		DeviceHash:      "",
+		Tier:            TierInvalid,
+		ActivatedAt:     timeZero(),
+		LastValidatedAt: timeZero(),
+		ExpiresAt:       timeZero(),
+		TrialStartedAt:  timeNow(),
+		IsTrialMode:     true,
+		Features:        nil,
 	}
 	if !mgr.IsTrialValid() {
 		t.Error("Valid trial should be valid")
@@ -519,8 +561,15 @@ func TestTrialDaysRemainingInternalEdgeCases(t *testing.T) {
 
 	// Non-trial state should return 0.
 	mgr.state = &ActivationState{
-		IsTrialMode:    false,
-		TrialStartedAt: timeNow(),
+		LicenseKey:      "",
+		DeviceHash:      "",
+		Tier:            TierInvalid,
+		ActivatedAt:     timeZero(),
+		LastValidatedAt: timeZero(),
+		ExpiresAt:       timeZero(),
+		TrialStartedAt:  timeNow(),
+		IsTrialMode:     false,
+		Features:        nil,
 	}
 	if mgr.TrialDaysRemaining() != 0 {
 		t.Error("Non-trial state should have 0 days remaining")
@@ -528,8 +577,15 @@ func TestTrialDaysRemainingInternalEdgeCases(t *testing.T) {
 
 	// Trial with zero start time should return TrialDays.
 	mgr.state = &ActivationState{
-		IsTrialMode:    true,
-		TrialStartedAt: timeZero(),
+		LicenseKey:      "",
+		DeviceHash:      "",
+		Tier:            TierInvalid,
+		ActivatedAt:     timeZero(),
+		LastValidatedAt: timeZero(),
+		ExpiresAt:       timeZero(),
+		TrialStartedAt:  timeZero(),
+		IsTrialMode:     true,
+		Features:        nil,
 	}
 	if mgr.TrialDaysRemaining() != TrialDays {
 		t.Errorf("Zero start trial should return %d days, got %d", TrialDays, mgr.TrialDaysRemaining())
@@ -537,8 +593,15 @@ func TestTrialDaysRemainingInternalEdgeCases(t *testing.T) {
 
 	// Expired trial should return 0.
 	mgr.state = &ActivationState{
-		IsTrialMode:    true,
-		TrialStartedAt: timeNow().AddDate(0, 0, -30), // Started 30 days ago.
+		LicenseKey:      "",
+		DeviceHash:      "",
+		Tier:            TierInvalid,
+		ActivatedAt:     timeZero(),
+		LastValidatedAt: timeZero(),
+		ExpiresAt:       timeZero(),
+		TrialStartedAt:  timeNow().AddDate(0, 0, -30), // Started 30 days ago.
+		IsTrialMode:     true,
+		Features:        nil,
 	}
 	if mgr.TrialDaysRemaining() != 0 {
 		t.Error("Expired trial should have 0 days remaining")
@@ -554,11 +617,15 @@ func TestStartTrialInternalEdgeCases(t *testing.T) {
 
 	// Test with existing non-trial activation.
 	mgr.state = &ActivationState{
-		IsTrialMode:    false,
-		Tier:           TierEnterprise,
-		ExpiresAt:      timeNow().AddDate(1, 0, 0),
-		DeviceHash:     mgr.fingerprint.Hash(),
-		TrialStartedAt: timeZero(),
+		LicenseKey:      "",
+		DeviceHash:      mgr.fingerprint.Hash(),
+		Tier:            TierEnterprise,
+		ActivatedAt:     timeZero(),
+		LastValidatedAt: timeZero(),
+		ExpiresAt:       timeNow().AddDate(1, 0, 0),
+		TrialStartedAt:  timeZero(),
+		IsTrialMode:     false,
+		Features:        nil,
 	}
 	result := mgr.StartTrial()
 	if !result.Success {
@@ -573,9 +640,15 @@ func TestStartTrialInternalEdgeCases(t *testing.T) {
 
 	// Test with expired trial.
 	mgr.state = &ActivationState{
-		IsTrialMode:    true,
-		TrialStartedAt: timeNow().AddDate(0, 0, -30), // Started 30 days ago.
-		DeviceHash:     mgr.fingerprint.Hash(),
+		LicenseKey:      "",
+		DeviceHash:      mgr.fingerprint.Hash(),
+		Tier:            TierInvalid,
+		ActivatedAt:     timeZero(),
+		LastValidatedAt: timeZero(),
+		ExpiresAt:       timeZero(),
+		TrialStartedAt:  timeNow().AddDate(0, 0, -30), // Started 30 days ago.
+		IsTrialMode:     true,
+		Features:        nil,
 	}
 	result = mgr.StartTrial()
 	if result.Success {
@@ -675,10 +748,15 @@ func TestSaveStateCreatesDirectory(t *testing.T) {
 
 	// Set a valid state.
 	mgr.state = &ActivationState{
-		IsTrialMode:    true,
-		TrialStartedAt: time.Now(),
-		DeviceHash:     mgr.fingerprint.Hash(),
-		Tier:           TierTestSuite,
+		LicenseKey:      "",
+		DeviceHash:      mgr.fingerprint.Hash(),
+		Tier:            TierTestSuite,
+		ActivatedAt:     time.Time{},
+		LastValidatedAt: time.Time{},
+		ExpiresAt:       time.Time{},
+		TrialStartedAt:  time.Now(),
+		IsTrialMode:     true,
+		Features:        nil,
 	}
 
 	// saveState should work.
@@ -851,10 +929,15 @@ func TestSaveStateWithReadOnlyDir(t *testing.T) {
 
 	// Set a state to save.
 	mgr.state = &ActivationState{
-		IsTrialMode:    true,
-		TrialStartedAt: time.Now(),
-		DeviceHash:     mgr.fingerprint.Hash(),
-		Tier:           TierTestSuite,
+		LicenseKey:      "",
+		DeviceHash:      mgr.fingerprint.Hash(),
+		Tier:            TierTestSuite,
+		ActivatedAt:     time.Time{},
+		LastValidatedAt: time.Time{},
+		ExpiresAt:       time.Time{},
+		TrialStartedAt:  time.Now(),
+		IsTrialMode:     true,
+		Features:        nil,
 	}
 
 	// saveState should fail.
@@ -1036,6 +1119,7 @@ func TestLoadStateWithValidEncryptedState(t *testing.T) {
 		ActivatedAt:     time.Now(),
 		LastValidatedAt: time.Now(),
 		ExpiresAt:       time.Now().AddDate(1, 0, 0),
+		TrialStartedAt:  time.Time{},
 		IsTrialMode:     false,
 		Features:        []string{"reflector", "rfc2544"},
 	}
@@ -1417,11 +1501,15 @@ func TestCheckInWithTrialState(t *testing.T) {
 
 	// Set up trial state.
 	mgr.state = &ActivationState{
-		IsTrialMode:     true,
-		TrialStartedAt:  time.Now(),
+		LicenseKey:      "",
 		DeviceHash:      mgr.fingerprint.Hash(),
 		Tier:            TierTestSuite,
+		ActivatedAt:     time.Time{},
 		LastValidatedAt: time.Now().AddDate(0, 0, -40), // 40 days ago.
+		ExpiresAt:       time.Time{},
+		TrialStartedAt:  time.Now(),
+		IsTrialMode:     true,
+		Features:        nil,
 	}
 
 	result := mgr.CheckIn()
@@ -1439,11 +1527,15 @@ func TestNeedsCheckInWithTrialMode(t *testing.T) {
 
 	// Set up trial state.
 	mgr.state = &ActivationState{
-		IsTrialMode:     true,
-		TrialStartedAt:  time.Now(),
+		LicenseKey:      "",
 		DeviceHash:      mgr.fingerprint.Hash(),
 		Tier:            TierTestSuite,
+		ActivatedAt:     time.Time{},
 		LastValidatedAt: time.Now().AddDate(0, 0, -40),
+		ExpiresAt:       time.Time{},
+		TrialStartedAt:  time.Now(),
+		IsTrialMode:     true,
+		Features:        nil,
 	}
 
 	// Trial mode should not need check-in.
@@ -1461,10 +1553,15 @@ func TestNeedsCheckInRecentValidation(t *testing.T) {
 
 	// Set up license state with recent validation.
 	mgr.state = &ActivationState{
-		IsTrialMode:     false,
+		LicenseKey:      "",
 		DeviceHash:      mgr.fingerprint.Hash(),
 		Tier:            TierTestSuite,
+		ActivatedAt:     time.Time{},
 		LastValidatedAt: time.Now().AddDate(0, 0, -5), // 5 days ago.
+		ExpiresAt:       time.Time{},
+		TrialStartedAt:  time.Time{},
+		IsTrialMode:     false,
+		Features:        nil,
 	}
 
 	// Should not need check-in.
@@ -1482,10 +1579,15 @@ func TestNeedsCheckInOldValidation(t *testing.T) {
 
 	// Set up license state with old validation.
 	mgr.state = &ActivationState{
-		IsTrialMode:     false,
+		LicenseKey:      "",
 		DeviceHash:      mgr.fingerprint.Hash(),
 		Tier:            TierTestSuite,
+		ActivatedAt:     time.Time{},
 		LastValidatedAt: time.Now().AddDate(0, 0, -35), // 35 days ago.
+		ExpiresAt:       time.Time{},
+		TrialStartedAt:  time.Time{},
+		IsTrialMode:     false,
+		Features:        nil,
 	}
 
 	// Should need check-in.
@@ -1503,9 +1605,15 @@ func TestStartTrialWithActiveTrial(t *testing.T) {
 
 	// Set up active trial.
 	mgr.state = &ActivationState{
-		IsTrialMode:    true,
-		TrialStartedAt: time.Now().AddDate(0, 0, -5), // Started 5 days ago.
-		DeviceHash:     mgr.fingerprint.Hash(),
+		LicenseKey:      "",
+		DeviceHash:      mgr.fingerprint.Hash(),
+		Tier:            TierInvalid,
+		ActivatedAt:     time.Time{},
+		LastValidatedAt: time.Time{},
+		ExpiresAt:       time.Time{},
+		TrialStartedAt:  time.Now().AddDate(0, 0, -5), // Started 5 days ago.
+		IsTrialMode:     true,
+		Features:        nil,
 	}
 
 	result := mgr.StartTrial()
@@ -1534,7 +1642,17 @@ func TestGetStateAndFingerprint(t *testing.T) {
 	}
 
 	// GetState with value.
-	testState := &ActivationState{Tier: TierTestSuite}
+	testState := &ActivationState{
+		LicenseKey:      "",
+		DeviceHash:      "",
+		Tier:            TierTestSuite,
+		ActivatedAt:     time.Time{},
+		LastValidatedAt: time.Time{},
+		ExpiresAt:       time.Time{},
+		TrialStartedAt:  time.Time{},
+		IsTrialMode:     false,
+		Features:        nil,
+	}
 	mgr.state = testState
 	if mgr.GetState() != testState {
 		t.Error("GetState should return the state")
@@ -1646,9 +1764,15 @@ func TestIsActivatedWithZeroExpiresAt(t *testing.T) {
 
 	// State with zero ExpiresAt (never expires).
 	mgr.state = &ActivationState{
-		IsTrialMode: false,
-		ExpiresAt:   time.Time{}, // Zero value.
-		DeviceHash:  mgr.fingerprint.Hash(),
+		LicenseKey:      "",
+		DeviceHash:      mgr.fingerprint.Hash(),
+		Tier:            TierInvalid,
+		ActivatedAt:     time.Time{},
+		LastValidatedAt: time.Time{},
+		ExpiresAt:       time.Time{}, // Zero value.
+		TrialStartedAt:  time.Time{},
+		IsTrialMode:     false,
+		Features:        nil,
 	}
 
 	// Should be activated (zero expiration means no expiration check).
@@ -1707,8 +1831,15 @@ func TestSaveStateWriteError(t *testing.T) {
 
 	mgr.configDir = configDir
 	mgr.state = &ActivationState{
-		IsTrialMode: true,
-		DeviceHash:  mgr.fingerprint.Hash(),
+		LicenseKey:      "",
+		DeviceHash:      mgr.fingerprint.Hash(),
+		Tier:            TierInvalid,
+		ActivatedAt:     time.Time{},
+		LastValidatedAt: time.Time{},
+		ExpiresAt:       time.Time{},
+		TrialStartedAt:  time.Time{},
+		IsTrialMode:     true,
+		Features:        nil,
 	}
 
 	// saveState should fail because the license path is a directory.
@@ -1833,7 +1964,17 @@ func TestSaveStateCreateDirectoryError(t *testing.T) {
 
 	// Try to create config in a path where a file blocks it.
 	mgr.configDir = blockingFile + "/subdir"
-	mgr.state = &ActivationState{IsTrialMode: true}
+	mgr.state = &ActivationState{
+		LicenseKey:      "",
+		DeviceHash:      "",
+		Tier:            TierInvalid,
+		ActivatedAt:     time.Time{},
+		LastValidatedAt: time.Time{},
+		ExpiresAt:       time.Time{},
+		TrialStartedAt:  time.Time{},
+		IsTrialMode:     true,
+		Features:        nil,
+	}
 
 	err = mgr.saveState()
 	if err == nil {
