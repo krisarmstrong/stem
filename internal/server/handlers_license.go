@@ -12,7 +12,7 @@ import (
 // handleLicense returns current license status.
 func (s *Server) handleLicense(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		WriteMethodNotAllowed(w)
 		return
 	}
 
@@ -86,7 +86,7 @@ func (s *Server) handleLicense(w http.ResponseWriter, r *http.Request) {
 // handleLicenseActivate activates a license key.
 func (s *Server) handleLicenseActivate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		WriteMethodNotAllowed(w)
 		return
 	}
 
@@ -143,6 +143,6 @@ func (s *Server) handleLicenseTrial(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, result)
 
 	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		WriteMethodNotAllowed(w)
 	}
 }

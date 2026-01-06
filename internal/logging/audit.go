@@ -1,0 +1,481 @@
+// Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
+
+package logging
+
+// This file contains security audit logging functions for tracking authentication
+// and authorization events.
+
+import (
+	"context"
+	"net/http"
+	"sync"
+	"time"
+)
+
+// SecurityEventType represents the type of security event being logged.
+type SecurityEventType string
+
+// Security event type constants.
+const (
+	// EventLoginSuccess indicates a successful user login.
+	EventLoginSuccess SecurityEventType = "login_success"
+	// EventLoginFailure indicates a failed login attempt.
+	EventLoginFailure SecurityEventType = "login_failure"
+	// EventTokenInvalid indicates an invalid token was presented.
+	EventTokenInvalid SecurityEventType = "token_invalid"
+	// EventTokenExpired indicates an expired token was presented.
+	EventTokenExpired SecurityEventType = "token_expired"
+	// EventTokenRevoked indicates a revoked token was used.
+	EventTokenRevoked SecurityEventType = "token_revoked"
+	// EventTokenRefresh indicates a token was refreshed.
+	EventTokenRefresh SecurityEventType = "token_refresh"
+	// EventLogout indicates a user logout.
+	EventLogout SecurityEventType = "logout"
+	// EventPermissionDenied indicates an authorization failure.
+	EventPermissionDenied SecurityEventType = "permission_denied"
+	// EventRateLimited indicates a rate limit was exceeded.
+	EventRateLimited SecurityEventType = "rate_limited"
+	// EventSuspiciousActivity indicates suspicious behavior was detected.
+	EventSuspiciousActivity SecurityEventType = "suspicious_activity"
+)
+
+// SuspiciousActivityType represents the type of suspicious activity detected.
+type SuspiciousActivityType string
+
+// Suspicious activity type constants.
+const (
+	SuspiciousMultipleFailedLogins SuspiciousActivityType = "multiple_failed_logins"
+	SuspiciousBruteForce           SuspiciousActivityType = "brute_force_attempt"
+	SuspiciousIPChange             SuspiciousActivityType = "ip_address_change"
+	SuspiciousUserAgentChange      SuspiciousActivityType = "user_agent_change"
+)
+
+// SecurityEvent represents a security-related event for audit logging.
+type SecurityEvent struct {
+	// Timestamp is when the event occurred.
+	Timestamp time.Time `json:"timestamp"`
+
+	// EventType identifies the type of security event.
+	EventType SecurityEventType `json:"event_type"`
+
+	// UserID is the user associated with the event (empty if unknown/unauthenticated).
+	UserID string `json:"user_id,omitempty"`
+
+	// Username is the username attempted (for login events).
+	Username string `json:"username,omitempty"`
+
+	// IPAddress is the client IP address.
+	IPAddress string `json:"ip_address"`
+
+	// UserAgent is the client's User-Agent header.
+	UserAgent string `json:"user_agent"`
+
+	// RequestID is the unique request identifier for correlation.
+	RequestID string `json:"request_id,omitempty"`
+
+	// Resource is the resource being accessed (for permission denied events).
+	Resource string `json:"resource,omitempty"`
+
+	// Reason provides additional context for failures.
+	Reason string `json:"reason,omitempty"`
+
+	// SuspiciousType identifies the type of suspicious activity (when applicable).
+	SuspiciousType SuspiciousActivityType `json:"suspicious_type,omitempty"`
+
+	// FailedAttempts is the count of failed attempts (for suspicious activity events).
+	FailedAttempts int `json:"failed_attempts,omitempty"`
+
+	// WindowDuration is the time window for rate limiting or attempt counting.
+	WindowDuration string `json:"window_duration,omitempty"`
+}
+
+// FailedLoginTracker tracks failed login attempts for detecting suspicious activity.
+type FailedLoginTracker struct {
+	mu       sync.RWMutex
+	attempts map[string][]time.Time // key: IP address or username
+}
+
+// Global failed login tracker.
+//
+//nolint:gochecknoglobals // Required for tracking failed login attempts across requests.
+var failedLoginTracker = &FailedLoginTracker{
+	mu:       sync.RWMutex{},
+	attempts: make(map[string][]time.Time),
+}
+
+// Failed login tracking constants.
+const (
+	// FailedLoginThreshold is the number of failed attempts that triggers a suspicious activity alert.
+	FailedLoginThreshold = 5
+	// FailedLoginWindow is the time window for counting failed login attempts.
+	FailedLoginWindow = 15 * time.Minute
+	// AttemptCleanupInterval is how often old attempts are cleaned up.
+	AttemptCleanupInterval = 5 * time.Minute
+)
+
+// LogSecurityEvent logs a security event to the audit log.
+// The event is logged at INFO level with a structured format for easy parsing.
+func LogSecurityEvent(ctx context.Context, event *SecurityEvent) {
+	if event == nil {
+		return
+	}
+
+	// Ensure timestamp is set.
+	if event.Timestamp.IsZero() {
+		event.Timestamp = time.Now().UTC()
+	}
+
+	// Get request ID from context if not already set.
+	if event.RequestID == "" {
+		event.RequestID = RequestIDFromContext(ctx)
+	}
+
+	logger := FromContext(ctx)
+
+	// Build log attributes.
+	attrs := []any{
+		"audit", true,
+		"event_type", string(event.EventType),
+		"timestamp", event.Timestamp.Format(time.RFC3339),
+		"ip_address", event.IPAddress,
+		"user_agent", event.UserAgent,
+	}
+
+	if event.UserID != "" {
+		attrs = append(attrs, "user_id", event.UserID)
+	}
+	if event.Username != "" {
+		attrs = append(attrs, "username", event.Username)
+	}
+	if event.RequestID != "" {
+		attrs = append(attrs, "request_id", event.RequestID)
+	}
+	if event.Resource != "" {
+		attrs = append(attrs, "resource", event.Resource)
+	}
+	if event.Reason != "" {
+		attrs = append(attrs, "reason", event.Reason)
+	}
+	if event.SuspiciousType != "" {
+		attrs = append(attrs, "suspicious_type", string(event.SuspiciousType))
+	}
+	if event.FailedAttempts > 0 {
+		attrs = append(attrs, "failed_attempts", event.FailedAttempts)
+	}
+	if event.WindowDuration != "" {
+		attrs = append(attrs, "window_duration", event.WindowDuration)
+	}
+
+	// Log at appropriate level based on event type.
+	switch event.EventType {
+	case EventLoginSuccess, EventLogout, EventTokenRefresh:
+		logger.InfoContext(ctx, "security_audit", attrs...)
+	case EventLoginFailure, EventTokenInvalid, EventTokenExpired, EventTokenRevoked:
+		logger.WarnContext(ctx, "security_audit", attrs...)
+	case EventPermissionDenied, EventRateLimited, EventSuspiciousActivity:
+		logger.WarnContext(ctx, "security_audit", attrs...)
+	default:
+		logger.InfoContext(ctx, "security_audit", attrs...)
+	}
+}
+
+// AuditLoginSuccess logs a successful login event.
+func AuditLoginSuccess(ctx context.Context, r *http.Request, userID, username string) {
+	LogSecurityEvent(ctx, &SecurityEvent{
+		Timestamp:      time.Time{},
+		EventType:      EventLoginSuccess,
+		UserID:         userID,
+		Username:       username,
+		IPAddress:      GetClientIP(r),
+		UserAgent:      r.UserAgent(),
+		RequestID:      "",
+		Resource:       "",
+		Reason:         "",
+		SuspiciousType: "",
+		FailedAttempts: 0,
+		WindowDuration: "",
+	})
+
+	// Clear failed login attempts for this IP on successful login.
+	failedLoginTracker.ClearAttempts(GetClientIP(r))
+}
+
+// AuditLoginFailure logs a failed login attempt.
+// Returns true if the failure triggered a suspicious activity alert.
+func AuditLoginFailure(ctx context.Context, r *http.Request, username, reason string) bool {
+	ipAddress := GetClientIP(r)
+
+	LogSecurityEvent(ctx, &SecurityEvent{
+		Timestamp:      time.Time{},
+		EventType:      EventLoginFailure,
+		UserID:         "",
+		Username:       username,
+		IPAddress:      ipAddress,
+		UserAgent:      r.UserAgent(),
+		RequestID:      "",
+		Resource:       "",
+		Reason:         reason,
+		SuspiciousType: "",
+		FailedAttempts: 0,
+		WindowDuration: "",
+	})
+
+	// Track this failed attempt and check for suspicious activity.
+	return failedLoginTracker.RecordFailedAttempt(ctx, r, ipAddress, username)
+}
+
+// AuditTokenInvalid logs a token validation failure.
+func AuditTokenInvalid(ctx context.Context, r *http.Request, reason string) {
+	LogSecurityEvent(ctx, &SecurityEvent{
+		Timestamp:      time.Time{},
+		EventType:      EventTokenInvalid,
+		UserID:         "",
+		Username:       "",
+		IPAddress:      GetClientIP(r),
+		UserAgent:      r.UserAgent(),
+		RequestID:      "",
+		Resource:       "",
+		Reason:         reason,
+		SuspiciousType: "",
+		FailedAttempts: 0,
+		WindowDuration: "",
+	})
+}
+
+// AuditTokenExpired logs an expired token event.
+func AuditTokenExpired(ctx context.Context, r *http.Request, userID string) {
+	LogSecurityEvent(ctx, &SecurityEvent{
+		Timestamp:      time.Time{},
+		EventType:      EventTokenExpired,
+		UserID:         userID,
+		Username:       "",
+		IPAddress:      GetClientIP(r),
+		UserAgent:      r.UserAgent(),
+		RequestID:      "",
+		Resource:       "",
+		Reason:         "",
+		SuspiciousType: "",
+		FailedAttempts: 0,
+		WindowDuration: "",
+	})
+}
+
+// AuditTokenRevoked logs a revoked token access attempt.
+func AuditTokenRevoked(ctx context.Context, r *http.Request, userID string) {
+	LogSecurityEvent(ctx, &SecurityEvent{
+		Timestamp:      time.Time{},
+		EventType:      EventTokenRevoked,
+		UserID:         userID,
+		Username:       "",
+		IPAddress:      GetClientIP(r),
+		UserAgent:      r.UserAgent(),
+		RequestID:      "",
+		Resource:       "",
+		Reason:         "",
+		SuspiciousType: "",
+		FailedAttempts: 0,
+		WindowDuration: "",
+	})
+}
+
+// AuditTokenRefresh logs a token refresh event.
+func AuditTokenRefresh(ctx context.Context, r *http.Request, userID string) {
+	LogSecurityEvent(ctx, &SecurityEvent{
+		Timestamp:      time.Time{},
+		EventType:      EventTokenRefresh,
+		UserID:         userID,
+		Username:       "",
+		IPAddress:      GetClientIP(r),
+		UserAgent:      r.UserAgent(),
+		RequestID:      "",
+		Resource:       "",
+		Reason:         "",
+		SuspiciousType: "",
+		FailedAttempts: 0,
+		WindowDuration: "",
+	})
+}
+
+// AuditLogout logs a logout event.
+func AuditLogout(ctx context.Context, r *http.Request, userID string) {
+	LogSecurityEvent(ctx, &SecurityEvent{
+		Timestamp:      time.Time{},
+		EventType:      EventLogout,
+		UserID:         userID,
+		Username:       "",
+		IPAddress:      GetClientIP(r),
+		UserAgent:      r.UserAgent(),
+		RequestID:      "",
+		Resource:       "",
+		Reason:         "",
+		SuspiciousType: "",
+		FailedAttempts: 0,
+		WindowDuration: "",
+	})
+}
+
+// AuditPermissionDenied logs an authorization failure.
+func AuditPermissionDenied(ctx context.Context, r *http.Request, userID, resource, reason string) {
+	LogSecurityEvent(ctx, &SecurityEvent{
+		Timestamp:      time.Time{},
+		EventType:      EventPermissionDenied,
+		UserID:         userID,
+		Username:       "",
+		IPAddress:      GetClientIP(r),
+		UserAgent:      r.UserAgent(),
+		RequestID:      "",
+		Resource:       resource,
+		Reason:         reason,
+		SuspiciousType: "",
+		FailedAttempts: 0,
+		WindowDuration: "",
+	})
+}
+
+// AuditRateLimited logs a rate limit exceeded event.
+func AuditRateLimited(ctx context.Context, r *http.Request, userID, resource, windowDuration string) {
+	LogSecurityEvent(ctx, &SecurityEvent{
+		Timestamp:      time.Time{},
+		EventType:      EventRateLimited,
+		UserID:         userID,
+		Username:       "",
+		IPAddress:      GetClientIP(r),
+		UserAgent:      r.UserAgent(),
+		RequestID:      "",
+		Resource:       resource,
+		Reason:         "",
+		SuspiciousType: "",
+		FailedAttempts: 0,
+		WindowDuration: windowDuration,
+	})
+}
+
+// AuditSuspiciousActivity logs detected suspicious activity.
+func AuditSuspiciousActivity(
+	ctx context.Context,
+	r *http.Request,
+	suspiciousType SuspiciousActivityType,
+	reason string,
+	failedAttempts int,
+) {
+	LogSecurityEvent(ctx, &SecurityEvent{
+		Timestamp:      time.Time{},
+		EventType:      EventSuspiciousActivity,
+		UserID:         "",
+		Username:       "",
+		IPAddress:      GetClientIP(r),
+		UserAgent:      r.UserAgent(),
+		RequestID:      "",
+		Resource:       "",
+		Reason:         reason,
+		SuspiciousType: suspiciousType,
+		FailedAttempts: failedAttempts,
+		WindowDuration: FailedLoginWindow.String(),
+	})
+}
+
+// RecordFailedAttempt records a failed login attempt and checks for suspicious patterns.
+// Returns true if a suspicious activity alert was triggered.
+func (t *FailedLoginTracker) RecordFailedAttempt(
+	ctx context.Context,
+	r *http.Request,
+	key, _ string,
+) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	now := time.Now()
+	cutoff := now.Add(-FailedLoginWindow)
+
+	// Get existing attempts for this key.
+	attempts := t.attempts[key]
+
+	// Filter out old attempts.
+	var recentAttempts []time.Time
+	for _, attempt := range attempts {
+		if attempt.After(cutoff) {
+			recentAttempts = append(recentAttempts, attempt)
+		}
+	}
+
+	// Add the new attempt.
+	recentAttempts = append(recentAttempts, now)
+	t.attempts[key] = recentAttempts
+
+	// Check if threshold is exceeded.
+	if len(recentAttempts) >= FailedLoginThreshold {
+		// Log suspicious activity (do this after releasing the lock in a real implementation,
+		// but for simplicity we log directly here).
+		AuditSuspiciousActivity(
+			ctx,
+			r,
+			SuspiciousMultipleFailedLogins,
+			"Multiple failed login attempts from same IP",
+			len(recentAttempts),
+		)
+		return true
+	}
+
+	return false
+}
+
+// ClearAttempts clears failed login attempts for a key (e.g., after successful login).
+func (t *FailedLoginTracker) ClearAttempts(key string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	delete(t.attempts, key)
+}
+
+// GetAttemptCount returns the current number of failed attempts for a key.
+func (t *FailedLoginTracker) GetAttemptCount(key string) int {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	now := time.Now()
+	cutoff := now.Add(-FailedLoginWindow)
+
+	attempts := t.attempts[key]
+	count := 0
+	for _, attempt := range attempts {
+		if attempt.After(cutoff) {
+			count++
+		}
+	}
+	return count
+}
+
+// CleanupOldAttempts removes expired attempt records.
+// This should be called periodically to prevent memory growth.
+func (t *FailedLoginTracker) CleanupOldAttempts() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	now := time.Now()
+	cutoff := now.Add(-FailedLoginWindow)
+
+	for key, attempts := range t.attempts {
+		var recentAttempts []time.Time
+		for _, attempt := range attempts {
+			if attempt.After(cutoff) {
+				recentAttempts = append(recentAttempts, attempt)
+			}
+		}
+		if len(recentAttempts) == 0 {
+			delete(t.attempts, key)
+		} else {
+			t.attempts[key] = recentAttempts
+		}
+	}
+}
+
+// GetFailedLoginTracker returns the global failed login tracker for testing purposes.
+func GetFailedLoginTracker() *FailedLoginTracker {
+	return failedLoginTracker
+}
+
+// ResetFailedLoginTracker resets the global failed login tracker (for testing only).
+func ResetFailedLoginTracker() {
+	failedLoginTracker.mu.Lock()
+	defer failedLoginTracker.mu.Unlock()
+	failedLoginTracker.attempts = make(map[string][]time.Time)
+}

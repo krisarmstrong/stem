@@ -169,6 +169,7 @@ func main() {
 		MaxBackups: 0,
 		MaxAge:     0,
 		Compress:   false,
+		Component:  "stem",
 	})
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Warning: logging initialization failed: %v\n", err)

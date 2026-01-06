@@ -10,7 +10,6 @@ import (
 	"github.com/krisarmstrong/stem/internal/logging"
 	"github.com/krisarmstrong/stem/internal/modules"
 	"github.com/krisarmstrong/stem/internal/netif"
-	"github.com/krisarmstrong/stem/internal/testmaster/dataplane"
 )
 
 var errTestAlreadyRunning = errors.New("test already running")
@@ -18,7 +17,7 @@ var errTestAlreadyRunning = errors.New("test already running")
 // handleTestStart starts a test run via the module system.
 func (s *Server) handleTestStart(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		WriteMethodNotAllowed(w)
 		return
 	}
 
@@ -33,13 +32,13 @@ func (s *Server) handleTestStart(w http.ResponseWriter, r *http.Request) {
 
 	mod, modErr := s.resolveTestModule(req.TestType)
 	if modErr != nil {
-		http.Error(w, modErr.Error(), http.StatusBadRequest)
+		WriteInvalidRequest(w, "Unknown or unsupported test type")
 		return
 	}
 
 	iface, ifaceErr := s.resolveTestInterface(req.Interface)
 	if ifaceErr != nil {
-		http.Error(w, ifaceErr.Error(), http.StatusBadRequest)
+		WriteInvalidRequest(w, "No network interface specified")
 		return
 	}
 
@@ -51,10 +50,10 @@ func (s *Server) handleTestStart(w http.ResponseWriter, r *http.Request) {
 	beginErr := s.beginTestRun(req.TestType, mod.Name())
 	if beginErr != nil {
 		if errors.Is(beginErr, errTestAlreadyRunning) {
-			http.Error(w, beginErr.Error(), http.StatusConflict)
+			WriteConflict(w, "A test is already running")
 			return
 		}
-		http.Error(w, "Unable to start test", http.StatusInternalServerError)
+		WriteInternalError(w, beginErr)
 		return
 	}
 
@@ -83,7 +82,7 @@ func (s *Server) handleTestStart(w http.ResponseWriter, r *http.Request) {
 // handleTestStop stops the current test or reflector.
 func (s *Server) handleTestStop(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		WriteMethodNotAllowed(w)
 		return
 	}
 
@@ -106,7 +105,7 @@ func (s *Server) handleTestStop(w http.ResponseWriter, r *http.Request) {
 	// Check if a test is running.
 	if s.testStatus != statusRunning && s.testStatus != statusStarting {
 		s.statsMu.Unlock()
-		http.Error(w, "No test running", http.StatusBadRequest)
+		WriteInvalidRequest(w, "No test is currently running")
 		return
 	}
 
@@ -123,7 +122,7 @@ func (s *Server) handleTestStop(w http.ResponseWriter, r *http.Request) {
 // handleTestResult returns the result of the last completed test.
 func (s *Server) handleTestResult(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		WriteMethodNotAllowed(w)
 		return
 	}
 
@@ -181,7 +180,7 @@ func (s *Server) validateInterfaceForTest(w http.ResponseWriter, ifaceName strin
 	ifaces, err := netif.DetectInterfaces()
 	if err != nil {
 		logging.Error("failed to detect interfaces for test validation", "error", err)
-		http.Error(w, "Failed to validate interface", http.StatusInternalServerError)
+		WriteInternalError(w, err)
 		return false
 	}
 
@@ -191,7 +190,7 @@ func (s *Server) validateInterfaceForTest(w http.ResponseWriter, ifaceName strin
 		}
 	}
 
-	http.Error(w, fmt.Sprintf("Interface '%s' no longer exists", ifaceName), http.StatusBadRequest)
+	WriteInvalidRequest(w, "Specified network interface no longer exists")
 	return false
 }
 
@@ -211,35 +210,24 @@ func (s *Server) beginTestRun(testType, module string) error {
 func (s *Server) respondTestExecutionError(w http.ResponseWriter, execErr error, module, testType string) {
 	s.statsMu.Lock()
 	s.testStatus = statusError
+	// Store a sanitized error message for internal state - don't leak details.
 	s.testResult = &TestResultResponse{
 		Status:   statusError,
 		TestType: testType,
 		Module:   module,
 		Success:  false,
-		Error:    execErr.Error(),
+		Error:    "Test execution failed",
 		Message:  "",
 		Data:     nil,
 	}
 	s.statsMu.Unlock()
 
-	if errors.Is(execErr, dataplane.ErrNotSupported) {
-		logging.Warn("Test execution not supported on this platform",
-			"testType", testType,
-			"error", execErr,
-		)
-		w.WriteHeader(http.StatusServiceUnavailable)
-		writeJSON(w, TestStartResponse{
-			Status:   "unavailable",
-			TestType: testType,
-			Module:   module,
-			Message:  "Test execution requires Linux with CGO support. This platform cannot execute tests.",
-		})
-		return
-	}
-
-	logging.Error("Failed to start test",
+	// Use the centralized error mapping for test errors.
+	apiErr := MapTestError(execErr)
+	logging.Error("Test execution failed",
 		"testType", testType,
+		"module", module,
 		"error", execErr,
 	)
-	http.Error(w, fmt.Sprintf("Failed to start test: %v", execErr), http.StatusInternalServerError)
+	WriteAPIError(w, apiErr)
 }

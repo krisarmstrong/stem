@@ -25,15 +25,15 @@ func (s *Server) handleModules(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleModuleByName handles requests for specific modules.
-// Supports: GET /api/modules/{name} and GET /api/modules/{name}/tests.
+// Supports: GET /api/v1/modules/{name} and GET /api/v1/modules/{name}/tests.
 func (s *Server) handleModuleByName(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Parse path: /api/modules/{name} or /api/modules/{name}/tests.
-	path := strings.TrimPrefix(r.URL.Path, "/api/modules/")
+	// Parse path: /api/v1/modules/{name} or /api/v1/modules/{name}/tests.
+	path := strings.TrimPrefix(r.URL.Path, "/api/v1/modules/")
 	parts := strings.Split(path, "/")
 
 	if len(parts) == 0 || parts[0] == "" {

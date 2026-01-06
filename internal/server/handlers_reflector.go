@@ -31,7 +31,7 @@ func (s *Server) handleReflectorConfig(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		s.handleReflectorConfigUpdate(w, r)
 	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		WriteMethodNotAllowed(w)
 	}
 }
 
@@ -45,21 +45,21 @@ func (s *Server) handleReflectorConfigUpdate(w http.ResponseWriter, r *http.Requ
 	err := s.validateReflectorProfile(cfg.Profile)
 	if err != nil {
 		logging.Warn("reflector config update failed: invalid profile", "profile", cfg.Profile)
-		http.Error(w, "Invalid profile", http.StatusBadRequest)
+		WriteInvalidRequest(w, "Invalid reflector profile")
 		return
 	}
 
 	changes, dpUpdate, err := s.buildReflectorConfigUpdate(&cfg)
 	if err != nil {
 		logging.Warn("reflector config update failed", "error", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		WriteInvalidRequest(w, "Invalid configuration values")
 		return
 	}
 
 	err = s.applyReflectorDataplaneUpdate(dpUpdate, changes)
 	if err != nil {
 		logging.Error("failed to update reflector dataplane config", "error", err)
-		http.Error(w, fmt.Sprintf("Failed to update dataplane: %v", err), http.StatusInternalServerError)
+		WriteInternalError(w, err)
 		return
 	}
 
@@ -173,7 +173,7 @@ func (s *Server) applyReflectorDataplaneUpdate(dpUpdate *reflectorDP.ConfigUpdat
 // handleReflectorStats returns reflector-specific statistics.
 func (s *Server) handleReflectorStats(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		WriteMethodNotAllowed(w)
 		return
 	}
 

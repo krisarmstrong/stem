@@ -185,8 +185,6 @@ func toAlphanumeric(val int) byte {
 
 // fromAlphanumeric converts 0-9 or A-Z to a value 0-35.
 // Currently unused but kept for future license parsing.
-//
-//nolint:unused // Reserved for future license parsing functionality.
 func fromAlphanumeric(c byte) int {
 	if c >= '0' && c <= '9' {
 		return int(c - '0')

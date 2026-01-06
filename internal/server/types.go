@@ -209,3 +209,20 @@ type LicenseStatus struct {
 type LicenseActivateRequest struct {
 	LicenseKey string `json:"licenseKey"`
 }
+
+// LivenessResponse for Kubernetes liveness probe.
+type LivenessResponse struct {
+	Status string `json:"status"`
+}
+
+// ReadinessCheck represents an individual readiness check result.
+type ReadinessCheck struct {
+	Status string `json:"status"`
+	Error  string `json:"error,omitempty"`
+}
+
+// ReadinessResponse for Kubernetes readiness probe.
+type ReadinessResponse struct {
+	Status string                    `json:"status"`
+	Checks map[string]ReadinessCheck `json:"checks"`
+}

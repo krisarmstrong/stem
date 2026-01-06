@@ -4,6 +4,20 @@
 //
 // This package wraps Go's log/slog with automatic sensitive data redaction,
 // request ID correlation, and configurable output formats (text/JSON).
+//
+// JSON Log Format:
+// When Format is "json", logs are output in structured JSON format:
+//
+//	{"time":"2026-01-05T10:00:00Z","level":"INFO","msg":"Request processed","component":"server","request_id":"abc123","duration_ms":45}
+//
+// Environment Variables:
+//   - LOG_FORMAT: Set to "json" to enable JSON mode (also respects STEM_LOG_FORMAT)
+//   - STEM_LOG_LEVEL: Set log level (debug, info, warn, error)
+//   - STEM_LOG_FORMAT: Set log format (text, json)
+//
+// Context-Aware Logging:
+// Use FromContext(ctx) to get a logger with request_id and user_id automatically included.
+// Use WithComponent(logger, "server") to add a component field.
 package logging
 
 import (
@@ -13,6 +27,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"gopkg.in/natefinch/lumberjack.v2"
 )
@@ -27,6 +42,7 @@ type Config struct {
 	MaxBackups int    `yaml:"max_backups"` // Number of old files to keep.
 	MaxAge     int    `yaml:"max_age"`     // Days to keep old files.
 	Compress   bool   `yaml:"compress"`    // Compress rotated files.
+	Component  string `yaml:"component"`   // Default component name for all logs.
 }
 
 // Log file rotation defaults.
@@ -47,6 +63,7 @@ func DefaultConfig() *Config {
 		MaxBackups: defaultMaxBackups,
 		MaxAge:     defaultMaxAgeDays,
 		Compress:   true,
+		Component:  "",
 	}
 }
 
@@ -58,6 +75,24 @@ const (
 	requestIDKey contextKey = "request_id"
 	// userIDKey is the context key for user IDs.
 	userIDKey contextKey = "user_id"
+	// componentKey is the context key for component names.
+	componentKey contextKey = "component"
+)
+
+// Standard field names for JSON logging.
+const (
+	// FieldTimestamp is the JSON field name for timestamps.
+	FieldTimestamp = "timestamp"
+	// FieldLevel is the JSON field name for log level.
+	FieldLevel = "level"
+	// FieldMessage is the JSON field name for log messages.
+	FieldMessage = "message"
+	// FieldComponent is the JSON field name for component names.
+	FieldComponent = "component"
+	// FieldRequestID is the JSON field name for request IDs.
+	FieldRequestID = "request_id"
+	// FieldDurationMS is the JSON field name for duration in milliseconds.
+	FieldDurationMS = "duration_ms"
 )
 
 //nolint:gochecknoglobals // Required for package-level logger singleton pattern.
@@ -84,11 +119,50 @@ func parseLevel(level string) slog.Level {
 	}
 }
 
+// jsonReplaceAttr returns a ReplaceAttr function for JSON log formatting.
+// It customizes field names: time->timestamp, msg->message, and lowercases level values.
+func jsonReplaceAttr(isJSON bool) func([]string, slog.Attr) slog.Attr {
+	return func(_ []string, a slog.Attr) slog.Attr {
+		if !isJSON {
+			return a
+		}
+		switch a.Key {
+		case slog.TimeKey:
+			if t, ok := a.Value.Any().(time.Time); ok {
+				return slog.String(FieldTimestamp, t.UTC().Format(time.RFC3339))
+			}
+			return slog.Attr{Key: FieldTimestamp, Value: a.Value}
+		case slog.MessageKey:
+			return slog.Attr{Key: FieldMessage, Value: a.Value}
+		case slog.LevelKey:
+			if level, ok := a.Value.Any().(slog.Level); ok {
+				return slog.String(FieldLevel, strings.ToLower(level.String()))
+			}
+			return a
+		default:
+			return a
+		}
+	}
+}
+
 // Init initializes the global structured logger with the given configuration.
 // It sets up output writers (file and/or stdout), log rotation, and the redacting handler.
+//
+// For JSON format, the output uses customized field names:
+//   - "time" -> "timestamp"
+//   - "msg" -> "message"
+//   - level values are lowercase (e.g., "info" instead of "INFO")
 func Init(cfg *Config) error {
 	if cfg == nil {
 		cfg = DefaultConfig()
+	}
+
+	// Check environment variables for format override.
+	// LOG_FORMAT takes precedence, then STEM_LOG_FORMAT, then config value.
+	if envFormat := os.Getenv("LOG_FORMAT"); envFormat != "" {
+		cfg.Format = envFormat
+	} else if stemFormat := os.Getenv("STEM_LOG_FORMAT"); stemFormat != "" {
+		cfg.Format = stemFormat
 	}
 
 	// Determine output writers
@@ -121,16 +195,18 @@ func Init(cfg *Config) error {
 		output = io.MultiWriter(writers...)
 	}
 
+	isJSON := strings.EqualFold(cfg.Format, "json")
+
 	// Configure handler options.
 	opts := &slog.HandlerOptions{
 		Level:       parseLevel(cfg.Level),
 		AddSource:   cfg.AddSource,
-		ReplaceAttr: nil, // No attribute replacement needed; redaction is handled by RedactingHandler.
+		ReplaceAttr: jsonReplaceAttr(isJSON),
 	}
 
 	// Create base handler based on format
 	var baseHandler slog.Handler
-	if strings.EqualFold(cfg.Format, "json") {
+	if isJSON {
 		baseHandler = slog.NewJSONHandler(output, opts)
 	} else {
 		baseHandler = slog.NewTextHandler(output, opts)
@@ -139,9 +215,13 @@ func Init(cfg *Config) error {
 	// Wrap with redacting handler for automatic sensitive data redaction
 	redactingHandler := NewRedactingHandler(baseHandler)
 
-	// Set global logger
+	// Set global logger, optionally with default component
 	loggerMu.Lock()
-	globalLogger = slog.New(redactingHandler)
+	logger := slog.New(redactingHandler)
+	if cfg.Component != "" {
+		logger = logger.With(FieldComponent, cfg.Component)
+	}
+	globalLogger = logger
 	slog.SetDefault(globalLogger)
 	loggerMu.Unlock()
 
@@ -158,6 +238,50 @@ func Get() *slog.Logger {
 		return slog.Default()
 	}
 	return globalLogger
+}
+
+// InitWithWriter initializes the logger with a custom writer.
+// This is primarily useful for testing to capture log output.
+func InitWithWriter(cfg *Config, w io.Writer) error {
+	if cfg == nil {
+		cfg = DefaultConfig()
+	}
+
+	isJSON := strings.EqualFold(cfg.Format, "json")
+
+	// Configure handler options.
+	opts := &slog.HandlerOptions{
+		Level:       parseLevel(cfg.Level),
+		AddSource:   cfg.AddSource,
+		ReplaceAttr: jsonReplaceAttr(isJSON),
+	}
+
+	var baseHandler slog.Handler
+	if isJSON {
+		baseHandler = slog.NewJSONHandler(w, opts)
+	} else {
+		baseHandler = slog.NewTextHandler(w, opts)
+	}
+
+	redactingHandler := NewRedactingHandler(baseHandler)
+
+	loggerMu.Lock()
+	logger := slog.New(redactingHandler)
+	if cfg.Component != "" {
+		logger = logger.With(FieldComponent, cfg.Component)
+	}
+	globalLogger = logger
+	slog.SetDefault(globalLogger)
+	loggerMu.Unlock()
+
+	return nil
+}
+
+// Reset resets the global logger to nil. Used for testing.
+func Reset() {
+	loggerMu.Lock()
+	globalLogger = nil
+	loggerMu.Unlock()
 }
 
 // WithRequestID returns a new context with the given request ID.
@@ -186,17 +310,47 @@ func UserIDFromContext(ctx context.Context) string {
 	return ""
 }
 
-// FromContext returns a logger with contextual information (request ID, user ID).
+// WithComponent returns a new context with the given component name.
+func WithComponent(ctx context.Context, component string) context.Context {
+	return context.WithValue(ctx, componentKey, component)
+}
+
+// ComponentFromContext extracts the component name from the context.
+func ComponentFromContext(ctx context.Context) string {
+	if comp, ok := ctx.Value(componentKey).(string); ok {
+		return comp
+	}
+	return ""
+}
+
+// FromContext returns a logger with contextual information (request ID, user ID, component).
 // This is the preferred way to get a logger in HTTP handlers.
 func FromContext(ctx context.Context) *slog.Logger {
 	logger := Get()
+	if component := ComponentFromContext(ctx); component != "" {
+		logger = logger.With(FieldComponent, component)
+	}
 	if requestID := RequestIDFromContext(ctx); requestID != "" {
-		logger = logger.With("request_id", requestID)
+		logger = logger.With(FieldRequestID, requestID)
 	}
 	if userID := UserIDFromContext(ctx); userID != "" {
 		logger = logger.With("user_id", userID)
 	}
 	return logger
+}
+
+// WithComponentLogger returns a new logger with the specified component name.
+// This is useful when you want a component-specific logger without using context.
+func WithComponentLogger(component string) *slog.Logger {
+	return Get().With(FieldComponent, component)
+}
+
+// LogWithDuration logs a message with duration in milliseconds.
+// This is a convenience function for timing operations.
+func LogWithDuration(ctx context.Context, level slog.Level, msg string, start time.Time, attrs ...any) {
+	duration := time.Since(start)
+	allAttrs := append([]any{FieldDurationMS, duration.Milliseconds()}, attrs...)
+	FromContext(ctx).Log(ctx, level, msg, allAttrs...)
 }
 
 // Debug logs a debug message.

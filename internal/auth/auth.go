@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 	"time"
@@ -15,6 +16,10 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// randReader is the random source used for generating secrets and token IDs.
+// It can be overridden in tests to inject failures.
+var randReader io.Reader = rand.Reader
 
 var (
 	// ErrInvalidCredentials indicates the username or password was wrong.
@@ -187,7 +192,7 @@ func (m *Manager) generateTokenWithType(username, tokenType string, duration tim
 // generateTokenID creates a unique identifier for tokens.
 func generateTokenID() (string, error) {
 	bytes := make([]byte, tokenIDLength)
-	_, err := rand.Read(bytes)
+	_, err := io.ReadFull(randReader, bytes)
 	if err != nil {
 		return "", fmt.Errorf("read random bytes: %w", err)
 	}
@@ -268,7 +273,7 @@ func (m *Manager) AuthenticateWithRefresh(
 // GenerateJWTSecret returns a new 256-bit base64url JWT secret.
 func GenerateJWTSecret() (string, error) {
 	bytes := make([]byte, jwtSecretLength)
-	read, err := rand.Read(bytes)
+	read, err := io.ReadFull(randReader, bytes)
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrSecretGenerationFailed, err)
 	}

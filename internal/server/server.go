@@ -15,38 +15,46 @@
 // Mode is selected via the API (/api/mode) and determines which features
 // are active. Both modes share the same server instance and API surface.
 //
-// # API Endpoints
+// # API Endpoints (v1)
+//
+// All API endpoints are versioned under /api/v1/. Legacy /api/* requests are
+// redirected to /api/v1/* for backward compatibility.
+// API responses include the X-API-Version header.
 //
 // Health and Status:
-//   - GET /api/health       - Server health check
-//   - GET /api/version      - Version information
+//   - GET /api/v1/health       - Server health check
+//   - GET /api/v1/version      - Version information
+//
+// Kubernetes Health Probes (not versioned):
+//   - GET /health/live      - Liveness probe (returns 200 if server is running)
+//   - GET /health/ready     - Readiness probe (returns 200 if ready to accept traffic)
 //
 // Mode Management:
-//   - GET  /api/mode        - Get current operating mode
-//   - POST /api/mode        - Set operating mode (reflector/test_master)
+//   - GET  /api/v1/mode        - Get current operating mode
+//   - POST /api/v1/mode        - Set operating mode (reflector/test_master)
 //
 // Interface Management:
-//   - GET  /api/interfaces  - List available network interfaces
-//   - GET  /api/settings    - Get current settings (interface, mode)
-//   - POST /api/settings    - Update settings (validates interface exists)
+//   - GET  /api/v1/interfaces  - List available network interfaces
+//   - GET  /api/v1/settings    - Get current settings (interface, mode)
+//   - POST /api/v1/settings    - Update settings (validates interface exists)
 //
 // Reflector Mode:
-//   - GET  /api/reflector/config - Get reflector configuration
-//   - POST /api/reflector/config - Update reflector configuration
-//   - GET  /api/reflector/stats  - Get reflector statistics
+//   - GET  /api/v1/reflector/config - Get reflector configuration
+//   - POST /api/v1/reflector/config - Update reflector configuration
+//   - GET  /api/v1/reflector/stats  - Get reflector statistics
 //
 // Test Execution:
-//   - POST /api/test/start  - Start a test (requires test_type parameter)
-//   - POST /api/test/stop   - Stop running test
-//   - GET  /api/test/status - Get test execution status
+//   - POST /api/v1/test/start  - Start a test (requires test_type parameter)
+//   - POST /api/v1/test/stop   - Stop running test
+//   - GET  /api/v1/test/status - Get test execution status
 //
 // Module Information:
-//   - GET /api/modules      - List all test modules
-//   - GET /api/modules/{n}  - Get specific module details
+//   - GET /api/v1/modules      - List all test modules
+//   - GET /api/v1/modules/{n}  - Get specific module details
 //
 // License Management:
-//   - GET  /api/license     - Get license status
-//   - POST /api/license/activate - Activate a license key
+//   - GET  /api/v1/license     - Get license status
+//   - POST /api/v1/license/activate - Activate a license key
 //
 // # Security
 //
@@ -96,6 +104,12 @@ const (
 	HTTPIdleTimeout       = 120 * time.Second
 )
 
+// APIVersion is the current API version.
+const APIVersion = "v1"
+
+// APIVersionHeader is the header name for the API version.
+const APIVersionHeader = "X-Api-Version"
+
 const (
 	defaultAuthSessionTimeout = 30 * time.Minute
 	wsWriteTimeout            = 5 * time.Second
@@ -129,6 +143,8 @@ type Server struct {
 	currentModule   string
 	wsClients       sync.Map // map[*websocket.Conn]struct{} - concurrent-safe
 	wsUpgrader      websocket.Upgrader
+	authLimiter     *RateLimiter // Rate limiter for auth endpoints (5/min)
+	apiLimiter      *RateLimiter // Rate limiter for standard API endpoints (100/min)
 }
 
 var (
@@ -215,6 +231,8 @@ func NewServer(port int) (*Server, error) {
 			Error:             nil,
 			EnableCompression: false,
 		},
+		authLimiter: NewAuthRateLimiter(),
+		apiLimiter:  NewAPIRateLimiter(),
 	}
 	s.setupRoutes()
 	return s, nil
@@ -233,40 +251,47 @@ func isLocalhostOrigin(origin string) bool {
 
 // setupRoutes configures the HTTP routes.
 func (s *Server) setupRoutes() {
-	// API routes - Health and Status.
-	s.handle("/api/health", s.handleHealth)
-	s.handle("/api/stats", s.handleStats)
+	// API v1 routes - Health and Status (no rate limiting for health checks).
+	s.handle("/api/v1/health", s.handleHealth)
+	s.handleRateLimited("/api/v1/stats", s.handleStats, s.apiLimiter)
 
-	// API routes - Interfaces.
-	s.handle("/api/interfaces", s.handleInterfaces)
+	// Kubernetes health probes (not versioned - infrastructure endpoints).
+	s.handle("/health/live", s.handleHealthLive)
+	s.handle("/health/ready", s.handleHealthReady)
 
-	// API routes - Settings and Mode.
-	s.handle("/api/settings", s.handleSettings)
-	s.handle("/api/mode", s.handleMode)
+	// API v1 routes - Interfaces (rate limited).
+	s.handleRateLimited("/api/v1/interfaces", s.handleInterfaces, s.apiLimiter)
 
-	// API routes - Test Execution.
-	s.handleAuth("/api/test/start", s.handleTestStart)
-	s.handleAuth("/api/test/stop", s.handleTestStop)
-	s.handleAuth("/api/test/result", s.handleTestResult)
+	// API v1 routes - Settings and Mode (rate limited).
+	s.handleRateLimited("/api/v1/settings", s.handleSettings, s.apiLimiter)
+	s.handleRateLimited("/api/v1/mode", s.handleMode, s.apiLimiter)
 
-	// API routes - Authentication.
-	s.handle("/api/auth/login", s.handleAuthLogin)
-	s.handle("/api/auth/logout", s.handleAuthLogout)
-	s.handle("/api/auth/refresh", s.handleAuthRefresh)
-	s.mux.HandleFunc("/api/ws/test-results", s.handleTestResultsWebSocket)
+	// API v1 routes - Test Execution (rate limited + auth).
+	s.handleAuthRateLimited("/api/v1/test/start", s.handleTestStart, s.apiLimiter)
+	s.handleAuthRateLimited("/api/v1/test/stop", s.handleTestStop, s.apiLimiter)
+	s.handleAuthRateLimited("/api/v1/test/result", s.handleTestResult, s.apiLimiter)
 
-	// API routes - Reflector.
-	s.mux.HandleFunc("/api/reflector/config", s.handleReflectorConfig)
-	s.mux.HandleFunc("/api/reflector/stats", s.handleReflectorStats)
+	// API v1 routes - Authentication (strict rate limiting: 5/min).
+	s.handleRateLimited("/api/v1/auth/login", s.handleAuthLogin, s.authLimiter)
+	s.handleRateLimited("/api/v1/auth/logout", s.handleAuthLogout, s.apiLimiter)
+	s.handleRateLimited("/api/v1/auth/refresh", s.handleAuthRefresh, s.authLimiter)
+	s.mux.Handle("/api/v1/ws/test-results", s.apiLimiter.Middleware(http.HandlerFunc(s.handleTestResultsWebSocket)))
 
-	// API routes - License.
-	s.handle("/api/license", s.handleLicense)
-	s.handle("/api/license/activate", s.handleLicenseActivate)
-	s.handle("/api/license/trial", s.handleLicenseTrial)
+	// API v1 routes - Reflector (rate limited).
+	s.mux.Handle("/api/v1/reflector/config", s.apiLimiter.Middleware(http.HandlerFunc(s.handleReflectorConfig)))
+	s.mux.Handle("/api/v1/reflector/stats", s.apiLimiter.Middleware(http.HandlerFunc(s.handleReflectorStats)))
 
-	// API routes - Modules.
-	s.handle("/api/modules", s.handleModules)
-	s.handle("/api/modules/", s.handleModuleByName)
+	// API v1 routes - License (rate limited).
+	s.handleRateLimited("/api/v1/license", s.handleLicense, s.apiLimiter)
+	s.handleRateLimited("/api/v1/license/activate", s.handleLicenseActivate, s.apiLimiter)
+	s.handleRateLimited("/api/v1/license/trial", s.handleLicenseTrial, s.apiLimiter)
+
+	// API v1 routes - Modules (rate limited).
+	s.handleRateLimited("/api/v1/modules", s.handleModules, s.apiLimiter)
+	s.handleRateLimited("/api/v1/modules/", s.handleModuleByName, s.apiLimiter)
+
+	// Backward compatibility: redirect /api/* to /api/v1/*.
+	s.mux.HandleFunc("/api/", s.handleAPIRedirect)
 
 	// Static files (embedded UI).
 	staticFS, err := fs.Sub(staticFiles, "dist")
@@ -281,7 +306,7 @@ func (s *Server) setupRoutes() {
 <body>
 <h1>The Stem</h1>
 <p>WebUI not built. Run 'cd ui && npm install && npm run build' first.</p>
-<p>API available at <a href="/api/health">/api/health</a></p>
+<p>API available at <a href="/api/v1/health">/api/health</a></p>
 </body>
 </html>`))
 		})
@@ -295,14 +320,49 @@ func (s *Server) handle(path string, handler http.HandlerFunc) {
 	s.mux.HandleFunc(path, handler)
 }
 
-func (s *Server) handleAuth(path string, handler http.HandlerFunc) {
-	s.mux.Handle(path, s.authMiddleware(handler))
+func (s *Server) handleRateLimited(path string, handler http.HandlerFunc, rl *RateLimiter) {
+	s.mux.Handle(path, rl.Middleware(handler))
+}
+
+func (s *Server) handleAuthRateLimited(path string, handler http.HandlerFunc, rl *RateLimiter) {
+	s.mux.Handle(path, rl.Middleware(s.authMiddleware(handler)))
+}
+
+// handleAPIRedirect redirects legacy /api/* requests to /api/v1/*.
+// This provides backward compatibility for clients using unversioned API paths.
+func (s *Server) handleAPIRedirect(w http.ResponseWriter, r *http.Request) {
+	// Extract path after /api/.
+	oldPath := r.URL.Path
+	if !strings.HasPrefix(oldPath, "/api/") {
+		http.NotFound(w, r)
+		return
+	}
+
+	// Don't redirect if already using versioned path.
+	if strings.HasPrefix(oldPath, "/api/v1/") {
+		http.NotFound(w, r)
+		return
+	}
+
+	// Build new versioned path.
+	suffix := strings.TrimPrefix(oldPath, "/api/")
+	newPath := "/api/v1/" + suffix
+
+	// Preserve query string.
+	if r.URL.RawQuery != "" {
+		newPath += "?" + r.URL.RawQuery
+	}
+
+	// Use 308 Permanent Redirect to preserve HTTP method.
+	http.Redirect(w, r, newPath, http.StatusPermanentRedirect)
 }
 
 func (s *Server) authMiddleware(handler http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authErr := s.requireAuth(r)
 		if authErr != nil {
+			// Audit log the authentication failure.
+			s.auditAuthFailure(r, authErr)
 			s.writeAuthError(w, authErr)
 			return
 		}
@@ -349,15 +409,25 @@ func extractBearerToken(header string) (string, error) {
 }
 
 func (s *Server) writeAuthError(w http.ResponseWriter, err error) {
-	status := http.StatusUnauthorized
-	message := "Unauthorized"
-	isKnownErr := errors.Is(err, auth.ErrInvalidToken) ||
-		errors.Is(err, auth.ErrTokenExpired) ||
-		errors.Is(err, auth.ErrTokenRevoked)
-	if isKnownErr {
-		message = err.Error()
+	WriteAuthError(w, err)
+}
+
+// auditAuthFailure logs authentication failures with appropriate event types.
+func (s *Server) auditAuthFailure(r *http.Request, err error) {
+	switch {
+	case errors.Is(err, auth.ErrTokenExpired):
+		logging.AuditTokenExpired(r.Context(), r, "")
+	case errors.Is(err, auth.ErrTokenRevoked):
+		logging.AuditTokenRevoked(r.Context(), r, "")
+	case errors.Is(err, auth.ErrInvalidToken):
+		logging.AuditTokenInvalid(r.Context(), r, err.Error())
+	case errors.Is(err, errMissingAuthToken):
+		logging.AuditTokenInvalid(r.Context(), r, "missing authorization token")
+	case errors.Is(err, errInvalidAuthHeader):
+		logging.AuditTokenInvalid(r.Context(), r, "invalid authorization header format")
+	default:
+		logging.AuditTokenInvalid(r.Context(), r, err.Error())
 	}
-	http.Error(w, message, status)
 }
 
 // corsMiddleware enforces localhost-only CORS for API security.
@@ -382,6 +452,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		w.Header().Set("Access-Control-Max-Age", "3600")
+		w.Header().Set("Access-Control-Expose-Headers", APIVersionHeader)
 
 		// Handle preflight requests.
 		if r.Method == http.MethodOptions {
@@ -389,6 +460,17 @@ func corsMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		next.ServeHTTP(w, r)
+	})
+}
+
+// apiVersionMiddleware adds the API version header to all API responses.
+func apiVersionMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Add API version header to all API responses.
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			w.Header().Set(APIVersionHeader, APIVersion)
+		}
 		next.ServeHTTP(w, r)
 	})
 }
@@ -406,8 +488,8 @@ func (s *Server) Run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
-	// Wrap with middleware stack: CORS -> RequestID -> Logging -> Handler.
-	handler := corsMiddleware(logging.RequestIDMiddleware(logging.Middleware(s.mux)))
+	// Wrap with middleware stack: CORS -> APIVersion -> RequestID -> Logging -> Handler.
+	handler := corsMiddleware(apiVersionMiddleware(logging.RequestIDMiddleware(logging.Middleware(s.mux))))
 	s.httpServer = &http.Server{
 		Addr:              addr,
 		Handler:           handler,
@@ -446,6 +528,14 @@ func (s *Server) Shutdown() error {
 
 	// Close all WebSocket connections.
 	s.closeAllWebSockets()
+
+	// Stop rate limiter cleanup goroutines.
+	if s.authLimiter != nil {
+		s.authLimiter.Stop()
+	}
+	if s.apiLimiter != nil {
+		s.apiLimiter.Stop()
+	}
 
 	// Stop any running reflector.
 	if s.reflectorExec != nil {
@@ -540,11 +630,12 @@ func decodeJSONStrict(w http.ResponseWriter, r *http.Request, v any, maxSize int
 	if err != nil {
 		var maxBytesErr *http.MaxBytesError
 		if errors.As(err, &maxBytesErr) {
-			http.Error(w, "Request body too large", http.StatusRequestEntityTooLarge)
+			WriteAPIError(w, ErrAPIRequestTooLarge)
 			return false
 		}
 		logging.Warn("JSON decode failed", "error", err)
-		http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
+		// Return sanitized error message - don't expose internal JSON parsing details.
+		WriteInvalidRequest(w, "Invalid JSON in request body")
 		return false
 	}
 	return true
@@ -645,6 +736,9 @@ func safeIntToUint16(v int) (uint16, bool) {
 }
 
 // ServeHTTP implements the http.Handler interface for testing purposes.
+// Applies the same middleware stack used in production (API versioning, CORS).
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.mux.ServeHTTP(w, r)
+	// Apply middleware stack for consistent behavior in tests.
+	handler := corsMiddleware(apiVersionMiddleware(s.mux))
+	handler.ServeHTTP(w, r)
 }

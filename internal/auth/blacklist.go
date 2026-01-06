@@ -49,6 +49,12 @@ func (bl *TokenBlacklist) Remove(tokenID string) {
 	bl.tokens.Delete(tokenID)
 }
 
+// Cleanup removes all expired tokens from the blacklist.
+// This is exposed for testing purposes.
+func (bl *TokenBlacklist) Cleanup() {
+	bl.cleanup()
+}
+
 // cleanupLoop periodically removes expired tokens from the blacklist.
 func (bl *TokenBlacklist) cleanupLoop() {
 	ticker := time.NewTicker(cleanupInterval)

@@ -3,7 +3,6 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/krisarmstrong/stem/internal/logging"
@@ -46,7 +45,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, StatusResponse{Status: "updated"})
 
 	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		WriteMethodNotAllowed(w)
 	}
 }
 
@@ -67,7 +66,7 @@ func (s *Server) handleMode(w http.ResponseWriter, r *http.Request) {
 
 		if req.Mode != modeReflector && req.Mode != modeTestMaster {
 			logging.Warn("mode update failed: invalid mode", "mode", req.Mode)
-			http.Error(w, "Invalid mode (must be 'reflector' or 'test_master')", http.StatusBadRequest)
+			WriteInvalidRequest(w, "Invalid mode (must be 'reflector' or 'test_master')")
 			return
 		}
 
@@ -79,7 +78,7 @@ func (s *Server) handleMode(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, ModeUpdateResponse{Status: "updated", Mode: req.Mode})
 
 	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		WriteMethodNotAllowed(w)
 	}
 }
 
@@ -88,7 +87,7 @@ func validateInterfaceExists(w http.ResponseWriter, ifaceName string) bool {
 	ifaces, detectErr := netif.DetectInterfaces()
 	if detectErr != nil {
 		logging.Error("failed to detect interfaces for validation", "error", detectErr)
-		http.Error(w, "Failed to validate interface", http.StatusInternalServerError)
+		WriteInternalError(w, detectErr)
 		return false
 	}
 
@@ -98,6 +97,6 @@ func validateInterfaceExists(w http.ResponseWriter, ifaceName string) bool {
 		}
 	}
 
-	http.Error(w, fmt.Sprintf("Interface '%s' not found", ifaceName), http.StatusBadRequest)
+	WriteInvalidRequest(w, "Specified network interface not found")
 	return false
 }
