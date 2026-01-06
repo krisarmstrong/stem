@@ -675,4 +675,18 @@
     outline: none;
     box-shadow: 0 0 0 3px rgb(45 122 62 / 0.2);
   }
+
+  /* Shimmer Animation for Progress Bars */
+  .animate-shimmer {
+    animation: shimmer 2s infinite linear;
+  }
+
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
 }

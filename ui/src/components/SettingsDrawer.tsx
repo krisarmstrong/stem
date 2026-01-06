@@ -26,6 +26,7 @@ import { CollapsibleSection } from './CollapsibleSection';
 import { HelpIcon } from './HelpIcon';
 import { LicenseSection } from './LicenseSection';
 import { ModuleSelector } from './ModuleSelector';
+import { type RFC2544Config, RFC2544ConfigForm } from './RFC2544ConfigForm';
 import { type Y1564Config, Y1564ConfigForm } from './Y1564ConfigForm';
 
 interface InterfaceInfo {
@@ -51,6 +52,8 @@ interface SettingsDrawerProps {
   setSelectedTests: (tests: string[]) => void;
   reflectorProfile: string;
   setReflectorProfile: (profile: string) => void;
+  rfc2544Config: RFC2544Config;
+  setRFC2544Config: (config: RFC2544Config) => void;
   y1564Config: Y1564Config;
   setY1564Config: (config: Y1564Config) => void;
 }
@@ -67,6 +70,8 @@ export function SettingsDrawer({
   setSelectedTests,
   reflectorProfile,
   setReflectorProfile,
+  rfc2544Config,
+  setRFC2544Config,
   y1564Config,
   setY1564Config,
 }: SettingsDrawerProps) {
@@ -675,6 +680,13 @@ export function SettingsDrawer({
                   </CollapsibleSection>
                 </>
               )}
+
+              {/* RFC 2544 Advanced Configuration */}
+              <RFC2544ConfigForm
+                config={rfc2544Config}
+                setConfig={setRFC2544Config}
+                selectedTests={selectedTests}
+              />
 
               {/* Y.1564/MEF Advanced Configuration */}
               <Y1564ConfigForm

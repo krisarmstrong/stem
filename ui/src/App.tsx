@@ -12,6 +12,7 @@ import {
   Clock,
   Gauge,
   HelpCircle,
+  History,
   Lock,
   Moon,
   Play,
@@ -25,7 +26,10 @@ import {
 import type { FormEvent, ReactElement } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { HelpDrawer } from './components/HelpDrawer';
+import { ResultHistory } from './components/ResultHistory';
+import { defaultRFC2544Config, type RFC2544Config } from './components/RFC2544ConfigForm';
 import { SettingsDrawer } from './components/SettingsDrawer';
+import { TestProgressBar, useTestProgress } from './components/TestProgressBar';
 import { defaultY1564Config, type Y1564Config } from './components/Y1564ConfigForm';
 
 interface Stats {
@@ -354,6 +358,7 @@ function mapStatsPayload(payload: Partial<Stats>): Stats {
 function App(): ReactElement {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       return window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -388,7 +393,18 @@ function App(): ReactElement {
     'rfc2544_back_to_back',
   ]);
   const [reflectorProfile, setReflectorProfile] = useState<string>('all');
+  const [rfc2544Config, setRFC2544Config] = useState<RFC2544Config>(defaultRFC2544Config);
   const [y1564Config, setY1564Config] = useState<Y1564Config>(defaultY1564Config);
+
+  // Calculate expected test duration based on config
+  const expectedDuration =
+    (rfc2544Config.duration + rfc2544Config.warmup) *
+    rfc2544Config.trials *
+    rfc2544Config.frameSizes.length *
+    selectedTests.filter((t) => t.startsWith('rfc2544')).length;
+
+  // Track test progress
+  const testProgress = useTestProgress(stats.testStatus, stats.currentTest, expectedDuration);
 
   const expireSession = useCallback((message = 'Session expired. Please sign in again.') => {
     setToken(null);
@@ -634,6 +650,10 @@ function App(): ReactElement {
     setSettingsOpen(true);
   };
 
+  const openHistory = (): void => {
+    setHistoryOpen(true);
+  };
+
   const selectedIface = interfaces.find((i) => i.name === selectedInterface);
 
   return (
@@ -685,6 +705,16 @@ function App(): ReactElement {
               title="Refresh interfaces"
             >
               <RefreshCw className="w-5 h-5" />
+            </button>
+
+            {/* History */}
+            <button
+              type="button"
+              onClick={openHistory}
+              className="btn btn-ghost"
+              title="Test History"
+            >
+              <History className="w-5 h-5" />
             </button>
 
             {/* Help */}
@@ -747,6 +777,9 @@ function App(): ReactElement {
           )}
         </div>
 
+        {/* Test Progress Bar */}
+        <TestProgressBar progress={testProgress} />
+
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatsCard
@@ -800,12 +833,21 @@ function App(): ReactElement {
         setSelectedTests={setSelectedTests}
         reflectorProfile={reflectorProfile}
         setReflectorProfile={setReflectorProfile}
+        rfc2544Config={rfc2544Config}
+        setRFC2544Config={setRFC2544Config}
         y1564Config={y1564Config}
         setY1564Config={setY1564Config}
       />
 
       {/* Help Drawer */}
       <HelpDrawer isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
+
+      {/* Result History Drawer */}
+      <ResultHistory
+        isOpen={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        currentResult={testResult}
+      />
       {!token && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-3xl border border-[var(--color-surface-border)] bg-[var(--color-surface-raised)] p-6 shadow-2xl">

@@ -36,30 +36,45 @@ const (
 
 // App holds the TUI application state.
 type App struct {
-	dp        *dataplane.Dataplane
-	app       *tview.Application
-	statsView *tview.TextView
-	sigView   *tview.TextView
-	latView   *tview.TextView
-	helpView  *tview.TextView
-	startTime time.Time
-	stopChan  chan struct{}
-	stopOnce  sync.Once // Prevent double-close panic
+	dp           *dataplane.Dataplane
+	app          *tview.Application
+	statsView    *tview.TextView
+	sigView      *tview.TextView
+	latView      *tview.TextView
+	helpView     *tview.TextView
+	headerView   *tview.TextView
+	startTime    time.Time
+	stopChan     chan struct{}
+	stopOnce     sync.Once // Prevent double-close panic
+	paused       bool
+	pauseMu      sync.Mutex
+	filterActive string // Current filter profile name
 }
 
 // New creates a new TUI application.
 func New(dp *dataplane.Dataplane) *App {
 	return &App{
-		dp:        dp,
-		app:       tview.NewApplication(),
-		statsView: nil,
-		sigView:   nil,
-		latView:   nil,
-		helpView:  nil,
-		startTime: time.Now(),
-		stopChan:  make(chan struct{}),
-		stopOnce:  sync.Once{},
+		dp:           dp,
+		app:          tview.NewApplication(),
+		statsView:    nil,
+		sigView:      nil,
+		latView:      nil,
+		helpView:     nil,
+		headerView:   nil,
+		startTime:    time.Now(),
+		stopChan:     make(chan struct{}),
+		stopOnce:     sync.Once{},
+		paused:       false,
+		pauseMu:      sync.Mutex{},
+		filterActive: "all",
 	}
+}
+
+// NewWithFilter creates a new TUI application with a specific filter profile.
+func NewWithFilter(dp *dataplane.Dataplane, filterProfile string) *App {
+	a := New(dp)
+	a.filterActive = filterProfile
+	return a
 }
 
 // Run starts the TUI.
@@ -90,11 +105,10 @@ func (a *App) Run() error {
 	a.helpView.SetBorder(false)
 
 	// Create header with MSN branding.
-	header := tview.NewTextView().
+	a.headerView = tview.NewTextView().
 		SetDynamicColors(true).
-		SetTextAlign(tview.AlignCenter).
-		SetText(fmt.Sprintf("[#2d7a3e]MSN Reflector[white] | [yellow]Mustard Seed Networks[white] | Interface: [cyan]%s[white] | Status: [#2d7a3e]● RUNNING",
-			a.dp.Interface()))
+		SetTextAlign(tview.AlignCenter)
+	a.updateHeaderStatus()
 
 	// Layout.
 	statsRow := tview.NewFlex().
@@ -103,7 +117,7 @@ func (a *App) Run() error {
 		AddItem(a.latView, 0, 1, false)
 
 	mainFlex := tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(header, 1, 0, false).
+		AddItem(a.headerView, 1, 0, false).
 		AddItem(statsRow, 0, 1, false).
 		AddItem(a.helpView, 1, 0, false)
 
@@ -114,10 +128,10 @@ func (a *App) Run() error {
 			a.Stop()
 			return nil
 		case 'r', 'R':
-			// Reset stats - would need to add this to dataplane.
+			a.resetStats()
 			return nil
 		case 'p', 'P':
-			// Pause - would toggle stats updates.
+			a.togglePause()
 			return nil
 		}
 		return event
@@ -142,6 +156,67 @@ func (a *App) Stop() {
 	})
 }
 
+// togglePause toggles the paused state.
+func (a *App) togglePause() {
+	a.pauseMu.Lock()
+	a.paused = !a.paused
+	a.pauseMu.Unlock()
+
+	a.app.QueueUpdateDraw(func() {
+		a.updateHeaderStatus()
+		a.updateHelpText()
+	})
+}
+
+// isPaused returns the current paused state.
+func (a *App) isPaused() bool {
+	a.pauseMu.Lock()
+	defer a.pauseMu.Unlock()
+	return a.paused
+}
+
+// resetStats resets the dataplane statistics and TUI timer.
+func (a *App) resetStats() {
+	a.dp.ResetStats()
+	a.startTime = time.Now()
+
+	// Force an immediate update to show zeroed stats.
+	a.updateStats()
+}
+
+// updateHeaderStatus updates the header with current status.
+func (a *App) updateHeaderStatus() {
+	status := "[#2d7a3e]● RUNNING"
+	if a.isPaused() {
+		status = "[yellow]● PAUSED"
+	}
+
+	filterText := ""
+	if a.filterActive != "all" && a.filterActive != "" {
+		filterText = fmt.Sprintf(" | Filter: [cyan]%s[white]", a.filterActive)
+	}
+
+	a.headerView.SetText(fmt.Sprintf(
+		"[#2d7a3e]MSN Reflector[white] | [yellow]Mustard Seed Networks[white] | "+
+			"Interface: [cyan]%s[white]%s | Status: %s",
+		a.dp.Interface(),
+		filterText,
+		status,
+	))
+}
+
+// updateHelpText updates the help bar based on current state.
+func (a *App) updateHelpText() {
+	pauseAction := "pause"
+	if a.isPaused() {
+		pauseAction = "resume"
+	}
+	a.helpView.SetText(fmt.Sprintf(
+		"[yellow]q[white] quit  [yellow]r[white] reset  [yellow]p[white] %s",
+		pauseAction,
+	))
+}
+
 // updateLoop periodically refreshes the display.
 func (a *App) updateLoop() {
 	ticker := time.NewTicker(tickerIntervalMs * time.Millisecond)
@@ -152,7 +227,9 @@ func (a *App) updateLoop() {
 		case <-a.stopChan:
 			return
 		case <-ticker.C:
-			a.updateStats()
+			if !a.isPaused() {
+				a.updateStats()
+			}
 		}
 	}
 }

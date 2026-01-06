@@ -288,8 +288,8 @@ func (a *App) build() {
 	a.statusBar = tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter)
-	statusText := "[yellow]RFC2544 Test Master[white] | " +
-		"[green]F1[white] Start | [red]F2[white] Stop | [blue]F10[white] Quit"
+	statusText := "[yellow]Stem Test Master[white] | " +
+		"[green]F1[white] Start | [red]F2[white] Stop | [cyan]F6[white] Y.1564 Config | [blue]F10[white] Quit"
 	a.statusBar.SetText(statusText)
 
 	// Layout.
@@ -317,6 +317,12 @@ func (a *App) build() {
 			if a.OnStop != nil {
 				go a.OnStop()
 			}
+			return nil
+		case tcell.KeyF6:
+			// Show Y.1564 configuration editor.
+			a.ShowY1564Config(nil, func(_ []Y1564ServiceConfig) {
+				a.LogInfof("Y.1564 configuration saved")
+			})
 			return nil
 		case tcell.KeyF10, tcell.KeyEscape:
 			if a.OnQuit != nil {
@@ -695,4 +701,318 @@ func (a *App) SwitchToRFC2544View() {
 		a.resultsView.Clear()
 		a.initResultsView()
 	})
+}
+
+// Y1564ConfigEditor provides a form for editing Y.1564 service configuration.
+type Y1564ConfigEditor struct {
+	app          *App
+	form         *tview.Form
+	serviceList  *tview.List
+	services     []Y1564ServiceConfig
+	currentIndex int
+	onSave       func([]Y1564ServiceConfig)
+	onCancel     func()
+}
+
+// Y1564ServiceConfig holds editable service configuration.
+type Y1564ServiceConfig struct {
+	ServiceID       uint32
+	ServiceName     string
+	CIRMbps         float64
+	EIRMbps         float64
+	CBSBytes        uint32
+	EBSBytes        uint32
+	FDThresholdMs   float64
+	FDVThresholdMs  float64
+	FLRThresholdPct float64
+	FrameSize       uint32
+	CoS             uint8
+	Enabled         bool
+}
+
+// Y1564 configuration constants.
+const (
+	defaultY1564CIRMbps         = 100.0
+	defaultY1564EIRMbps         = 0.0
+	defaultY1564CBSBytes        = 12000
+	defaultY1564EBSBytes        = 0
+	defaultY1564FDThresholdMs   = 10.0
+	defaultY1564FDVThresholdMs  = 5.0
+	defaultY1564FLRThresholdPct = 0.01
+	defaultY1564FrameSize       = 512
+	defaultY1564CoS             = 0
+
+	// Form layout constants.
+	formServiceListWidth = 25
+	formFieldWidth       = 20
+	formNumericWidth     = 10
+	formDefaultFrameIdx  = 3 // Index for 512 in frame size list.
+)
+
+// DefaultY1564ServiceConfig returns a default service configuration.
+func DefaultY1564ServiceConfig(id uint32) Y1564ServiceConfig {
+	return Y1564ServiceConfig{
+		ServiceID:       id,
+		ServiceName:     fmt.Sprintf("Service %d", id),
+		CIRMbps:         defaultY1564CIRMbps,
+		EIRMbps:         defaultY1564EIRMbps,
+		CBSBytes:        defaultY1564CBSBytes,
+		EBSBytes:        defaultY1564EBSBytes,
+		FDThresholdMs:   defaultY1564FDThresholdMs,
+		FDVThresholdMs:  defaultY1564FDVThresholdMs,
+		FLRThresholdPct: defaultY1564FLRThresholdPct,
+		FrameSize:       defaultY1564FrameSize,
+		CoS:             defaultY1564CoS,
+		Enabled:         true,
+	}
+}
+
+// NewY1564ConfigEditor creates a new Y.1564 configuration editor.
+func (a *App) NewY1564ConfigEditor(
+	services []Y1564ServiceConfig,
+	onSave func([]Y1564ServiceConfig),
+	onCancel func(),
+) *Y1564ConfigEditor {
+	editor := &Y1564ConfigEditor{
+		app:          a,
+		form:         nil,
+		serviceList:  nil,
+		services:     services,
+		currentIndex: 0,
+		onSave:       onSave,
+		onCancel:     onCancel,
+	}
+
+	if len(editor.services) == 0 {
+		editor.services = []Y1564ServiceConfig{DefaultY1564ServiceConfig(1)}
+	}
+
+	editor.build()
+	return editor
+}
+
+func (e *Y1564ConfigEditor) build() {
+	// Service list on the left.
+	e.serviceList = tview.NewList().
+		ShowSecondaryText(false)
+	e.serviceList.SetTitle(" Services ").SetBorder(true)
+
+	// Form on the right.
+	e.form = tview.NewForm()
+	e.form.SetTitle(" Service Configuration ").SetBorder(true)
+
+	// Populate service list.
+	e.updateServiceList()
+
+	// Build form for first service.
+	e.buildForm()
+
+	// Button bar at bottom.
+	buttonBar := tview.NewFlex().
+		AddItem(nil, 0, 1, false)
+
+	// Layout.
+	mainFlex := tview.NewFlex().
+		AddItem(e.serviceList, formServiceListWidth, 0, true).
+		AddItem(e.form, 0, 1, false)
+
+	container := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(mainFlex, 0, 1, true).
+		AddItem(buttonBar, 1, 0, false)
+
+	// Help text.
+	helpText := tview.NewTextView().
+		SetDynamicColors(true).
+		SetTextAlign(tview.AlignCenter)
+	helpStr := "[yellow]F3[white] Add | [yellow]F4[white] Remove | " +
+		"[yellow]F5[white] Save | [yellow]Esc[white] Cancel | [yellow]Tab[white] Focus"
+	helpText.SetText(helpStr)
+
+	fullContainer := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(container, 0, 1, true).
+		AddItem(helpText, 1, 0, false)
+
+	e.app.pages.AddPage("y1564config", fullContainer, true, false)
+}
+
+func (e *Y1564ConfigEditor) updateServiceList() {
+	e.serviceList.Clear()
+	for i, svc := range e.services {
+		status := "[green]●"
+		if !svc.Enabled {
+			status = "[red]○"
+		}
+		label := fmt.Sprintf("%s %s (%.0f Mbps)", status, svc.ServiceName, svc.CIRMbps)
+		e.serviceList.AddItem(label, "", 0, e.makeSelectHandler(i))
+	}
+}
+
+func (e *Y1564ConfigEditor) makeSelectHandler(index int) func() {
+	return func() {
+		e.currentIndex = index
+		e.buildForm()
+	}
+}
+
+func (e *Y1564ConfigEditor) buildForm() {
+	e.form.Clear(true)
+
+	if e.currentIndex >= len(e.services) {
+		return
+	}
+
+	svc := &e.services[e.currentIndex]
+
+	e.form.AddInputField("Service Name", svc.ServiceName, formFieldWidth, nil, func(text string) {
+		svc.ServiceName = text
+		e.updateServiceList()
+	})
+
+	e.form.AddInputField("CIR (Mbps)", fmt.Sprintf("%.2f", svc.CIRMbps), formNumericWidth, nil, func(text string) {
+		v, err := strconv.ParseFloat(text, 64)
+		if err == nil {
+			svc.CIRMbps = v
+			e.updateServiceList()
+		}
+	})
+
+	e.form.AddInputField("EIR (Mbps)", fmt.Sprintf("%.2f", svc.EIRMbps), formNumericWidth, nil, func(text string) {
+		v, err := strconv.ParseFloat(text, 64)
+		if err == nil {
+			svc.EIRMbps = v
+		}
+	})
+
+	cbsStr := strconv.FormatUint(uint64(svc.CBSBytes), 10)
+	e.form.AddInputField("CBS (Bytes)", cbsStr, formNumericWidth, nil, func(text string) {
+		v, err := strconv.ParseUint(text, 10, 32)
+		if err == nil {
+			svc.CBSBytes = uint32(v)
+		}
+	})
+
+	ebsStr := strconv.FormatUint(uint64(svc.EBSBytes), 10)
+	e.form.AddInputField("EBS (Bytes)", ebsStr, formNumericWidth, nil, func(text string) {
+		v, err := strconv.ParseUint(text, 10, 32)
+		if err == nil {
+			svc.EBSBytes = uint32(v)
+		}
+	})
+
+	fdStr := fmt.Sprintf("%.2f", svc.FDThresholdMs)
+	e.form.AddInputField("FD Threshold (ms)", fdStr, formNumericWidth, nil, func(text string) {
+		v, err := strconv.ParseFloat(text, 64)
+		if err == nil {
+			svc.FDThresholdMs = v
+		}
+	})
+
+	fdvStr := fmt.Sprintf("%.2f", svc.FDVThresholdMs)
+	e.form.AddInputField("FDV Threshold (ms)", fdvStr, formNumericWidth, nil, func(text string) {
+		v, err := strconv.ParseFloat(text, 64)
+		if err == nil {
+			svc.FDVThresholdMs = v
+		}
+	})
+
+	flrStr := fmt.Sprintf("%.4f", svc.FLRThresholdPct)
+	e.form.AddInputField("FLR Threshold (%)", flrStr, formNumericWidth, nil, func(text string) {
+		v, err := strconv.ParseFloat(text, 64)
+		if err == nil {
+			svc.FLRThresholdPct = v
+		}
+	})
+
+	frameSizes := []string{"64", "128", "256", "512", "1024", "1280", "1518", "9000"}
+	frameSizeIndex := formDefaultFrameIdx
+	currentFrameStr := strconv.FormatUint(uint64(svc.FrameSize), 10)
+	for i, s := range frameSizes {
+		if currentFrameStr == s {
+			frameSizeIndex = i
+			break
+		}
+	}
+	e.form.AddDropDown("Frame Size", frameSizes, frameSizeIndex, func(option string, _ int) {
+		v, err := strconv.ParseUint(option, 10, 32)
+		if err == nil {
+			svc.FrameSize = uint32(v)
+		}
+	})
+
+	e.form.AddCheckbox("Enabled", svc.Enabled, func(checked bool) {
+		svc.Enabled = checked
+		e.updateServiceList()
+	})
+}
+
+// Show displays the Y.1564 configuration editor.
+func (e *Y1564ConfigEditor) Show() {
+	e.app.pages.SwitchToPage("y1564config")
+
+	// Set up key handler for config page.
+	e.app.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() { //nolint:exhaustive // Only handle specific keys.
+		case tcell.KeyF3:
+			// Add new service.
+			numServices := len(e.services)
+			newID := uint32(numServices + 1) //nolint:gosec // Service count won't overflow uint32.
+			e.services = append(e.services, DefaultY1564ServiceConfig(newID))
+			e.currentIndex = len(e.services) - 1
+			e.updateServiceList()
+			e.buildForm()
+			return nil
+		case tcell.KeyF4:
+			// Remove current service.
+			if len(e.services) > 1 {
+				e.services = append(e.services[:e.currentIndex], e.services[e.currentIndex+1:]...)
+				if e.currentIndex >= len(e.services) {
+					e.currentIndex = len(e.services) - 1
+				}
+				e.updateServiceList()
+				e.buildForm()
+			}
+			return nil
+		case tcell.KeyF5:
+			// Save.
+			if e.onSave != nil {
+				e.onSave(e.services)
+			}
+			e.Hide()
+			return nil
+		case tcell.KeyEscape:
+			// Cancel.
+			if e.onCancel != nil {
+				e.onCancel()
+			}
+			e.Hide()
+			return nil
+		case tcell.KeyTab:
+			// Switch focus between list and form.
+			if e.app.app.GetFocus() == e.serviceList {
+				e.app.app.SetFocus(e.form)
+			} else {
+				e.app.app.SetFocus(e.serviceList)
+			}
+			return nil
+		default:
+			return event
+		}
+	})
+}
+
+// Hide hides the Y.1564 configuration editor and restores main view.
+func (e *Y1564ConfigEditor) Hide() {
+	e.app.pages.SwitchToPage("main")
+	e.app.build() // Restore main key bindings.
+}
+
+// ShowY1564Config shows the Y.1564 configuration editor with the given services.
+func (a *App) ShowY1564Config(services []Y1564ServiceConfig, onSave func([]Y1564ServiceConfig)) {
+	editor := a.NewY1564ConfigEditor(services, onSave, nil)
+	editor.Show()
+}
+
+// GetY1564Services returns the current Y.1564 service configurations.
+func (a *App) GetY1564Services() []Y1564ServiceConfig {
+	return nil // Returns nil when no services configured yet.
 }
