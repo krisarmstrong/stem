@@ -14,6 +14,7 @@ import {
   HelpCircle,
   History,
   Lock,
+  LogOut,
   Moon,
   Play,
   RefreshCw,
@@ -26,6 +27,7 @@ import {
 import type { FormEvent, ReactElement } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { HelpDrawer } from './components/HelpDrawer';
+import { ModuleCard } from './components/ModuleCard';
 import { ResultHistory } from './components/ResultHistory';
 import { defaultRFC2544Config, type RFC2544Config } from './components/RFC2544ConfigForm';
 import { defaultRFC2889Config, type RFC2889Config } from './components/RFC2889ConfigForm';
@@ -36,6 +38,7 @@ import { defaultTrafficGenConfig, type TrafficGenConfig } from './components/Tra
 import { defaultTSNConfig, type TSNConfig } from './components/TSNConfigForm';
 import { defaultY1564Config, type Y1564Config } from './components/Y1564ConfigForm';
 import { defaultY1731Config, type Y1731Config } from './components/Y1731ConfigForm';
+import { ModuleSettingsProvider, useModuleSettings } from './context/ModuleSettingsContext';
 
 interface Stats {
   packetsReceived: number;
@@ -360,7 +363,8 @@ function mapStatsPayload(payload: Partial<Stats>): Stats {
   };
 }
 
-function App(): ReactElement {
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Main app component with many states
+function AppContent(): ReactElement {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -398,6 +402,7 @@ function App(): ReactElement {
     'rfc2544_back_to_back',
   ]);
   const [reflectorProfile, setReflectorProfile] = useState<string>('all');
+  const [isStartingTest, setIsStartingTest] = useState(false);
   const [rfc2544Config, setRFC2544Config] = useState<RFC2544Config>(defaultRFC2544Config);
   const [rfc2889Config, setRFC2889Config] = useState<RFC2889Config>(defaultRFC2889Config);
   const [rfc6349Config, setRFC6349Config] = useState<RFC6349Config>(defaultRFC6349Config);
@@ -406,6 +411,19 @@ function App(): ReactElement {
   const [tsnConfig, setTSNConfig] = useState<TSNConfig>(defaultTSNConfig);
   const [trafficGenConfig, setTrafficGenConfig] =
     useState<TrafficGenConfig>(defaultTrafficGenConfig);
+
+  // Module settings context
+  const {
+    modules,
+    moduleStatuses,
+    moduleResults,
+    toggleModule,
+    toggleAutoStart,
+    toggleTest,
+    setModuleStatus,
+    setModuleResults,
+    clearModuleResults,
+  } = useModuleSettings();
 
   // Calculate expected test duration based on config
   const expectedDuration =
@@ -498,7 +516,7 @@ function App(): ReactElement {
       setLoginLoading(true);
       setLoginError(null);
       try {
-        const response = await fetch('/api/auth/login', {
+        const response = await fetch('/api/v1/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, password }),
@@ -530,27 +548,170 @@ function App(): ReactElement {
 
   const handleStartTest = useCallback(async (): Promise<void> => {
     if (!token) return;
+    setIsStartingTest(true);
     try {
+      // Determine test type based on mode
+      const testType =
+        mode === 'reflector' ? 'reflect' : (selectedTests[0] ?? 'rfc2544_throughput');
+
+      // Optimistically update status to show immediate feedback
+      setStats((prev) => ({
+        ...prev,
+        testStatus: 'starting',
+        currentTest: testType,
+      }));
+
       await authFetch('/api/test/start', {
         method: 'POST',
         body: JSON.stringify({
           interface: selectedInterface,
-          testType: selectedTests[0] ?? 'throughput',
+          testType,
+          mode,
+          profile: mode === 'reflector' ? reflectorProfile : undefined,
         }),
       });
+
+      // If request succeeds, update to running (backend will confirm via WebSocket)
+      setStats((prev) => ({
+        ...prev,
+        testStatus: 'running',
+      }));
     } catch (_error) {
-      // Silently ignore test start errors
+      // Reset status on error
+      setStats((prev) => ({
+        ...prev,
+        testStatus: 'error',
+        currentTest: null,
+      }));
+    } finally {
+      setIsStartingTest(false);
     }
-  }, [authFetch, selectedInterface, selectedTests, token]);
+  }, [authFetch, mode, reflectorProfile, selectedInterface, selectedTests, token]);
 
   const handleStopTest = useCallback(async (): Promise<void> => {
     if (!token) return;
     try {
       await authFetch('/api/test/stop', { method: 'POST' });
+      // Optimistically update status
+      setStats((prev) => ({
+        ...prev,
+        testStatus: 'cancelled',
+      }));
     } catch (_error) {
       // Silently ignore test stop errors
     }
   }, [authFetch, token]);
+
+  // Module-specific start handler
+  const handleModuleStart = useCallback(
+    async (moduleName: string): Promise<void> => {
+      if (!token || !selectedInterface) return;
+
+      // Get enabled tests for this module
+      const moduleConfig = modules.find((m) => m.name === moduleName);
+      if (!moduleConfig) return;
+
+      const enabledTests = moduleConfig.tests.filter((t) => t.enabled);
+      if (enabledTests.length === 0) return;
+
+      const testType = enabledTests[0].id;
+
+      // Clear previous results and initialize new results structure
+      clearModuleResults(moduleName);
+
+      // Initialize frame size results for RFC 2544 style tests
+      if (moduleName === 'benchmark' || moduleName === 'certify') {
+        const frameSizes = rfc2544Config.frameSizes;
+        setModuleResults(moduleName, {
+          testType,
+          startedAt: new Date().toISOString(),
+          frameSizeResults: frameSizes.map((size) => ({
+            frameSize: size,
+            status: 'pending' as const,
+          })),
+        });
+      }
+
+      // Update module status
+      setModuleStatus(moduleName, { status: 'starting', currentTest: testType });
+
+      try {
+        await authFetch('/api/test/start', {
+          method: 'POST',
+          body: JSON.stringify({
+            interface: selectedInterface,
+            testType,
+            module: moduleName,
+            tests: enabledTests.map((t) => t.id),
+          }),
+        });
+
+        setModuleStatus(moduleName, { status: 'running', currentTest: testType });
+        setStats((prev) => ({
+          ...prev,
+          testStatus: 'running',
+          currentTest: testType,
+        }));
+      } catch (_error) {
+        setModuleStatus(moduleName, { status: 'error', currentTest: null });
+      }
+    },
+    [
+      authFetch,
+      clearModuleResults,
+      modules,
+      rfc2544Config.frameSizes,
+      selectedInterface,
+      setModuleResults,
+      setModuleStatus,
+      token,
+    ],
+  );
+
+  // Module-specific stop handler
+  const handleModuleStop = useCallback(
+    async (moduleName: string): Promise<void> => {
+      if (!token) return;
+
+      try {
+        await authFetch('/api/test/stop', { method: 'POST' });
+        setModuleStatus(moduleName, { status: 'cancelled', currentTest: null });
+        setStats((prev) => ({
+          ...prev,
+          testStatus: 'cancelled',
+        }));
+      } catch (_error) {
+        // Silently ignore
+      }
+    },
+    [authFetch, setModuleStatus, token],
+  );
+
+  // Open settings drawer for specific module
+  const handleModuleConfigure = useCallback((_moduleName: string): void => {
+    // TODO: Pre-select module section in settings drawer
+    setSettingsOpen(true);
+  }, []);
+
+  // Logout handler - clears token and resets state
+  const handleLogout = useCallback(() => {
+    // Clear token from state and localStorage
+    setToken(null);
+    setConnected(false);
+    setLoginError(null);
+    // Reset stats
+    setStats({
+      packetsReceived: 0,
+      packetsSent: 0,
+      bytesReceived: 0,
+      bytesSent: 0,
+      currentPps: 0,
+      currentMbps: 0,
+      uptime: 0,
+      testStatus: 'idle',
+      currentTest: null,
+    });
+  }, []);
 
   const handleWsMessage = useCallback((event: MessageEvent<string>) => {
     try {
@@ -599,6 +760,27 @@ function App(): ReactElement {
       document.documentElement.classList.remove('dark');
     }
   }, [darkMode]);
+
+  // Handle mode changes - update selected tests accordingly
+  useEffect(() => {
+    if (mode === 'reflector') {
+      // In reflector mode, always use 'reflect' test type
+      setSelectedTests(['reflect']);
+    } else if (mode === 'test_master') {
+      // When switching back to test_master, restore default tests if empty
+      setSelectedTests((prev) => {
+        if (prev.length === 0 || (prev.length === 1 && prev[0] === 'reflect')) {
+          return [
+            'rfc2544_throughput',
+            'rfc2544_latency',
+            'rfc2544_frame_loss',
+            'rfc2544_back_to_back',
+          ];
+        }
+        return prev;
+      });
+    }
+  }, [mode]);
 
   // Fetch interfaces on mount
   useEffect(() => {
@@ -739,9 +921,13 @@ function App(): ReactElement {
             </button>
 
             {/* Settings */}
-            <button type="button" onClick={openSettings} className="btn btn-secondary">
-              <Settings className="w-4 h-4" />
-              Settings
+            <button type="button" onClick={openSettings} className="btn btn-ghost" title="Settings">
+              <Settings className="w-5 h-5" />
+            </button>
+
+            {/* Logout */}
+            <button type="button" onClick={handleLogout} className="btn btn-ghost" title="Logout">
+              <LogOut className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -765,31 +951,79 @@ function App(): ReactElement {
               ))}
             </select>
 
-            {stats.testStatus === 'running' ? (
+            {stats.testStatus === 'running' || stats.testStatus === 'starting' ? (
               <button type="button" onClick={handleStopTest} className="btn btn-secondary">
                 <Square className="w-4 h-4" />
-                Stop Test
+                Stop {mode === 'reflector' ? 'Reflector' : 'Test'}
               </button>
             ) : (
               <button
                 type="button"
                 onClick={handleStartTest}
                 className="btn btn-primary"
-                disabled={!selectedInterface}
+                disabled={!selectedInterface || isStartingTest}
               >
-                <Play className="w-4 h-4" />
-                Start Test
+                {isStartingTest ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Starting...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4" />
+                    Start {mode === 'reflector' ? 'Reflector' : 'Test'}
+                  </>
+                )}
               </button>
             )}
           </div>
 
-          {stats.currentTest && (
-            <div className="status-badge warning">Running: {stats.currentTest}</div>
-          )}
+          {/* Test Status Indicator */}
+          <div className="flex items-center gap-3">
+            {(stats.testStatus === 'running' || stats.testStatus === 'starting') && (
+              <div className="status-badge success flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[var(--color-status-success)] animate-pulse" />
+                {stats.testStatus === 'starting' ? 'Starting' : 'Running'}:{' '}
+                {stats.currentTest || mode}
+              </div>
+            )}
+            {stats.testStatus === 'completed' && (
+              <div className="status-badge info">Completed: {stats.currentTest}</div>
+            )}
+            {stats.testStatus === 'error' && (
+              <div className="status-badge error">Error: {stats.currentTest || 'Test failed'}</div>
+            )}
+            {stats.testStatus === 'cancelled' && (
+              <div className="status-badge warning">Stopped: {stats.currentTest}</div>
+            )}
+          </div>
         </div>
 
         {/* Test Progress Bar */}
         <TestProgressBar progress={testProgress} />
+
+        {/* Module Cards */}
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-4">
+            Test Modules
+          </h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+            {modules.map((moduleConfig) => (
+              <ModuleCard
+                key={moduleConfig.name}
+                config={moduleConfig}
+                status={moduleStatuses[moduleConfig.name] ?? { status: 'idle', currentTest: null }}
+                results={moduleResults[moduleConfig.name]}
+                onToggleModule={(enabled) => toggleModule(moduleConfig.name, enabled)}
+                onToggleAutoStart={(enabled) => toggleAutoStart(moduleConfig.name, enabled)}
+                onToggleTest={(testId, enabled) => toggleTest(moduleConfig.name, testId, enabled)}
+                onStart={() => handleModuleStart(moduleConfig.name)}
+                onStop={() => handleModuleStop(moduleConfig.name)}
+                onConfigure={() => handleModuleConfigure(moduleConfig.name)}
+              />
+            ))}
+          </div>
+        </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -830,6 +1064,92 @@ function App(): ReactElement {
         {/* Results Area */}
         <TestResults testStatus={stats.testStatus} result={testResult} />
       </main>
+
+      {/* Footer */}
+      <footer className="mt-8 mx-6 mb-6 rounded-2xl border border-[var(--color-surface-border)] bg-[var(--color-surface-raised)] p-6">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Product Info */}
+          <div>
+            <h3 className="text-base font-semibold text-[var(--color-text-primary)] mb-2">
+              The Stem
+            </h3>
+            <p className="text-sm text-[var(--color-text-muted)] mb-1">by Mustard Seed Networks</p>
+            <p className="text-xs text-[var(--color-text-muted)]">Version 0.1.0</p>
+          </div>
+
+          {/* Contact */}
+          <div>
+            <h3 className="text-base font-semibold text-[var(--color-text-primary)] mb-2">
+              Contact
+            </h3>
+            <p className="text-sm text-[var(--color-text-muted)] mb-1">
+              <a
+                href="mailto:support@mustardseednetworks.com"
+                className="hover:text-[var(--color-stem-green)] transition-colors"
+              >
+                support@mustardseednetworks.com
+              </a>
+            </p>
+            <p className="text-sm text-[var(--color-text-muted)]">
+              <a
+                href="tel:+18005551234"
+                className="hover:text-[var(--color-stem-green)] transition-colors"
+              >
+                1-800-555-1234
+              </a>
+            </p>
+          </div>
+
+          {/* Website */}
+          <div>
+            <h3 className="text-base font-semibold text-[var(--color-text-primary)] mb-2">
+              Website
+            </h3>
+            <p className="text-sm text-[var(--color-text-muted)]">
+              <a
+                href="https://mustardseednetworks.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-[var(--color-stem-green)] transition-colors"
+              >
+                mustardseednetworks.com
+              </a>
+            </p>
+          </div>
+
+          {/* Legal */}
+          <div>
+            <h3 className="text-base font-semibold text-[var(--color-text-primary)] mb-2">Legal</h3>
+            <div className="flex flex-col gap-1">
+              <a
+                href="/terms"
+                className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-stem-green)] transition-colors"
+              >
+                Terms of Service
+              </a>
+              <a
+                href="/privacy"
+                className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-stem-green)] transition-colors"
+              >
+                Privacy Policy
+              </a>
+              <a
+                href="/license"
+                className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-stem-green)] transition-colors"
+              >
+                License
+              </a>
+            </div>
+          </div>
+        </div>
+
+        {/* Copyright */}
+        <div className="mt-6 pt-4 border-t border-[var(--color-surface-border)] text-center">
+          <p className="text-xs text-[var(--color-text-muted)]">
+            &copy; {new Date().getFullYear()} Mustard Seed Networks. All rights reserved.
+          </p>
+        </div>
+      </footer>
 
       {/* Settings Drawer */}
       <SettingsDrawer
@@ -927,6 +1247,15 @@ function App(): ReactElement {
         </div>
       )}
     </div>
+  );
+}
+
+// Wrapper component that provides context
+function App(): ReactElement {
+  return (
+    <ModuleSettingsProvider>
+      <AppContent />
+    </ModuleSettingsProvider>
   );
 }
 

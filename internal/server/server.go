@@ -249,6 +249,18 @@ func isLocalhostOrigin(origin string) bool {
 	return host == "localhost" || host == "127.0.0.1" || host == "::1"
 }
 
+// isSameOrigin checks if the Origin header matches the request's Host.
+// This allows browsers to access the server from its actual address (e.g., 10.0.0.210:8080).
+func isSameOrigin(origin string, requestHost string) bool {
+	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	// Compare origin host:port with request host.
+	originHost := u.Host // Includes port if present.
+	return originHost == requestHost
+}
+
 // setupRoutes configures the HTTP routes.
 func (s *Server) setupRoutes() {
 	// API v1 routes - Health and Status (no rate limiting for health checks).
@@ -312,7 +324,13 @@ func (s *Server) setupRoutes() {
 		})
 	} else {
 		fileServer := http.FileServer(http.FS(staticFS))
-		s.mux.Handle("/", fileServer)
+		// Wrap with CORS headers for crossorigin script/css loading.
+		s.mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			fileServer.ServeHTTP(w, r)
+		}))
 	}
 }
 
@@ -430,7 +448,8 @@ func (s *Server) auditAuthFailure(r *http.Request, err error) {
 	}
 }
 
-// corsMiddleware enforces localhost-only CORS for API security.
+// corsMiddleware enforces CORS for API security.
+// Allows localhost origins and same-origin requests (browser accessing server's own address).
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
@@ -441,8 +460,9 @@ func corsMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Only allow localhost origins.
-		if !isLocalhostOrigin(origin) {
+		// Allow localhost origins or same-origin requests.
+		// Same-origin: browser accessing server from server's actual IP (e.g., http://10.0.0.210:8080).
+		if !isLocalhostOrigin(origin) && !isSameOrigin(origin, r.Host) {
 			http.Error(w, "CORS: origin not allowed", http.StatusForbidden)
 			return
 		}

@@ -102,21 +102,21 @@ func (e *Executor) Execute(testType string, cfg *modtypes.TestConfig) (*modtypes
 	var runErr error
 
 	switch testType {
-	case "throughput":
+	case "rfc2544_throughput":
 		data, runErr = e.ctx.RunThroughputTest()
-	case "latency":
+	case "rfc2544_latency":
 		loadLevels := e.getLoadLevels(cfg)
 		data, runErr = e.ctx.RunLatencyTest(loadLevels)
-	case "frame_loss":
+	case "rfc2544_frame_loss":
 		startPct, endPct, stepPct := e.getFrameLossParams(cfg)
 		data, runErr = e.ctx.RunFrameLossTest(startPct, endPct, stepPct)
-	case "back_to_back":
+	case "rfc2544_back_to_back":
 		initialBurst, trials := e.getBackToBackParams(cfg)
 		data, runErr = e.ctx.RunBackToBackTest(initialBurst, trials)
-	case "system_recovery":
+	case "rfc2544_system_recovery":
 		throughputPct, overloadSec := e.getRecoveryParams(cfg)
 		data, runErr = e.ctx.RunSystemRecoveryTest(throughputPct, overloadSec)
-	case "reset":
+	case "rfc2544_reset":
 		data, runErr = e.ctx.RunResetTest()
 	default:
 		return nil, modtypes.ErrTestNotImplemented

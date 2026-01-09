@@ -22,33 +22,33 @@ interface Module {
 
 // Test descriptions for tooltips
 const testDescriptions: Record<string, { name: string; desc: string; tooltip: string }> = {
-  // Benchmark (RFC 2544)
-  throughput: {
+  // Benchmark (RFC 2544) - with rfc2544_ prefix
+  rfc2544_throughput: {
     name: 'Throughput',
     desc: 'Max rate with 0% loss',
     tooltip: 'Find the maximum rate at which the DUT can forward frames with zero packet loss.',
   },
-  latency: {
+  rfc2544_latency: {
     name: 'Latency',
     desc: 'Round-trip time',
     tooltip: 'Measure round-trip packet delay at various loads and frame sizes.',
   },
-  frame_loss: {
+  rfc2544_frame_loss: {
     name: 'Frame Loss',
     desc: 'Loss vs offered load',
     tooltip: 'Measure packet loss percentage across different offered load levels.',
   },
-  back_to_back: {
+  rfc2544_back_to_back: {
     name: 'Back-to-Back',
     desc: 'Burst capacity',
     tooltip: 'Test maximum burst capacity - how many frames at line rate before drops.',
   },
-  system_recovery: {
+  rfc2544_system_recovery: {
     name: 'System Recovery',
     desc: 'Recovery after overload',
     tooltip: 'Measure time to recover normal forwarding after sustained overload.',
   },
-  reset: {
+  rfc2544_reset: {
     name: 'Reset',
     desc: 'Device reset recovery',
     tooltip: 'Measure time from device restart to when it resumes forwarding.',
@@ -379,7 +379,14 @@ function getStaticModules(): Module[] {
       description: 'RFC 2544 device benchmarking',
       color: '#dc2626',
       standard: 'RFC 2544',
-      tests: ['throughput', 'latency', 'frame_loss', 'back_to_back', 'system_recovery', 'reset'],
+      tests: [
+        'rfc2544_throughput',
+        'rfc2544_latency',
+        'rfc2544_frame_loss',
+        'rfc2544_back_to_back',
+        'rfc2544_system_recovery',
+        'rfc2544_reset',
+      ],
     },
     {
       name: 'servicetest',

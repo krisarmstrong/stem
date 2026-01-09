@@ -126,8 +126,8 @@ func TestModuleCanRun(t *testing.T) {
 
 	// Test invalid test types.
 	invalidTests := []string{
-		"throughput",         // Benchmark module.
-		"latency",            // Benchmark module.
+		"rfc2544_throughput", // Benchmark module.
+		"rfc2544_latency",    // Benchmark module.
 		"y1564",              // ServiceTest module.
 		"rfc2889_forwarding", // Certify module.
 		"custom_stream",      // TrafficGen module.

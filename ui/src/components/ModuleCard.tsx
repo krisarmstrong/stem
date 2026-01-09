@@ -1,0 +1,620 @@
+/**
+ * @fileoverview The Stem - Module Card Component
+ * @description Card component for each test module (Benchmark, ServiceTest, etc.)
+ *              with enable/disable toggles, autostart options, and test execution.
+ * @copyright 2025 Mustard Seed Networks. All rights reserved.
+ * @license Proprietary
+ */
+
+import {
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Play,
+  Power,
+  RefreshCw,
+  Settings2,
+  Square,
+  XCircle,
+} from 'lucide-react';
+import type { ReactElement } from 'react';
+import { useState } from 'react';
+import { cn, icon as iconTokens, spacing } from '../styles/theme';
+
+export interface ModuleTest {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+}
+
+export interface ModuleConfig {
+  name: string;
+  displayName: string;
+  description: string;
+  color: string;
+  standard: string;
+  enabled: boolean;
+  autoStart: boolean;
+  tests: ModuleTest[];
+}
+
+export interface ModuleStatus {
+  status: 'idle' | 'starting' | 'running' | 'completed' | 'error' | 'cancelled';
+  currentTest: string | null;
+  progress?: number;
+  message?: string;
+}
+
+/** Per-frame-size result for RFC 2544 style tests */
+export interface FrameSizeResult {
+  frameSize: number;
+  status: 'pending' | 'running' | 'completed' | 'error';
+  progress?: number; // 0-100 for running state
+  txPackets?: number;
+  rxPackets?: number;
+  txBytes?: number;
+  rxBytes?: number;
+  lossPercent?: number;
+  throughputPps?: number;
+  throughputMbps?: number;
+  latencyUs?: number; // microseconds
+  jitterUs?: number;
+}
+
+/** Service flow result for Y.1564 style tests */
+export interface ServiceFlowResult {
+  flowId: string;
+  flowName: string;
+  status: 'pending' | 'running' | 'completed' | 'error';
+  cir?: number; // Committed Information Rate
+  cirAchieved?: number;
+  eir?: number; // Excess Information Rate
+  eirAchieved?: number;
+  frameDelay?: number;
+  frameDelayVariation?: number;
+  frameLoss?: number;
+}
+
+/** OAM measurement result for Y.1731 style tests */
+export interface OamMeasurementResult {
+  measurementType: string;
+  status: 'pending' | 'running' | 'completed' | 'error';
+  delayMin?: number;
+  delayAvg?: number;
+  delayMax?: number;
+  jitter?: number;
+  lossNear?: number;
+  lossFar?: number;
+}
+
+/** Combined test results that can hold different result types */
+export interface ModuleTestResults {
+  testType: string;
+  startedAt?: string;
+  completedAt?: string;
+  duration?: number;
+  success?: boolean;
+  error?: string;
+  // Different result types based on module
+  frameSizeResults?: FrameSizeResult[];
+  serviceFlowResults?: ServiceFlowResult[];
+  oamResults?: OamMeasurementResult[];
+}
+
+interface ModuleCardProps {
+  config: ModuleConfig;
+  status: ModuleStatus;
+  results?: ModuleTestResults | null;
+  onToggleModule: (enabled: boolean) => void;
+  onToggleAutoStart: (enabled: boolean) => void;
+  onToggleTest: (testId: string, enabled: boolean) => void;
+  onStart: () => void;
+  onStop: () => void;
+  onConfigure: () => void;
+}
+
+function formatNumber(num: number): string {
+  if (num >= 1e9) return `${(num / 1e9).toFixed(1)}G`;
+  if (num >= 1e6) return `${(num / 1e6).toFixed(1)}M`;
+  if (num >= 1e3) return `${(num / 1e3).toFixed(1)}K`;
+  return num.toString();
+}
+
+function formatRate(pps: number): string {
+  if (pps >= 1e6) return `${(pps / 1e6).toFixed(2)}Mpps`;
+  if (pps >= 1e3) return `${(pps / 1e3).toFixed(1)}Kpps`;
+  return `${pps}pps`;
+}
+
+/** Renders the frame size results table for RFC 2544 style tests */
+function FrameSizeResultsTable({
+  results,
+  color,
+}: {
+  results: FrameSizeResult[];
+  color: string;
+}): ReactElement {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-[var(--color-text-muted)] border-b border-[var(--color-surface-border)]">
+            <th className="text-left py-2 pr-2 font-medium">Frame</th>
+            <th className="text-right py-2 px-2 font-medium">TX</th>
+            <th className="text-right py-2 px-2 font-medium">RX</th>
+            <th className="text-right py-2 px-2 font-medium">Loss</th>
+            <th className="text-right py-2 px-2 font-medium">Rate</th>
+            <th className="text-center py-2 pl-2 font-medium w-8">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {/* biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Results table requires conditional rendering */}
+          {results.map((result) => (
+            <tr
+              key={result.frameSize}
+              className={cn(
+                'border-b border-[var(--color-surface-border)]/50',
+                result.status === 'running' && 'bg-[var(--color-status-success)]/5',
+              )}
+            >
+              <td className="py-2 pr-2 font-mono font-medium text-[var(--color-text-primary)]">
+                {result.frameSize}B
+              </td>
+              <td className="py-2 px-2 text-right font-mono text-[var(--color-text-secondary)]">
+                {result.status === 'pending' ? '—' : formatNumber(result.txPackets ?? 0)}
+              </td>
+              <td className="py-2 px-2 text-right font-mono text-[var(--color-text-secondary)]">
+                {result.status === 'pending' ? '—' : formatNumber(result.rxPackets ?? 0)}
+              </td>
+              <td
+                className={cn(
+                  'py-2 px-2 text-right font-mono',
+                  result.status === 'pending'
+                    ? 'text-[var(--color-text-muted)]'
+                    : (result.lossPercent ?? 0) === 0
+                      ? 'text-[var(--color-status-success)]'
+                      : (result.lossPercent ?? 0) < 1
+                        ? 'text-[var(--color-status-warning)]'
+                        : 'text-[var(--color-status-error)]',
+                )}
+              >
+                {result.status === 'pending' ? '—' : `${(result.lossPercent ?? 0).toFixed(2)}%`}
+              </td>
+              <td className="py-2 px-2 text-right font-mono text-[var(--color-text-secondary)]">
+                {result.status === 'pending' ? (
+                  '—'
+                ) : result.status === 'running' ? (
+                  <span className="text-[var(--color-text-muted)]">measuring</span>
+                ) : (
+                  formatRate(result.throughputPps ?? 0)
+                )}
+              </td>
+              <td className="py-2 pl-2 text-center">
+                {result.status === 'completed' && (
+                  <Check className="w-4 h-4 text-[var(--color-status-success)] inline" />
+                )}
+                {result.status === 'running' && (
+                  <div
+                    className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin inline-block"
+                    style={{ borderColor: color, borderTopColor: 'transparent' }}
+                  />
+                )}
+                {result.status === 'error' && (
+                  <XCircle className="w-4 h-4 text-[var(--color-status-error)] inline" />
+                )}
+                {result.status === 'pending' && (
+                  <Clock className="w-4 h-4 text-[var(--color-text-muted)] inline" />
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Renders service flow results for Y.1564 style tests */
+function ServiceFlowResultsTable({ results }: { results: ServiceFlowResult[] }): ReactElement {
+  return (
+    <div className="space-y-2">
+      {results.map((flow) => (
+        <div
+          key={flow.flowId}
+          className={cn(
+            'p-2 rounded-lg border border-[var(--color-surface-border)]',
+            flow.status === 'running' && 'bg-[var(--color-status-success)]/5',
+          )}
+        >
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm font-medium text-[var(--color-text-primary)]">
+              {flow.flowName}
+            </span>
+            <span
+              className={cn(
+                'text-xs px-2 py-0.5 rounded-full',
+                flow.status === 'completed' &&
+                  'bg-[var(--color-status-success)]/10 text-[var(--color-status-success)]',
+                flow.status === 'running' &&
+                  'bg-[var(--color-status-info)]/10 text-[var(--color-status-info)]',
+                flow.status === 'pending' &&
+                  'bg-[var(--color-surface-base)] text-[var(--color-text-muted)]',
+                flow.status === 'error' &&
+                  'bg-[var(--color-status-error)]/10 text-[var(--color-status-error)]',
+              )}
+            >
+              {flow.status}
+            </span>
+          </div>
+          {flow.status !== 'pending' && (
+            <div className="grid grid-cols-4 gap-2 text-xs">
+              <div>
+                <div className="text-[var(--color-text-muted)]">CIR</div>
+                <div className="font-mono">
+                  {flow.cirAchieved ?? '—'}/{flow.cir ?? '—'}
+                </div>
+              </div>
+              <div>
+                <div className="text-[var(--color-text-muted)]">Delay</div>
+                <div className="font-mono">
+                  {flow.frameDelay != null ? `${flow.frameDelay}ms` : '—'}
+                </div>
+              </div>
+              <div>
+                <div className="text-[var(--color-text-muted)]">Jitter</div>
+                <div className="font-mono">
+                  {flow.frameDelayVariation != null ? `${flow.frameDelayVariation}ms` : '—'}
+                </div>
+              </div>
+              <div>
+                <div className="text-[var(--color-text-muted)]">Loss</div>
+                <div className="font-mono">
+                  {flow.frameLoss != null ? `${flow.frameLoss}%` : '—'}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Renders OAM measurement results for Y.1731 style tests */
+function OamResultsTable({ results }: { results: OamMeasurementResult[] }): ReactElement {
+  return (
+    <div className="space-y-2">
+      {results.map((measurement) => (
+        <div
+          key={measurement.measurementType}
+          className={cn(
+            'p-2 rounded-lg border border-[var(--color-surface-border)]',
+            measurement.status === 'running' && 'bg-[var(--color-status-success)]/5',
+          )}
+        >
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm font-medium text-[var(--color-text-primary)]">
+              {measurement.measurementType}
+            </span>
+            <span
+              className={cn(
+                'text-xs px-2 py-0.5 rounded-full',
+                measurement.status === 'completed' &&
+                  'bg-[var(--color-status-success)]/10 text-[var(--color-status-success)]',
+                measurement.status === 'running' &&
+                  'bg-[var(--color-status-info)]/10 text-[var(--color-status-info)]',
+                measurement.status === 'pending' &&
+                  'bg-[var(--color-surface-base)] text-[var(--color-text-muted)]',
+                measurement.status === 'error' &&
+                  'bg-[var(--color-status-error)]/10 text-[var(--color-status-error)]',
+              )}
+            >
+              {measurement.status}
+            </span>
+          </div>
+          {measurement.status !== 'pending' && (
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div>
+                <div className="text-[var(--color-text-muted)]">Delay (min/avg/max)</div>
+                <div className="font-mono">
+                  {measurement.delayMin ?? '—'}/{measurement.delayAvg ?? '—'}/
+                  {measurement.delayMax ?? '—'}μs
+                </div>
+              </div>
+              <div>
+                <div className="text-[var(--color-text-muted)]">Jitter</div>
+                <div className="font-mono">
+                  {measurement.jitter != null ? `${measurement.jitter}μs` : '—'}
+                </div>
+              </div>
+              <div>
+                <div className="text-[var(--color-text-muted)]">Loss (near/far)</div>
+                <div className="font-mono">
+                  {measurement.lossNear ?? '—'}%/{measurement.lossFar ?? '—'}%
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex component with many states
+export function ModuleCard({
+  config,
+  status,
+  results,
+  onToggleModule,
+  onToggleAutoStart,
+  onToggleTest,
+  onStart,
+  onStop,
+  onConfigure,
+}: ModuleCardProps): ReactElement {
+  const [expanded, setExpanded] = useState(false);
+  const enabledTestCount = config.tests.filter((t) => t.enabled).length;
+  const isRunning = status.status === 'running' || status.status === 'starting';
+  const hasResults =
+    results &&
+    ((results.frameSizeResults && results.frameSizeResults.length > 0) ||
+      (results.serviceFlowResults && results.serviceFlowResults.length > 0) ||
+      (results.oamResults && results.oamResults.length > 0));
+
+  // Auto-expand when running or has results to show
+  const showResults = isRunning || status.status === 'completed' || status.status === 'error';
+
+  return (
+    <div
+      className={cn(
+        'border rounded-xl overflow-hidden transition-all',
+        config.enabled ? 'border-[var(--color-surface-border)]' : 'border-transparent opacity-60',
+        'bg-[var(--color-surface-raised)]',
+      )}
+      style={{
+        borderLeftWidth: '4px',
+        borderLeftColor: config.enabled ? config.color : 'transparent',
+      }}
+    >
+      {/* Module Header */}
+      <div className={cn(spacing.pad.default, 'flex items-center justify-between')}>
+        <div className="flex items-center gap-3 flex-1">
+          {/* Enable Toggle */}
+          <button
+            type="button"
+            onClick={() => onToggleModule(!config.enabled)}
+            className={cn(
+              'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
+              config.enabled
+                ? 'bg-[var(--color-status-success)]/20 text-[var(--color-status-success)]'
+                : 'bg-[var(--color-surface-base)] text-[var(--color-text-muted)]',
+            )}
+            title={config.enabled ? 'Disable module' : 'Enable module'}
+          >
+            <Power className="w-4 h-4" />
+          </button>
+
+          {/* Module Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span
+                className="w-3 h-3 rounded-full flex-shrink-0"
+                style={{ backgroundColor: config.color }}
+              />
+              <h3 className="font-semibold text-[var(--color-text-primary)] truncate">
+                {config.displayName}
+              </h3>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-surface-base)] text-[var(--color-text-muted)]">
+                {config.standard}
+              </span>
+            </div>
+            <p className="text-xs text-[var(--color-text-muted)] mt-0.5 truncate">
+              {enabledTestCount}/{config.tests.length} tests enabled
+            </p>
+          </div>
+
+          {/* Status Indicator */}
+          {isRunning && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-status-success)]/10">
+              <span className="w-2 h-2 rounded-full bg-[var(--color-status-success)] animate-pulse" />
+              <span className="text-xs font-medium text-[var(--color-status-success)]">
+                {status.status === 'starting' ? 'Starting...' : status.currentTest || 'Running'}
+              </span>
+            </div>
+          )}
+          {status.status === 'completed' && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-status-info)]/10">
+              <span className="text-xs font-medium text-[var(--color-status-info)]">Completed</span>
+            </div>
+          )}
+          {status.status === 'error' && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-status-error)]/10">
+              <span className="text-xs font-medium text-[var(--color-status-error)]">Error</span>
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-2">
+          {/* Configure Button */}
+          <button
+            type="button"
+            onClick={onConfigure}
+            className={cn(
+              'p-2 rounded-lg transition-colors',
+              'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]',
+              'hover:bg-[var(--color-surface-hover)]',
+            )}
+            title="Configure module"
+          >
+            <Settings2 className="w-4 h-4" />
+          </button>
+
+          {/* Start/Stop Button */}
+          {config.enabled &&
+            (isRunning ? (
+              <button
+                type="button"
+                onClick={onStop}
+                className={cn(
+                  'px-4 py-2 rounded-lg flex items-center gap-2 transition-colors',
+                  'bg-[var(--color-status-error)]/10 text-[var(--color-status-error)]',
+                  'hover:bg-[var(--color-status-error)]/20',
+                )}
+              >
+                <Square className="w-4 h-4" />
+                <span className="text-sm font-medium">Stop</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onStart}
+                disabled={enabledTestCount === 0}
+                className={cn(
+                  'px-4 py-2 rounded-lg flex items-center gap-2 transition-colors',
+                  enabledTestCount > 0
+                    ? 'bg-[var(--color-stem-green)] text-white hover:bg-[var(--color-stem-green-dark)]'
+                    : 'bg-[var(--color-surface-base)] text-[var(--color-text-muted)] cursor-not-allowed',
+                )}
+              >
+                <Play className="w-4 h-4" />
+                <span className="text-sm font-medium">Start</span>
+              </button>
+            ))}
+
+          {/* Expand Toggle */}
+          <button
+            type="button"
+            onClick={() => setExpanded(!expanded)}
+            className={cn(
+              'p-2 rounded-lg transition-colors',
+              'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]',
+              'hover:bg-[var(--color-surface-hover)]',
+            )}
+            title={expanded ? 'Collapse' : 'Expand'}
+          >
+            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Test Results Section - Always visible when running or has results */}
+      {config.enabled && showResults && hasResults && (
+        <div className="border-t border-[var(--color-surface-border)] bg-[var(--color-surface-base)]/50">
+          <div className={spacing.pad.sm}>
+            <div className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide mb-2">
+              {results?.testType || 'Test'} Results
+            </div>
+
+            {/* Frame Size Results (RFC 2544 style) */}
+            {results?.frameSizeResults && results.frameSizeResults.length > 0 && (
+              <FrameSizeResultsTable results={results.frameSizeResults} color={config.color} />
+            )}
+
+            {/* Service Flow Results (Y.1564 style) */}
+            {results?.serviceFlowResults && results.serviceFlowResults.length > 0 && (
+              <ServiceFlowResultsTable results={results.serviceFlowResults} />
+            )}
+
+            {/* OAM Results (Y.1731 style) */}
+            {results?.oamResults && results.oamResults.length > 0 && (
+              <OamResultsTable results={results.oamResults} />
+            )}
+
+            {/* Error message */}
+            {results?.error && (
+              <div className="mt-2 p-2 rounded-lg bg-[var(--color-status-error)]/10 border border-[var(--color-status-error)]/20">
+                <span className="text-xs text-[var(--color-status-error)]">{results.error}</span>
+              </div>
+            )}
+
+            {/* Duration */}
+            {results?.duration != null && (
+              <div className="mt-2 text-xs text-[var(--color-text-muted)]">
+                Duration: {(results.duration / 1000).toFixed(1)}s
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Expanded Content - Settings and Test Selection */}
+      {expanded && config.enabled && (
+        <div className="border-t border-[var(--color-surface-border)]">
+          {/* Auto-start Toggle */}
+          <div
+            className={cn(
+              spacing.pad.sm,
+              'flex items-center justify-between bg-[var(--color-surface-base)]',
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <RefreshCw className={cn(iconTokens.size.sm, 'text-[var(--color-text-muted)]')} />
+              <span className="text-sm text-[var(--color-text-secondary)]">Auto-start on link</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => onToggleAutoStart(!config.autoStart)}
+              className={cn(
+                'w-10 h-6 rounded-full relative transition-colors',
+                config.autoStart
+                  ? 'bg-[var(--color-stem-green)]'
+                  : 'bg-[var(--color-surface-border)]',
+              )}
+            >
+              <span
+                className={cn(
+                  'absolute top-1 w-4 h-4 rounded-full bg-white transition-transform',
+                  config.autoStart ? 'translate-x-5' : 'translate-x-1',
+                )}
+              />
+            </button>
+          </div>
+
+          {/* Test List */}
+          <div className={spacing.pad.sm}>
+            <div className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide mb-2">
+              Tests
+            </div>
+            <div className="space-y-1">
+              {config.tests.map((test) => (
+                <label
+                  key={test.id}
+                  className={cn(
+                    'flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors',
+                    'hover:bg-[var(--color-surface-hover)]',
+                    test.enabled ? '' : 'opacity-60',
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={test.enabled}
+                    onChange={(e) => onToggleTest(test.id, e.target.checked)}
+                    className="w-4 h-4"
+                    style={{ accentColor: config.color }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-[var(--color-text-primary)]">
+                      {test.name}
+                    </div>
+                    <div className="text-xs text-[var(--color-text-muted)] truncate">
+                      {test.description}
+                    </div>
+                  </div>
+                  {isRunning && status.currentTest === test.id && (
+                    <span className="w-2 h-2 rounded-full bg-[var(--color-status-success)] animate-pulse" />
+                  )}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default ModuleCard;

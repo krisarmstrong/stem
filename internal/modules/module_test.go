@@ -43,8 +43,8 @@ func TestRegistry(t *testing.T) {
 	}
 
 	// Test ModuleForTest.
-	if got := reg.ModuleForTest("throughput"); got == nil {
-		t.Error("ModuleForTest('throughput') returned nil")
+	if got := reg.ModuleForTest("rfc2544_throughput"); got == nil {
+		t.Error("ModuleForTest('rfc2544_throughput') returned nil")
 	}
 	if got := reg.ModuleForTest("nonexistent"); got != nil {
 		t.Error("ModuleForTest('nonexistent') should return nil")
@@ -103,8 +103,8 @@ func TestBenchmarkModule(t *testing.T) {
 	}
 
 	// Test CanRun.
-	if !m.CanRun("throughput") {
-		t.Error("CanRun('throughput') should return true")
+	if !m.CanRun("rfc2544_throughput") {
+		t.Error("CanRun('rfc2544_throughput') should return true")
 	}
 	if m.CanRun("y1564_config") {
 		t.Error("CanRun('y1564_config') should return false")
@@ -224,8 +224,8 @@ func TestToInfo(t *testing.T) {
 
 func TestGetModuleForTest(t *testing.T) {
 	// RFC 2544 tests -> benchmark.
-	if m := modules.GetModuleForTest("throughput"); m == nil || m.Name() != testModuleBenchmark {
-		t.Error("throughput should map to benchmark module")
+	if m := modules.GetModuleForTest("rfc2544_throughput"); m == nil || m.Name() != testModuleBenchmark {
+		t.Error("rfc2544_throughput should map to benchmark module")
 	}
 
 	// Y.1564 tests -> servicetest.
@@ -356,13 +356,13 @@ func TestModuleCanRunNegativeCases(t *testing.T) {
 	}{
 		{testModuleBenchmark, "y1564_config"},
 		{testModuleBenchmark, "reflect"},
-		{testModuleServiceTest, "throughput"},
+		{testModuleServiceTest, "rfc2544_throughput"},
 		{testModuleServiceTest, "rfc2889_forwarding"},
-		{testModuleTrafficGen, "throughput"},
+		{testModuleTrafficGen, "rfc2544_throughput"},
 		{testModuleTrafficGen, "reflect"}, // reflect moved to reflector module
-		{testModuleMeasure, "throughput"},
-		{testModuleCertify, "throughput"},
-		{testModuleReflector, "throughput"},
+		{testModuleMeasure, "rfc2544_throughput"},
+		{testModuleCertify, "rfc2544_throughput"},
+		{testModuleReflector, "rfc2544_throughput"},
 		{testModuleReflector, "custom_stream"},
 	}
 
@@ -383,8 +383,9 @@ func TestAllTestTypesHaveModules(t *testing.T) {
 	testTypes := []string{
 		// Reflector
 		"reflect",
-		// Benchmark
-		"throughput", "latency", "frame_loss", "back_to_back", "system_recovery", "reset",
+		// Benchmark (with rfc2544_ prefix)
+		"rfc2544_throughput", "rfc2544_latency", "rfc2544_frame_loss",
+		"rfc2544_back_to_back", "rfc2544_system_recovery", "rfc2544_reset",
 		// ServiceTest
 		"y1564_config", "y1564_perf", "y1564", "mef_config", "mef_perf", "mef",
 		// TrafficGen
@@ -528,7 +529,7 @@ func TestAllTestTypes(t *testing.T) {
 	}
 
 	expectedTypes := []string{
-		"reflect", "throughput", "latency", "y1564_config", "custom_stream",
+		"reflect", "rfc2544_throughput", "rfc2544_latency", "y1564_config", "custom_stream",
 		"y1731_delay", "rfc2889_forwarding", "tsn_timing",
 	}
 	for _, name := range expectedTypes {
@@ -550,15 +551,15 @@ func TestAllTestTypesModuleMapping(t *testing.T) {
 
 	// Verify module mappings.
 	expectedMappings := map[string]string{
-		"reflect":            testModuleReflector,
-		"throughput":         testModuleBenchmark,
-		"latency":            testModuleBenchmark,
-		"y1564_config":       testModuleServiceTest,
-		"custom_stream":      testModuleTrafficGen,
-		"y1731_delay":        testModuleMeasure,
-		"rfc2889_forwarding": testModuleCertify,
-		"rfc6349_throughput": testModuleCertify,
-		"tsn_timing":         testModuleCertify,
+		"reflect":             testModuleReflector,
+		"rfc2544_throughput":  testModuleBenchmark,
+		"rfc2544_latency":     testModuleBenchmark,
+		"y1564_config":        testModuleServiceTest,
+		"custom_stream":       testModuleTrafficGen,
+		"y1731_delay":         testModuleMeasure,
+		"rfc2889_forwarding":  testModuleCertify,
+		"rfc6349_throughput":  testModuleCertify,
+		"tsn_timing":          testModuleCertify,
 	}
 
 	for testType, expectedModule := range expectedMappings {
@@ -643,7 +644,7 @@ func TestRegistryConcurrency(t *testing.T) {
 			_ = modules.DefaultRegistry.AllTestTypes()
 			_ = modules.DefaultRegistry.TestCount()
 			_ = modules.DefaultRegistry.ModuleCount()
-			_ = modules.GetModuleForTest("throughput")
+			_ = modules.GetModuleForTest("rfc2544_throughput")
 			_ = modules.GetAllModuleInfos()
 			done <- true
 		}()

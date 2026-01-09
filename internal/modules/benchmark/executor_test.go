@@ -307,8 +307,15 @@ func TestModuleInfo(t *testing.T) {
 		t.Errorf("Expected %d test types, got %d", expectedCount, len(testTypes))
 	}
 
-	// Verify all RFC 2544 test types are present.
-	expectedTypes := []string{"throughput", "latency", "frame_loss", "back_to_back", "system_recovery", "reset"}
+	// Verify all RFC 2544 test types are present (with rfc2544_ prefix).
+	expectedTypes := []string{
+		"rfc2544_throughput",
+		"rfc2544_latency",
+		"rfc2544_frame_loss",
+		"rfc2544_back_to_back",
+		"rfc2544_system_recovery",
+		"rfc2544_reset",
+	}
 	for _, expected := range expectedTypes {
 		if !slices.Contains(testTypes, expected) {
 			t.Errorf("Missing expected test type: %s", expected)
@@ -319,14 +326,22 @@ func TestModuleInfo(t *testing.T) {
 func TestCanRun(t *testing.T) {
 	mod := benchmark.New()
 
-	validTests := []string{"throughput", "latency", "frame_loss", "back_to_back", "system_recovery", "reset"}
+	validTests := []string{
+		"rfc2544_throughput",
+		"rfc2544_latency",
+		"rfc2544_frame_loss",
+		"rfc2544_back_to_back",
+		"rfc2544_system_recovery",
+		"rfc2544_reset",
+	}
 	for _, test := range validTests {
 		if !mod.CanRun(test) {
 			t.Errorf("CanRun(%s) = false, want true", test)
 		}
 	}
 
-	invalidTests := []string{"invalid", "y1564", "rfc2889"}
+	// Old unprefixed names should no longer work.
+	invalidTests := []string{"invalid", "y1564", "rfc2889", "throughput", "latency"}
 	for _, test := range invalidTests {
 		if mod.CanRun(test) {
 			t.Errorf("CanRun(%s) = true, want false", test)

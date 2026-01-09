@@ -24,24 +24,24 @@ const (
 //
 //nolint:gochecknoglobals // Static module definition.
 var testTypes = []string{
-	"throughput",
-	"latency",
-	"frame_loss",
-	"back_to_back",
-	"system_recovery",
-	"reset",
+	"rfc2544_throughput",
+	"rfc2544_latency",
+	"rfc2544_frame_loss",
+	"rfc2544_back_to_back",
+	"rfc2544_system_recovery",
+	"rfc2544_reset",
 }
 
 // testDescriptions provides descriptions for each test type.
 //
 //nolint:gochecknoglobals // Static module definition.
 var testDescriptions = map[string]string{
-	"throughput":      "RFC 2544 Section 26.1 - Maximum throughput with zero loss",
-	"latency":         "RFC 2544 Section 26.2 - Round-trip latency at various loads",
-	"frame_loss":      "RFC 2544 Section 26.3 - Frame loss rate vs offered load",
-	"back_to_back":    "RFC 2544 Section 26.4 - Maximum burst capacity",
-	"system_recovery": "RFC 2544 Section 26.5 - Recovery time after overload",
-	"reset":           "RFC 2544 Section 26.6 - Device reset recovery time",
+	"rfc2544_throughput":      "RFC 2544 Section 26.1 - Maximum throughput with zero loss",
+	"rfc2544_latency":         "RFC 2544 Section 26.2 - Round-trip latency at various loads",
+	"rfc2544_frame_loss":      "RFC 2544 Section 26.3 - Frame loss rate vs offered load",
+	"rfc2544_back_to_back":    "RFC 2544 Section 26.4 - Maximum burst capacity",
+	"rfc2544_system_recovery": "RFC 2544 Section 26.5 - Recovery time after overload",
+	"rfc2544_reset":           "RFC 2544 Section 26.6 - Device reset recovery time",
 }
 
 // Module implements the modules.Module interface for RFC 2544 benchmarking.

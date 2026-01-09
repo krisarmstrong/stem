@@ -116,9 +116,9 @@ func TestModuleCanRun(t *testing.T) {
 
 	// Test invalid test types - trafficgen should NOT run other module tests.
 	invalidTests := []string{
-		"throughput",         // Benchmark module.
-		"latency",            // Benchmark module.
-		"frame_loss",         // Benchmark module.
+		"rfc2544_throughput", // Benchmark module.
+		"rfc2544_latency",    // Benchmark module.
+		"rfc2544_frame_loss", // Benchmark module.
 		"y1564",              // ServiceTest module.
 		"y1564_config",       // ServiceTest module.
 		"y1731_delay",        // Measure module.
