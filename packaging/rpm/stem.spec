@@ -2,7 +2,7 @@
 %define debug_package %{nil}
 
 Name:           stem
-Version:        0.2.8
+Version:        0.2.9
 Release:        1%{?dist}
 Summary:        The Stem - Network Performance Testing Tool
 
@@ -136,6 +136,10 @@ if systemctl is-active --quiet firewalld; then
     echo "Firewall configured for Stem service"
 fi
 
+# Enable and start the service
+systemctl enable stem.service 2>/dev/null || true
+systemctl start stem.service 2>/dev/null || true
+
 # Set permissions
 chown -R stem:stem %{_sharedstatedir}/stem
 chown -R stem:stem %{_localstatedir}/log/stem
@@ -145,13 +149,14 @@ chown root:stem %{_sysconfdir}/stem/environment
 
 echo ""
 echo "=============================================="
-echo "The Stem has been installed!"
+echo "The Stem has been installed and started!"
 echo ""
 echo "Quick start:"
 echo "  1. Edit /etc/stem/environment to set credentials"
-echo "  2. systemctl enable --now stem"
+echo "  2. Restart: systemctl restart stem"
 echo "  3. Access WebUI at http://localhost:8080"
 echo ""
+echo "Service status: systemctl status stem"
 echo "For CLI usage: stem --help"
 echo "=============================================="
 
@@ -182,6 +187,10 @@ fi
 %{_prefix}/lib/firewalld/services/stem.xml
 
 %changelog
+* Thu Jan 09 2025 Kris Armstrong <kris@mustardseednetworks.com> - 0.2.9-1
+- RPM now auto-enables and starts stem service on install
+- Updated post-install messaging
+
 * Wed Jan 08 2025 Kris Armstrong <kris@mustardseednetworks.com> - 0.2.8-1
 - Added complete configuration documentation to help system
 - Implemented i18n infrastructure with English and Spanish support
