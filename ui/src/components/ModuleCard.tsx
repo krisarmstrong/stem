@@ -476,7 +476,7 @@ export function ModuleCard({
                 className={cn(
                   'px-4 py-2 rounded-lg flex items-center gap-2 transition-colors',
                   enabledTestCount > 0
-                    ? 'bg-[var(--color-stem-green)] text-white hover:bg-[var(--color-stem-green-dark)]'
+                    ? 'bg-[var(--color-brand-primary)] text-white hover:bg-[var(--color-brand-accent)]'
                     : 'bg-[var(--color-surface-base)] text-[var(--color-text-muted)] cursor-not-allowed',
                 )}
               >
@@ -561,7 +561,7 @@ export function ModuleCard({
               className={cn(
                 'w-10 h-6 rounded-full relative transition-colors',
                 config.autoStart
-                  ? 'bg-[var(--color-stem-green)]'
+                  ? 'bg-[var(--color-brand-primary)]'
                   : 'bg-[var(--color-surface-border)]',
               )}
             >

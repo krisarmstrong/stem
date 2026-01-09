@@ -96,7 +96,7 @@ export function TestProgressBar({ progress }: TestProgressBarProps): ReactElemen
     case 'running':
       statusText = 'Running';
       statusColor = 'text-[var(--color-status-success)]';
-      barColor = 'bg-[var(--color-stem-green)]';
+      barColor = 'bg-[var(--color-brand-primary)]';
       break;
     case 'completed':
       statusText = 'Completed';
@@ -126,7 +126,9 @@ export function TestProgressBar({ progress }: TestProgressBarProps): ReactElemen
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          {isActive && <Loader2 className="w-4 h-4 animate-spin text-[var(--color-stem-green)]" />}
+          {isActive && (
+            <Loader2 className="w-4 h-4 animate-spin text-[var(--color-brand-primary)]" />
+          )}
           <span className="font-medium text-[var(--color-text-primary)]">
             {progress.currentTest}
           </span>

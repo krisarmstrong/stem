@@ -849,92 +849,107 @@ function AppContent(): ReactElement {
 
   const selectedIface = interfaces.find((i) => i.name === selectedInterface);
 
+  const iconButtonClass =
+    'p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 focus-visible:ring-offset-surface-raised';
+
   return (
     <div className="min-h-screen bg-[var(--color-surface-base)]">
       {/* Header */}
-      <header className="bg-[var(--color-surface-raised)] border-b border-[var(--color-surface-border)] px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <header className="border-b border-surface-border bg-surface-raised">
+        <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-primary text-text-inverse">
+                  <Activity className="h-5 w-5" />
+                </div>
+                <div>
+                  <h1 className="heading-4 text-text-primary">The Stem</h1>
+                  <p className="caption text-text-muted">Mustard Seed Networks</p>
+                </div>
+              </div>
+
+              {/* Connection Status */}
+              <div className={`status-badge ${connected ? 'success' : 'error'}`}>
+                {connected ? (
+                  <>
+                    <Wifi className="h-3 w-3" /> Connected
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="h-3 w-3" /> Disconnected
+                  </>
+                )}
+              </div>
+            </div>
+
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-[var(--color-stem-green)] flex items-center justify-center">
-                <Activity className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">The Stem</h1>
-                <p className="text-xs text-[var(--color-text-muted)]">Mustard Seed Networks</p>
-              </div>
+              {/* Theme Toggle */}
+              <button
+                type="button"
+                onClick={toggleDarkMode}
+                className={iconButtonClass}
+                title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              </button>
+
+              {/* Refresh */}
+              <button
+                type="button"
+                onClick={fetchInterfaces}
+                className={iconButtonClass}
+                title="Refresh interfaces"
+              >
+                <RefreshCw className="h-5 w-5" />
+              </button>
+
+              {/* History */}
+              <button
+                type="button"
+                onClick={openHistory}
+                className={iconButtonClass}
+                title="Test History"
+              >
+                <History className="h-5 w-5" />
+              </button>
+
+              {/* Help */}
+              <button
+                type="button"
+                onClick={openHelp}
+                className={iconButtonClass}
+                title="Help & Documentation"
+              >
+                <HelpCircle className="h-5 w-5" />
+              </button>
+
+              {/* Settings */}
+              <button
+                type="button"
+                onClick={openSettings}
+                className={iconButtonClass}
+                title="Settings"
+              >
+                <Settings className="h-5 w-5" />
+              </button>
+
+              {/* Logout */}
+              <button
+                type="button"
+                onClick={handleLogout}
+                className={iconButtonClass}
+                title="Logout"
+              >
+                <LogOut className="h-5 w-5" />
+              </button>
             </div>
-
-            {/* Connection Status */}
-            <div className={`status-badge ${connected ? 'success' : 'error'}`}>
-              {connected ? (
-                <>
-                  <Wifi className="w-3 h-3" /> Connected
-                </>
-              ) : (
-                <>
-                  <WifiOff className="w-3 h-3" /> Disconnected
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Theme Toggle */}
-            <button
-              type="button"
-              onClick={toggleDarkMode}
-              className="btn btn-ghost"
-              title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </button>
-
-            {/* Refresh */}
-            <button
-              type="button"
-              onClick={fetchInterfaces}
-              className="btn btn-ghost"
-              title="Refresh interfaces"
-            >
-              <RefreshCw className="w-5 h-5" />
-            </button>
-
-            {/* History */}
-            <button
-              type="button"
-              onClick={openHistory}
-              className="btn btn-ghost"
-              title="Test History"
-            >
-              <History className="w-5 h-5" />
-            </button>
-
-            {/* Help */}
-            <button
-              type="button"
-              onClick={openHelp}
-              className="btn btn-ghost"
-              title="Help & Documentation"
-            >
-              <HelpCircle className="w-5 h-5" />
-            </button>
-
-            {/* Settings */}
-            <button type="button" onClick={openSettings} className="btn btn-ghost" title="Settings">
-              <Settings className="w-5 h-5" />
-            </button>
-
-            {/* Logout */}
-            <button type="button" onClick={handleLogout} className="btn btn-ghost" title="Logout">
-              <LogOut className="w-5 h-5" />
-            </button>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="p-6">
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         {/* Test Controls */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
@@ -1004,9 +1019,7 @@ function AppContent(): ReactElement {
 
         {/* Module Cards */}
         <div className="mb-6">
-          <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-4">
-            Test Modules
-          </h2>
+          <h2 className="section-title mb-4">Test Modules</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
             {modules.map((moduleConfig) => (
               <ModuleCard
@@ -1066,88 +1079,79 @@ function AppContent(): ReactElement {
       </main>
 
       {/* Footer */}
-      <footer className="mt-8 mx-6 mb-6 rounded-2xl border border-[var(--color-surface-border)] bg-[var(--color-surface-raised)] p-6">
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {/* Product Info */}
-          <div>
-            <h3 className="text-base font-semibold text-[var(--color-text-primary)] mb-2">
-              The Stem
-            </h3>
-            <p className="text-sm text-[var(--color-text-muted)] mb-1">by Mustard Seed Networks</p>
-            <p className="text-xs text-[var(--color-text-muted)]">Version 0.1.0</p>
-          </div>
+      <footer className="mt-8">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="rounded-2xl border border-surface-border bg-surface-raised p-6">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Product Info */}
+              <div>
+                <h3 className="heading-4 text-text-primary mb-2">The Stem</h3>
+                <p className="body-small text-text-muted mb-1">by Mustard Seed Networks</p>
+                <p className="caption text-text-muted">Version 0.1.0</p>
+              </div>
 
-          {/* Contact */}
-          <div>
-            <h3 className="text-base font-semibold text-[var(--color-text-primary)] mb-2">
-              Contact
-            </h3>
-            <p className="text-sm text-[var(--color-text-muted)] mb-1">
-              <a
-                href="mailto:support@mustardseednetworks.com"
-                className="hover:text-[var(--color-stem-green)] transition-colors"
-              >
-                support@mustardseednetworks.com
-              </a>
-            </p>
-            <p className="text-sm text-[var(--color-text-muted)]">
-              <a
-                href="tel:+18005551234"
-                className="hover:text-[var(--color-stem-green)] transition-colors"
-              >
-                1-800-555-1234
-              </a>
-            </p>
-          </div>
+              {/* Contact */}
+              <div>
+                <h4 className="body-small font-medium text-text-primary mb-2">Contact</h4>
+                <div className="space-y-1">
+                  <a
+                    href="mailto:support@mustardseednetworks.com"
+                    className="body-small text-brand-primary hover:underline block"
+                  >
+                    support@mustardseednetworks.com
+                  </a>
+                  <a
+                    href="tel:+18005551234"
+                    className="body-small text-text-muted hover:text-text-primary block"
+                  >
+                    1-800-555-1234
+                  </a>
+                </div>
+              </div>
 
-          {/* Website */}
-          <div>
-            <h3 className="text-base font-semibold text-[var(--color-text-primary)] mb-2">
-              Website
-            </h3>
-            <p className="text-sm text-[var(--color-text-muted)]">
-              <a
-                href="https://mustardseednetworks.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-[var(--color-stem-green)] transition-colors"
-              >
-                mustardseednetworks.com
-              </a>
-            </p>
-          </div>
+              {/* Website */}
+              <div>
+                <h4 className="body-small font-medium text-text-primary mb-2">Website</h4>
+                <a
+                  href="https://mustardseednetworks.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="body-small text-brand-primary hover:underline"
+                >
+                  mustardseednetworks.com
+                </a>
+              </div>
 
-          {/* Legal */}
-          <div>
-            <h3 className="text-base font-semibold text-[var(--color-text-primary)] mb-2">Legal</h3>
-            <div className="flex flex-col gap-1">
-              <a
-                href="/terms"
-                className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-stem-green)] transition-colors"
-              >
-                Terms of Service
-              </a>
-              <a
-                href="/privacy"
-                className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-stem-green)] transition-colors"
-              >
-                Privacy Policy
-              </a>
-              <a
-                href="/license"
-                className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-stem-green)] transition-colors"
-              >
-                License
-              </a>
+              {/* Legal */}
+              <div>
+                <h4 className="body-small font-medium text-text-primary mb-2">Legal</h4>
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  <a href="/terms" className="body-small text-text-muted hover:text-brand-primary">
+                    Terms of Service
+                  </a>
+                  <a
+                    href="/privacy"
+                    className="body-small text-text-muted hover:text-brand-primary"
+                  >
+                    Privacy Policy
+                  </a>
+                  <a
+                    href="/license"
+                    className="body-small text-text-muted hover:text-brand-primary"
+                  >
+                    License
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            {/* Copyright */}
+            <div className="mt-6 pt-4 border-t border-surface-border text-center">
+              <p className="caption text-text-muted">
+                &copy; {new Date().getFullYear()} Mustard Seed Networks. All rights reserved.
+              </p>
             </div>
           </div>
-        </div>
-
-        {/* Copyright */}
-        <div className="mt-6 pt-4 border-t border-[var(--color-surface-border)] text-center">
-          <p className="text-xs text-[var(--color-text-muted)]">
-            &copy; {new Date().getFullYear()} Mustard Seed Networks. All rights reserved.
-          </p>
         </div>
       </footer>
 
@@ -1193,7 +1197,7 @@ function AppContent(): ReactElement {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-3xl border border-[var(--color-surface-border)] bg-[var(--color-surface-raised)] p-6 shadow-2xl">
             <div className="flex items-center gap-2 text-lg font-semibold text-[var(--color-text-primary)]">
-              <Lock className="w-5 h-5 text-[var(--color-stem-green)]" />
+              <Lock className="w-5 h-5 text-[var(--color-brand-primary)]" />
               Sign in to continue
             </div>
             <p className="text-sm text-[var(--color-text-muted)]">
@@ -1213,7 +1217,7 @@ function AppContent(): ReactElement {
                   autoComplete="username"
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-[var(--color-surface-border)] bg-[var(--color-surface-base)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-stem-green)] focus:outline-none focus:ring-2 focus:ring-[var(--color-stem-green)]/30"
+                  className="mt-1 w-full rounded-xl border border-[var(--color-surface-border)] bg-[var(--color-surface-base)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-brand-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)]/30"
                 />
               </div>
               <div>
@@ -1229,7 +1233,7 @@ function AppContent(): ReactElement {
                   autoComplete="current-password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-[var(--color-surface-border)] bg-[var(--color-surface-base)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-stem-green)] focus:outline-none focus:ring-2 focus:ring-[var(--color-stem-green)]/30"
+                  className="mt-1 w-full rounded-xl border border-[var(--color-surface-border)] bg-[var(--color-surface-base)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-brand-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)]/30"
                 />
               </div>
               {loginError && (

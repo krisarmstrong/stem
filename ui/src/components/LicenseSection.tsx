@@ -103,7 +103,7 @@ function LicenseFeatures({ licenseInfo }: LicenseStatusProps): ReactElement | nu
         {licenseInfo.features.map((feature) => (
           <span
             key={feature}
-            className="px-2 py-0.5 text-xs bg-[var(--color-stem-green)] bg-opacity-10 text-[var(--color-stem-green)] rounded"
+            className="px-2 py-0.5 text-xs bg-brand-primary/10 text-brand-primary rounded-full"
           >
             {feature}
           </span>

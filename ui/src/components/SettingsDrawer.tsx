@@ -139,7 +139,7 @@ export function SettingsDrawer({
       <div className="fixed right-0 top-0 h-full w-96 max-w-full bg-[var(--color-surface-raised)] border-l border-[var(--color-surface-border)] z-50 overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-[var(--color-surface-raised)] border-b border-[var(--color-surface-border)] px-4 py-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Settings</h2>
+          <h2 className="heading-3 text-text-primary">Settings</h2>
           <button
             type="button"
             onClick={onClose}
@@ -171,7 +171,7 @@ export function SettingsDrawer({
                   name="mode"
                   checked={mode === 'reflector'}
                   onChange={() => setMode('reflector')}
-                  className="w-4 h-4 accent-[var(--color-stem-green)]"
+                  className="w-4 h-4 accent-[var(--color-brand-primary)]"
                 />
                 <div>
                   <div className="font-medium text-sm">Reflector Mode</div>
@@ -186,7 +186,7 @@ export function SettingsDrawer({
                   name="mode"
                   checked={mode === 'test_master'}
                   onChange={() => setMode('test_master')}
-                  className="w-4 h-4 accent-[var(--color-stem-green)]"
+                  className="w-4 h-4 accent-[var(--color-brand-primary)]"
                 />
                 <div>
                   <div className="font-medium text-sm">Test Master Mode</div>
@@ -249,7 +249,7 @@ export function SettingsDrawer({
                     onClick={() => setViewMode('standard')}
                     className={`flex items-center gap-1 px-3 py-1.5 text-xs ${
                       viewMode === 'standard'
-                        ? 'bg-[var(--color-stem-green)] text-white'
+                        ? 'bg-[var(--color-brand-primary)] text-white'
                         : 'bg-[var(--color-surface-raised)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]'
                     }`}
                   >
@@ -261,7 +261,7 @@ export function SettingsDrawer({
                     onClick={() => setViewMode('module')}
                     className={`flex items-center gap-1 px-3 py-1.5 text-xs ${
                       viewMode === 'module'
-                        ? 'bg-[var(--color-stem-green)] text-white'
+                        ? 'bg-[var(--color-brand-primary)] text-white'
                         : 'bg-[var(--color-surface-raised)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]'
                     }`}
                   >
@@ -346,7 +346,7 @@ export function SettingsDrawer({
                               type="checkbox"
                               checked={selectedTests.includes(test.id)}
                               onChange={() => toggleTest(test.id)}
-                              className="mt-0.5 w-4 h-4 accent-[var(--color-stem-green)]"
+                              className="mt-0.5 w-4 h-4 accent-[var(--color-brand-primary)]"
                             />
                             <div className="flex-1">
                               <div className="font-medium text-sm flex items-center gap-1">
@@ -420,7 +420,7 @@ export function SettingsDrawer({
                               type="checkbox"
                               checked={selectedTests.includes(test.id)}
                               onChange={() => toggleTest(test.id)}
-                              className="mt-0.5 w-4 h-4 accent-[var(--color-stem-green)]"
+                              className="mt-0.5 w-4 h-4 accent-[var(--color-brand-primary)]"
                             />
                             <div className="flex-1">
                               <div className="font-medium text-sm flex items-center gap-1">
@@ -505,7 +505,7 @@ export function SettingsDrawer({
                               type="checkbox"
                               checked={selectedTests.includes(test.id)}
                               onChange={() => toggleTest(test.id)}
-                              className="mt-0.5 w-4 h-4 accent-[var(--color-stem-green)]"
+                              className="mt-0.5 w-4 h-4 accent-[var(--color-brand-primary)]"
                             />
                             <div className="flex-1">
                               <div className="font-medium text-sm flex items-center gap-1">
@@ -572,7 +572,7 @@ export function SettingsDrawer({
                               type="checkbox"
                               checked={selectedTests.includes(test.id)}
                               onChange={() => toggleTest(test.id)}
-                              className="mt-0.5 w-4 h-4 accent-[var(--color-stem-green)]"
+                              className="mt-0.5 w-4 h-4 accent-[var(--color-brand-primary)]"
                             />
                             <div className="flex-1">
                               <div className="font-medium text-sm flex items-center gap-1">
@@ -650,7 +650,7 @@ export function SettingsDrawer({
                               type="checkbox"
                               checked={selectedTests.includes(test.id)}
                               onChange={() => toggleTest(test.id)}
-                              className="mt-0.5 w-4 h-4 accent-[var(--color-stem-green)]"
+                              className="mt-0.5 w-4 h-4 accent-[var(--color-brand-primary)]"
                             />
                             <div className="flex-1">
                               <div className="font-medium text-sm flex items-center gap-1">
@@ -722,7 +722,7 @@ export function SettingsDrawer({
                             type="checkbox"
                             checked={selectedTests.includes(test.id)}
                             onChange={() => toggleTest(test.id)}
-                            className="mt-0.5 w-4 h-4 accent-[var(--color-stem-green)]"
+                            className="mt-0.5 w-4 h-4 accent-[var(--color-brand-primary)]"
                           />
                           <div className="flex-1">
                             <div className="font-medium text-sm flex items-center gap-1">
@@ -790,7 +790,7 @@ export function SettingsDrawer({
                               type="checkbox"
                               checked={selectedTests.includes(test.id)}
                               onChange={() => toggleTest(test.id)}
-                              className="mt-0.5 w-4 h-4 accent-[var(--color-stem-green)]"
+                              className="mt-0.5 w-4 h-4 accent-[var(--color-brand-primary)]"
                             />
                             <div className="flex-1">
                               <div className="font-medium text-sm flex items-center gap-1">
@@ -860,7 +860,7 @@ export function SettingsDrawer({
                               type="checkbox"
                               checked={selectedTests.includes(test.id)}
                               onChange={() => toggleTest(test.id)}
-                              className="mt-0.5 w-4 h-4 accent-[var(--color-stem-green)]"
+                              className="mt-0.5 w-4 h-4 accent-[var(--color-brand-primary)]"
                             />
                             <div className="flex-1">
                               <div className="font-medium text-sm flex items-center gap-1">
@@ -919,7 +919,7 @@ export function SettingsDrawer({
                       name="profile"
                       checked={reflectorProfile === profile.id}
                       onChange={() => setReflectorProfile(profile.id)}
-                      className="w-4 h-4 accent-[var(--color-stem-green)]"
+                      className="w-4 h-4 accent-[var(--color-brand-primary)]"
                     />
                     <div>
                       <div className="font-medium text-sm">{profile.name}</div>

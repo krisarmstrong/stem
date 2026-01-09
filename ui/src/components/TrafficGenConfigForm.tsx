@@ -182,7 +182,7 @@ export function TrafficGenConfigForm({
                     onClick={() => updateConfig({ ratePct: preset.value })}
                     className={`text-xs px-2 py-0.5 rounded border ${
                       config.ratePct === preset.value
-                        ? 'bg-[var(--color-stem-green)] text-white border-[var(--color-stem-green)]'
+                        ? 'bg-[var(--color-brand-primary)] text-white border-[var(--color-brand-primary)]'
                         : 'bg-[var(--color-surface-base)] border-[var(--color-surface-border)] text-[var(--color-text-muted)]'
                     }`}
                   >

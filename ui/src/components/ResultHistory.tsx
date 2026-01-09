@@ -117,7 +117,7 @@ function ResultCard({ result, isExpanded, onToggle, onDelete }: ResultCardProps)
           ) : (
             <ChevronRight className="w-4 h-4 text-[var(--color-text-muted)]" />
           )}
-          <Activity className="w-4 h-4 text-[var(--color-stem-green)]" />
+          <Activity className="w-4 h-4 text-[var(--color-brand-primary)]" />
           <div>
             <div className="font-medium text-[var(--color-text-primary)]">{result.testType}</div>
             <div className="text-xs text-[var(--color-text-muted)]">{result.module}</div>
@@ -270,7 +270,7 @@ export function ResultHistory({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-surface-border)]">
           <div className="flex items-center gap-2">
-            <History className="w-5 h-5 text-[var(--color-stem-green)]" />
+            <History className="w-5 h-5 text-[var(--color-brand-primary)]" />
             <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Test History</h2>
             <span className="text-sm text-[var(--color-text-muted)]">
               ({history.length} results)

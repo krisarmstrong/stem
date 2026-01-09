@@ -55,11 +55,11 @@ export function HelpIcon({ tooltip, onClick, className = '', size = 'sm' }: Help
         onMouseLeave={() => setShowTooltip(false)}
         onFocus={() => setShowTooltip(true)}
         onBlur={() => setShowTooltip(false)}
-        className="p-0.5 rounded-full hover:bg-[var(--color-surface-hover)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-stem-green)]/50"
+        className="p-0.5 rounded-full hover:bg-[var(--color-surface-hover)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)]/50"
         aria-label={`Help: ${tooltip}`}
       >
         <HelpCircle
-          className={`${sizeClasses[size]} text-[var(--color-text-muted)] hover:text-[var(--color-stem-green)] transition-colors`}
+          className={`${sizeClasses[size]} text-[var(--color-text-muted)] hover:text-[var(--color-brand-primary)] transition-colors`}
         />
       </button>
 
@@ -76,7 +76,7 @@ export function HelpIcon({ tooltip, onClick, className = '', size = 'sm' }: Help
         >
           {tooltip}
           {onClick && (
-            <span className="block text-[var(--color-stem-green)] mt-1 text-[10px]">
+            <span className="block text-[var(--color-brand-primary)] mt-1 text-[10px]">
               Click for more details
             </span>
           )}

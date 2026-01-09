@@ -259,7 +259,7 @@ export function RFC2544ConfigForm({
                 type="checkbox"
                 checked={config.frameSizes.includes(option.value)}
                 onChange={() => toggleFrameSize(option.value)}
-                className="w-4 h-4 accent-[var(--color-stem-green)]"
+                className="w-4 h-4 accent-[var(--color-brand-primary)]"
               />
               <span className="text-[var(--color-text-primary)]">{option.label}</span>
             </label>
@@ -284,7 +284,7 @@ export function RFC2544ConfigForm({
             type="checkbox"
             checked={config.bidirectional}
             onChange={(e) => updateConfig({ bidirectional: e.target.checked })}
-            className="w-4 h-4 accent-[var(--color-stem-green)]"
+            className="w-4 h-4 accent-[var(--color-brand-primary)]"
           />
           <div>
             <div className="font-medium text-sm flex items-center gap-1">
