@@ -18,14 +18,14 @@
 
 #ifdef __linux__
 #define PLATFORM_LINUX 1
-#define PLATFORM_NAME "linux"
+#define PLATFORM_NAME  "linux"
 #else
 #define PLATFORM_LINUX 0
 #endif
 
 #ifdef __APPLE__
 #define PLATFORM_MACOS 1
-#define PLATFORM_NAME "macos"
+#define PLATFORM_NAME  "macos"
 #else
 #define PLATFORM_MACOS 0
 #endif
@@ -89,14 +89,15 @@
  * Constants
  * ============================================================================ */
 
-/* Default batch sizes */
-#define DEFAULT_BATCH_SIZE 64
+/* Default batch sizes - NOLINT: C macros are correct for compile-time constants */
+// NOLINTBEGIN(cppcoreguidelines-macro-to-enum,modernize-macro-to-enum)
+#define DEFAULT_BATCH_SIZE   64
 #define DEFAULT_RX_RING_SIZE 4096
 #define DEFAULT_TX_RING_SIZE 4096
 
 /* XDP-specific */
 #define XDP_FRAME_SIZE 4096
-#define XDP_HEADROOM 256
+#define XDP_HEADROOM   256
 
 /* Timing */
 #define NS_PER_SEC 1000000000ULL
@@ -104,16 +105,17 @@
 #define MS_PER_SEC 1000ULL
 
 /* Ethernet */
-#define ETH_HEADER_LEN 14
-#define ETH_FCS_LEN 4
-#define ETH_MIN_FRAME 64
-#define ETH_MAX_FRAME 1518
+#define ETH_HEADER_LEN  14
+#define ETH_FCS_LEN     4
+#define ETH_MIN_FRAME   64
+#define ETH_MAX_FRAME   1518
 #define ETH_JUMBO_FRAME 9000
 
 /* IP/UDP */
-#define IP_HEADER_LEN 20
-#define UDP_HEADER_LEN 8
+#define IP_HEADER_LEN    20
+#define UDP_HEADER_LEN   8
 #define MIN_PAYLOAD_SIZE 18 /* Minimum to avoid runt frames */
+// NOLINTEND(cppcoreguidelines-macro-to-enum,modernize-macro-to-enum)
 
 /* Protocol numbers - only define if not already available from system headers */
 #if !defined(__linux__) && !defined(IPPROTO_UDP)

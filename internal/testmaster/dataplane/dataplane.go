@@ -842,11 +842,16 @@ extern int run_trial_custom(rfc2544_ctx_t *ctx, uint32_t frame_size, double rate
 import "C"
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 	"unsafe"
 )
+
+// ErrNotSupported is defined for API compatibility but is never returned
+// in the CGO build since the dataplane is available.
+var ErrNotSupported = errors.New("CGO dataplane not available on this platform")
 
 // TestType mirrors C test_type_t
 type TestType int

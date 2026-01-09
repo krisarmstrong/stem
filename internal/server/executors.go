@@ -86,7 +86,7 @@ func (s *Server) runModuleTest(
 
 		if execErr != nil {
 			s.testStatus = statusError
-			s.testResult = &TestResultResponse{
+			errResult := &TestResultResponse{
 				Status:   statusError,
 				TestType: testType,
 				Module:   moduleName,
@@ -95,16 +95,17 @@ func (s *Server) runModuleTest(
 				Message:  "",
 				Data:     nil,
 			}
+			s.testResult = errResult
 			s.currentTest = ""
 			s.currentModule = ""
 			s.statsMu.Unlock()
 			logging.Error("Test failed", "module", moduleName, "testType", testType, "error", execErr)
-			s.publishTestState(statusError, moduleName, testType, s.testResult)
+			s.publishTestState(statusError, moduleName, testType, errResult)
 			return
 		}
 
 		s.testStatus = statusCompleted
-		s.testResult = &TestResultResponse{
+		completedResult := &TestResultResponse{
 			Status:   statusCompleted,
 			TestType: testType,
 			Module:   moduleName,
@@ -113,11 +114,12 @@ func (s *Server) runModuleTest(
 			Message:  "",
 			Data:     result.Data,
 		}
+		s.testResult = completedResult
 		s.currentTest = ""
 		s.currentModule = ""
 		s.statsMu.Unlock()
 		logging.Info("Test completed", "module", moduleName, "testType", testType, "success", result.Success)
-		s.publishTestState(statusCompleted, moduleName, testType, s.testResult)
+		s.publishTestState(statusCompleted, moduleName, testType, completedResult)
 	}()
 
 	return nil

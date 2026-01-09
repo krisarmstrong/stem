@@ -28,8 +28,8 @@
 #define REFLECTOR_VERSION_CODE(major, minor, patch) (((major) << 16) | ((minor) << 8) | (patch))
 
 /* Current version as integer for comparisons */
-#define REFLECTOR_VERSION_NUMBER                                                                   \
-	REFLECTOR_VERSION_CODE(REFLECTOR_VERSION_MAJOR, REFLECTOR_VERSION_MINOR,                       \
-	                       REFLECTOR_VERSION_PATCH)
+#define REFLECTOR_VERSION_NUMBER                                             \
+    REFLECTOR_VERSION_CODE(REFLECTOR_VERSION_MAJOR, REFLECTOR_VERSION_MINOR, \
+                           REFLECTOR_VERSION_PATCH)
 
 #endif /* VERSION_GENERATED_H */
