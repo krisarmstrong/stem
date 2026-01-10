@@ -135,8 +135,10 @@ type Server struct {
 	licenseManager  *license.Manager
 	authManager     *auth.Manager
 	currentModule   string
-	authLimiter     *RateLimiter // Rate limiter for auth endpoints (5/min)
-	apiLimiter      *RateLimiter // Rate limiter for standard API endpoints (100/min)
+	authLimiter     *RateLimiter      // Rate limiter for auth endpoints (5/min)
+	apiLimiter      *RateLimiter      // Rate limiter for standard API endpoints (100/min)
+	tlsConfig       TLSConfig         // TLS configuration for HTTPS
+	cookieConfig    auth.CookieConfig // Cookie configuration for secure auth
 }
 
 var (
@@ -174,6 +176,9 @@ func NewServer(port int) (*Server, error) {
 		return nil, fmt.Errorf("authentication setup failed: %w", err)
 	}
 
+	// Determine if TLS is enabled via environment variable.
+	tlsEnabled := os.Getenv("STEM_TLS_ENABLED") != "false" // Default: enabled
+
 	//nolint:exhaustruct // httpServer is set in Run() after creating the server.
 	s := &Server{
 		port:    port,
@@ -208,6 +213,13 @@ func NewServer(port int) (*Server, error) {
 		currentModule:  "",
 		authLimiter:    NewAuthRateLimiter(),
 		apiLimiter:     NewAPIRateLimiter(),
+		tlsConfig: TLSConfig{
+			Enabled:  tlsEnabled,
+			CertFile: os.Getenv("STEM_TLS_CERT"),
+			KeyFile:  os.Getenv("STEM_TLS_KEY"),
+			CertsDir: os.Getenv("STEM_TLS_CERTS_DIR"),
+		},
+		cookieConfig: auth.DefaultCookieConfig(tlsEnabled),
 	}
 	s.setupRoutes()
 	return s, nil
@@ -359,23 +371,33 @@ func (s *Server) authMiddleware(handler http.HandlerFunc) http.Handler {
 }
 
 func (s *Server) requireAuth(r *http.Request) error {
-	token, err := extractBearerToken(r.Header.Get("Authorization"))
-	if err != nil {
-		return err
+	// Try cookie first (most secure), then Bearer header (API client fallback).
+	token, source := auth.GetTokenFromRequest(r)
+	if token == "" {
+		return errMissingAuthToken
 	}
+
 	_, validateErr := s.authManager.ValidateToken(r.Context(), token)
 	if validateErr != nil {
 		return fmt.Errorf("validate token: %w", validateErr)
 	}
+
+	// Log token source for security monitoring.
+	if source == "header" {
+		logging.Debug("Auth via Bearer header (API client)", "path", r.URL.Path)
+	}
+
 	return nil
 }
 
 // extractClaims parses and validates the JWT from the request, returning claims.
+// Tries cookie first, then Bearer header for API client compatibility.
 func (s *Server) extractClaims(r *http.Request) (*auth.Claims, error) {
-	token, err := extractBearerToken(r.Header.Get("Authorization"))
-	if err != nil {
-		return nil, err
+	token, _ := auth.GetTokenFromRequest(r)
+	if token == "" {
+		return nil, errMissingAuthToken
 	}
+
 	claims, validateErr := s.authManager.ValidateToken(r.Context(), token)
 	if validateErr != nil {
 		return nil, fmt.Errorf("validate token: %w", validateErr)
@@ -440,6 +462,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Credentials", "true") // Allow cookies in CORS requests
 		w.Header().Set("Access-Control-Max-Age", "3600")
 		w.Header().Set("Access-Control-Expose-Headers", APIVersionHeader)
 
@@ -468,17 +491,28 @@ func apiVersionMiddleware(next http.Handler) http.Handler {
 // Listens for SIGTERM and SIGINT signals to initiate shutdown.
 func (s *Server) Run() error {
 	addr := fmt.Sprintf(":%d", s.port)
+
+	// Determine protocol for logging.
+	protocol := "http"
+	if s.tlsConfig.Enabled {
+		protocol = "https"
+	}
 	logging.Info("Starting The Stem web server",
-		"address", fmt.Sprintf("http://localhost%s", addr),
+		"address", fmt.Sprintf("%s://localhost%s", protocol, addr),
 		"version", version.Version,
+		"tls_enabled", s.tlsConfig.Enabled,
 	)
 
 	// Set up signal handling for graceful shutdown.
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
-	// Wrap with middleware stack: CORS -> APIVersion -> RequestID -> Logging -> Handler.
-	handler := corsMiddleware(apiVersionMiddleware(logging.RequestIDMiddleware(logging.Middleware(s.mux))))
+	// Wrap with middleware stack: SecurityHeaders -> CORS -> APIVersion -> RequestID -> Logging -> Handler.
+	handler := securityHeadersMiddleware(
+		corsMiddleware(
+			apiVersionMiddleware(
+				logging.RequestIDMiddleware(
+					logging.Middleware(s.mux)))))
 	s.httpServer = &http.Server{
 		Addr:              addr,
 		Handler:           handler,
@@ -491,7 +525,12 @@ func (s *Server) Run() error {
 	// Start server in goroutine.
 	errChan := make(chan error, 1)
 	go func() {
-		listenErr := s.httpServer.ListenAndServe()
+		var listenErr error
+		if s.tlsConfig.Enabled {
+			listenErr = s.startTLS()
+		} else {
+			listenErr = s.httpServer.ListenAndServe()
+		}
 		if listenErr != nil && !errors.Is(listenErr, http.ErrServerClosed) {
 			errChan <- fmt.Errorf("server failed: %w", listenErr)
 		}
@@ -506,6 +545,36 @@ func (s *Server) Run() error {
 		logging.Info("Shutdown signal received, initiating graceful shutdown...")
 		return s.Shutdown()
 	}
+}
+
+// startTLS starts the server with TLS encryption.
+func (s *Server) startTLS() error {
+	certFile := s.tlsConfig.CertFile
+	keyFile := s.tlsConfig.KeyFile
+
+	// If no cert/key provided, generate self-signed certificate.
+	if certFile == "" || keyFile == "" {
+		var err error
+		certFile, keyFile, err = ensureSelfSignedCert(s.tlsConfig.CertsDir)
+		if err != nil {
+			return fmt.Errorf("failed to generate self-signed certificate: %w", err)
+		}
+	}
+
+	// Configure TLS 1.3 minimum.
+	s.httpServer.TLSConfig = createTLSConfig()
+
+	logging.Info("Starting HTTPS server",
+		"addr", s.httpServer.Addr,
+		"tls_version", "1.3",
+		"cert_file", certFile,
+	)
+
+	listenErr := s.httpServer.ListenAndServeTLS(certFile, keyFile)
+	if listenErr != nil {
+		return fmt.Errorf("listen and serve TLS: %w", listenErr)
+	}
+	return nil
 }
 
 // Shutdown gracefully shuts down the server.

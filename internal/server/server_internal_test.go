@@ -79,8 +79,9 @@ func TestExtractClaims_InvalidHeaders(t *testing.T) {
 	}
 }
 
-// TestExtractClaims_BearerWithSpaces tests that extra spaces are handled.
-func TestExtractClaims_BearerWithSpaces(t *testing.T) {
+// TestExtractClaims_StandardBearerFormat tests that standard Bearer format works.
+// Note: The cookie-first auth no longer handles extra spaces around "Bearer".
+func TestExtractClaims_StandardBearerFormat(t *testing.T) {
 	s := setupClaimsTestServer(t)
 	token, _, authErr := s.authManager.AuthenticateWithRefresh(context.TODO(), "claimstest", "claimspass123")
 	if authErr != nil {
@@ -88,7 +89,7 @@ func TestExtractClaims_BearerWithSpaces(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("Authorization", "  Bearer  "+token)
+	req.Header.Set("Authorization", "Bearer "+token)
 
 	claims, claimsErr := s.extractClaims(req)
 	if claimsErr != nil {

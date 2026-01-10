@@ -1,0 +1,174 @@
+// Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
+
+package server
+
+import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"fmt"
+	"math/big"
+	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/krisarmstrong/stem/internal/logging"
+)
+
+// TLS configuration constants.
+const (
+	rsaKeyBits          = 4096
+	certValidYears      = 1
+	defaultCertsDir     = "certs"
+	serialNumberBitSize = 128
+	refreshMultiplier   = 24 // Refresh token lasts 24x longer than access token
+)
+
+// TLSConfig holds TLS configuration options.
+type TLSConfig struct {
+	// Enabled enables HTTPS mode.
+	Enabled bool
+
+	// CertFile is the path to the TLS certificate file.
+	// If empty, a self-signed certificate will be generated.
+	CertFile string
+
+	// KeyFile is the path to the TLS private key file.
+	// If empty, a self-signed certificate will be generated.
+	KeyFile string
+
+	// CertsDir is the directory for storing generated certificates.
+	// Defaults to "certs".
+	CertsDir string
+}
+
+// DefaultTLSConfig returns secure TLS defaults with auto-generated certificates.
+func DefaultTLSConfig() TLSConfig {
+	return TLSConfig{
+		Enabled:  true,
+		CertFile: "",
+		KeyFile:  "",
+		CertsDir: defaultCertsDir,
+	}
+}
+
+// createTLSConfig creates a tls.Config with secure settings.
+// Uses TLS 1.3 minimum for best security.
+func createTLSConfig() *tls.Config {
+	//nolint:exhaustruct // Only set required TLS config fields; others use secure defaults
+	return &tls.Config{
+		MinVersion: tls.VersionTLS13,
+		// TLS 1.3 uses mandatory cipher suites, so CipherSuites is not set.
+		// TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384, TLS_CHACHA20_POLY1305_SHA256
+	}
+}
+
+// ensureSelfSignedCert generates a self-signed certificate if needed.
+// Returns paths to the certificate and key files.
+func ensureSelfSignedCert(certsDir string) (string, string, error) {
+	if certsDir == "" {
+		certsDir = defaultCertsDir
+	}
+
+	certFile := filepath.Join(certsDir, "server.crt")
+	keyFile := filepath.Join(certsDir, "server.key")
+
+	// Check if certs already exist.
+	_, certErr := os.Stat(certFile)
+	if certErr == nil {
+		_, keyErr := os.Stat(keyFile)
+		if keyErr == nil {
+			logging.Info("Using existing TLS certificates", "cert", certFile, "key", keyFile)
+			return certFile, keyFile, nil
+		}
+	}
+
+	// Ensure certs directory exists.
+	mkdirErr := os.MkdirAll(certsDir, 0o700)
+	if mkdirErr != nil {
+		return "", "", fmt.Errorf("create certs directory: %w", mkdirErr)
+	}
+
+	// Generate private key with 4096-bit RSA.
+	privateKey, err := rsa.GenerateKey(rand.Reader, rsaKeyBits)
+	if err != nil {
+		return "", "", fmt.Errorf("generate RSA key: %w", err)
+	}
+
+	// Create certificate template.
+	serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), serialNumberBitSize))
+	if err != nil {
+		return "", "", fmt.Errorf("generate serial number: %w", err)
+	}
+
+	//nolint:exhaustruct // Only set required x509 fields; others have secure defaults
+	template := x509.Certificate{
+		SerialNumber: serialNumber,
+		//nolint:exhaustruct // Only set required pkix.Name fields
+		Subject: pkix.Name{
+			Organization: []string{"The Stem"},
+			CommonName:   "The Stem Self-Signed",
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().AddDate(certValidYears, 0, 0),
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		DNSNames:              []string{"localhost", "stem.local"},
+		IPAddresses:           nil, // Add IPs if needed
+	}
+
+	// Create certificate.
+	certDER, err := x509.CreateCertificate(
+		rand.Reader,
+		&template,
+		&template,
+		&privateKey.PublicKey,
+		privateKey,
+	)
+	if err != nil {
+		return "", "", fmt.Errorf("create certificate: %w", err)
+	}
+
+	// Write certificate.
+	certOut, err := os.Create(certFile)
+	if err != nil {
+		return "", "", fmt.Errorf("create cert file: %w", err)
+	}
+	defer func() { _ = certOut.Close() }()
+
+	//nolint:exhaustruct // Headers field is optional for PEM blocks
+	certBlock := &pem.Block{Type: "CERTIFICATE", Bytes: certDER}
+	encodeErr := pem.Encode(certOut, certBlock)
+	if encodeErr != nil {
+		return "", "", fmt.Errorf("encode certificate PEM: %w", encodeErr)
+	}
+
+	// Write private key with restricted permissions.
+	keyOut, err := os.OpenFile(keyFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return "", "", fmt.Errorf("create key file: %w", err)
+	}
+	defer func() { _ = keyOut.Close() }()
+
+	//nolint:exhaustruct // Headers field is optional for PEM blocks
+	keyBlock := &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
+	}
+	keyEncodeErr := pem.Encode(keyOut, keyBlock)
+	if keyEncodeErr != nil {
+		return "", "", fmt.Errorf("encode private key PEM: %w", keyEncodeErr)
+	}
+
+	logging.Info("Generated self-signed TLS certificate",
+		"cert_file", certFile,
+		"key_file", keyFile,
+		"valid_until", template.NotAfter.Format(time.RFC3339),
+	)
+
+	return certFile, keyFile, nil
+}

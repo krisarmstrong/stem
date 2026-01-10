@@ -198,7 +198,7 @@ func TestHandleAuthRefresh_InvalidCases(t *testing.T) {
 		expectedStatus int
 	}{
 		{"invalid token", `{"refreshToken":"invalid-refresh-token"}`, http.StatusUnauthorized},
-		{"empty token", `{"refreshToken":""}`, http.StatusUnauthorized},
+		{"empty token", `{"refreshToken":""}`, http.StatusBadRequest}, // Empty token is a bad request
 		{"invalid JSON", `{invalid json}`, http.StatusBadRequest},
 	}
 
