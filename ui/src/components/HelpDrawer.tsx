@@ -128,8 +128,9 @@ export function HelpDrawer({ isOpen, onClose }: HelpDrawerProps) {
                 radius.lg,
                 'hover:bg-surface-hover',
               )}
+              aria-label="Close help"
             >
-              <X className={iconTokens.size.md} />
+              <X className={iconTokens.size.md} aria-hidden="true" />
             </button>
           </div>
 

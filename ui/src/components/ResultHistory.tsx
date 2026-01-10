@@ -299,8 +299,14 @@ export function ResultHistory({
                 Clear All
               </button>
             )}
-            <button type="button" onClick={onClose} className="btn btn-ghost" title="Close">
-              <X className="w-5 h-5" />
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-ghost"
+              title="Close"
+              aria-label="Close test history"
+            >
+              <X className="w-5 h-5" aria-hidden="true" />
             </button>
           </div>
         </div>

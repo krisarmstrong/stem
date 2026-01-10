@@ -155,8 +155,9 @@ export function SettingsDrawer({
             type="button"
             onClick={onClose}
             className="p-2 hover:bg-[var(--color-surface-hover)] rounded-lg transition-colors"
+            aria-label="Close settings"
           >
-            <X className="w-5 h-5 text-[var(--color-text-muted)]" />
+            <X className="w-5 h-5 text-[var(--color-text-muted)]" aria-hidden="true" />
           </button>
         </div>
 

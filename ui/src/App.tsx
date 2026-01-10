@@ -939,8 +939,13 @@ function AppContent(): ReactElement {
                 onClick={toggleDarkMode}
                 className={iconButtonClass}
                 title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+                aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
               >
-                {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                {darkMode ? (
+                  <Sun className="h-5 w-5" aria-hidden="true" />
+                ) : (
+                  <Moon className="h-5 w-5" aria-hidden="true" />
+                )}
               </button>
 
               {/* Refresh */}
@@ -949,8 +954,9 @@ function AppContent(): ReactElement {
                 onClick={fetchInterfaces}
                 className={iconButtonClass}
                 title="Refresh interfaces"
+                aria-label="Refresh interfaces"
               >
-                <RefreshCw className="h-5 w-5" />
+                <RefreshCw className="h-5 w-5" aria-hidden="true" />
               </button>
 
               {/* History */}
@@ -959,8 +965,9 @@ function AppContent(): ReactElement {
                 onClick={openHistory}
                 className={iconButtonClass}
                 title="Test History"
+                aria-label="Open test history"
               >
-                <History className="h-5 w-5" />
+                <History className="h-5 w-5" aria-hidden="true" />
               </button>
 
               {/* Help */}
@@ -969,8 +976,9 @@ function AppContent(): ReactElement {
                 onClick={openHelp}
                 className={iconButtonClass}
                 title="Help & Documentation"
+                aria-label="Open help and documentation"
               >
-                <HelpCircle className="h-5 w-5" />
+                <HelpCircle className="h-5 w-5" aria-hidden="true" />
               </button>
 
               {/* Settings */}
@@ -979,8 +987,9 @@ function AppContent(): ReactElement {
                 onClick={openSettings}
                 className={iconButtonClass}
                 title="Settings"
+                aria-label="Open settings"
               >
-                <Settings className="h-5 w-5" />
+                <Settings className="h-5 w-5" aria-hidden="true" />
               </button>
 
               {/* Logout */}
@@ -989,8 +998,9 @@ function AppContent(): ReactElement {
                 onClick={handleLogout}
                 className={iconButtonClass}
                 title="Logout"
+                aria-label="Logout"
               >
-                <LogOut className="h-5 w-5" />
+                <LogOut className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -1006,6 +1016,7 @@ function AppContent(): ReactElement {
               value={selectedInterface}
               onChange={(e) => setSelectedInterface(e.target.value)}
               className="w-48"
+              aria-label="Select network interface"
             >
               <option value="">Select Interface</option>
               {interfaces.map((iface) => (
@@ -1021,15 +1032,16 @@ function AppContent(): ReactElement {
                 onClick={handleStopTest}
                 className="btn btn-secondary"
                 disabled={isStoppingTest}
+                aria-busy={isStoppingTest}
               >
                 {isStoppingTest ? (
                   <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <RefreshCw className="w-4 h-4 animate-spin" aria-hidden="true" />
                     Stopping...
                   </>
                 ) : (
                   <>
-                    <Square className="w-4 h-4" />
+                    <Square className="w-4 h-4" aria-hidden="true" />
                     Stop {mode === 'reflector' ? 'Reflector' : 'Test'}
                   </>
                 )}
@@ -1040,15 +1052,16 @@ function AppContent(): ReactElement {
                 onClick={handleStartTest}
                 className="btn btn-primary"
                 disabled={!selectedInterface || isStartingTest}
+                aria-busy={isStartingTest}
               >
                 {isStartingTest ? (
                   <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <RefreshCw className="w-4 h-4 animate-spin" aria-hidden="true" />
                     Starting...
                   </>
                 ) : (
                   <>
-                    <Play className="w-4 h-4" />
+                    <Play className="w-4 h-4" aria-hidden="true" />
                     Start {mode === 'reflector' ? 'Reflector' : 'Test'}
                   </>
                 )}
@@ -1057,30 +1070,39 @@ function AppContent(): ReactElement {
 
             {/* Test Start Error Display */}
             {testStartError && (
-              <div className="text-sm text-[var(--color-status-error)] flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4" />
+              <div
+                className="text-sm text-[var(--color-status-error)] flex items-center gap-2"
+                role="alert"
+                aria-live="assertive"
+              >
+                <AlertTriangle className="w-4 h-4" aria-hidden="true" />
                 {testStartError}
               </div>
             )}
           </div>
 
           {/* Test Status Indicator */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3" aria-live="polite" aria-atomic="true">
             {(stats.testStatus === 'running' || stats.testStatus === 'starting') && (
-              <div className="status-badge success flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[var(--color-status-success)] animate-pulse" />
+              <output className="status-badge success flex items-center gap-2">
+                <span
+                  className="w-2 h-2 rounded-full bg-[var(--color-status-success)] animate-pulse"
+                  aria-hidden="true"
+                />
                 {stats.testStatus === 'starting' ? 'Starting' : 'Running'}:{' '}
                 {stats.currentTest || mode}
-              </div>
+              </output>
             )}
             {stats.testStatus === 'completed' && (
-              <div className="status-badge info">Completed: {stats.currentTest}</div>
+              <output className="status-badge info">Completed: {stats.currentTest}</output>
             )}
             {stats.testStatus === 'error' && (
-              <div className="status-badge error">Error: {stats.currentTest || 'Test failed'}</div>
+              <output className="status-badge error" role="alert">
+                Error: {stats.currentTest || 'Test failed'}
+              </output>
             )}
             {stats.testStatus === 'cancelled' && (
-              <div className="status-badge warning">Stopped: {stats.currentTest}</div>
+              <output className="status-badge warning">Stopped: {stats.currentTest}</output>
             )}
           </div>
         </div>
