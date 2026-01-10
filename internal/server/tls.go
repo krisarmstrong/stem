@@ -73,6 +73,9 @@ func ensureSelfSignedCert(certsDir string) (string, string, error) {
 		certsDir = defaultCertsDir
 	}
 
+	// Sanitize directory path to prevent directory traversal.
+	certsDir = filepath.Clean(certsDir)
+
 	certFile := filepath.Join(certsDir, "server.crt")
 	keyFile := filepath.Join(certsDir, "server.key")
 

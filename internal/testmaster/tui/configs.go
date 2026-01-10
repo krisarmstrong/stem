@@ -307,7 +307,9 @@ func (e *RFC2889ConfigEditor) build() {
 	// Pattern.
 	patterns := []string{"Full Mesh", "Pair", "Broadcast"}
 	e.form.AddDropDown("Traffic Pattern", patterns, int(e.config.Pattern), func(_ string, idx int) {
-		e.config.Pattern = uint32(idx) //nolint:gosec // Bounded by dropdown options (0-2).
+		if idx >= 0 && idx < len(patterns) {
+			e.config.Pattern = uint32(idx) // #nosec G115 -- bounds checked above
+		}
 	})
 
 	// Acceptable Loss.
@@ -475,7 +477,9 @@ func (e *RFC6349ConfigEditor) build() {
 	// Mode.
 	modes := []string{"Bidirectional", "Upstream", "Downstream"}
 	e.form.AddDropDown("Test Mode", modes, int(e.config.Mode), func(_ string, idx int) {
-		e.config.Mode = uint32(idx) //nolint:gosec // Bounded by dropdown options (0-2).
+		if idx >= 0 && idx < len(modes) {
+			e.config.Mode = uint32(idx) // #nosec G115 -- bounds checked above
+		}
 	})
 
 	helpText := tview.NewTextView().
@@ -558,7 +562,7 @@ func (a *App) NewY1731ConfigEditor(
 	return editor
 }
 
-func (e *Y1731ConfigEditor) build() {
+func (e *Y1731ConfigEditor) build() { //nolint:gocognit // Y.1731 has many configuration fields.
 	e.form.SetTitle(" Y.1731 OAM Configuration ").SetBorder(true)
 
 	// MEP ID.
@@ -573,7 +577,9 @@ func (e *Y1731ConfigEditor) build() {
 	// MEG Level.
 	levels := []string{"0", "1", "2", "3", "4", "5", "6", "7"}
 	e.form.AddDropDown("MEG Level", levels, int(e.config.MEGLevel), func(_ string, idx int) {
-		e.config.MEGLevel = uint32(idx) //nolint:gosec // Bounded by dropdown options (0-7).
+		if idx >= 0 && idx < len(levels) {
+			e.config.MEGLevel = uint32(idx) // #nosec G115 -- bounds checked above
+		}
 	})
 
 	// MEG ID.
@@ -592,13 +598,17 @@ func (e *Y1731ConfigEditor) build() {
 		}
 	}
 	e.form.AddDropDown("CCM Interval", ccmOptions, ccmIdx, func(_ string, idx int) {
-		e.config.CCMInterval = ccmValues[idx]
+		if idx >= 0 && idx < len(ccmValues) {
+			e.config.CCMInterval = ccmValues[idx]
+		}
 	})
 
 	// Priority.
 	priorities := []string{"0", "1", "2", "3", "4", "5", "6", "7"}
 	e.form.AddDropDown("Priority", priorities, int(e.config.Priority), func(_ string, idx int) {
-		e.config.Priority = uint8(idx) //nolint:gosec // Bounded by dropdown options (0-7).
+		if idx >= 0 && idx < len(priorities) {
+			e.config.Priority = uint8(idx) // #nosec G115 -- bounds checked above
+		}
 	})
 
 	// Duration.
@@ -815,13 +825,17 @@ func (e *TSNConfigEditor) build() { //nolint:funlen,gocognit // TSN has many con
 		}
 	}
 	e.form.AddDropDown("Cycle Time", cycleOptions, cycleIdx, func(_ string, idx int) {
-		e.config.CycleTimeNs = cycleValues[idx]
+		if idx >= 0 && idx < len(cycleValues) {
+			e.config.CycleTimeNs = cycleValues[idx]
+		}
 	})
 
 	// Traffic Class.
 	tcOptions := []string{"0", "1", "2", "3", "4", "5", "6", "7"}
 	e.form.AddDropDown("Traffic Class", tcOptions, int(e.config.TrafficClass), func(_ string, idx int) {
-		e.config.TrafficClass = uint32(idx) //nolint:gosec // Bounded by dropdown options (0-7).
+		if idx >= 0 && idx < len(tcOptions) {
+			e.config.TrafficClass = uint32(idx) // #nosec G115 -- bounds checked above
+		}
 	})
 
 	// Num Traffic Classes.
@@ -922,7 +936,7 @@ func (a *App) NewTrafficGenConfigEditor(
 	return editor
 }
 
-func (e *TrafficGenConfigEditor) build() {
+func (e *TrafficGenConfigEditor) build() { //nolint:funlen // Traffic generator has many configuration fields.
 	e.form.SetTitle(" Traffic Generator Configuration ").SetBorder(true)
 
 	// Frame Size.
@@ -1010,7 +1024,9 @@ func (e *TrafficGenConfigEditor) build() {
 	// VLAN Priority.
 	vlanPriorities := []string{"0", "1", "2", "3", "4", "5", "6", "7"}
 	e.form.AddDropDown("VLAN Priority", vlanPriorities, int(e.config.VlanPriority), func(_ string, idx int) {
-		e.config.VlanPriority = uint8(idx) //nolint:gosec // Bounded by dropdown options (0-7).
+		if idx >= 0 && idx < len(vlanPriorities) {
+			e.config.VlanPriority = uint8(idx) // #nosec G115 -- bounds checked above
+		}
 	})
 
 	// Source MAC.

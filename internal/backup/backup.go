@@ -265,10 +265,13 @@ func Import(ctx context.Context, db *database.Database, inputPath string, opts *
 		opts = DefaultImportOptions()
 	}
 
-	logging.Info("Starting backup import", "path", inputPath)
+	// Sanitize file path to prevent directory traversal.
+	cleanPath := filepath.Clean(inputPath)
+
+	logging.Info("Starting backup import", "path", cleanPath)
 
 	// Read file
-	data, readErr := os.ReadFile(inputPath)
+	data, readErr := os.ReadFile(cleanPath)
 	if readErr != nil {
 		return 0, fmt.Errorf("%w: failed to read file: %w", ErrRestoreFailed, readErr)
 	}
@@ -396,7 +399,10 @@ func GenerateBackupFilename(prefix string) string {
 
 // ValidateBackup checks if a backup file is valid without importing.
 func ValidateBackup(inputPath string) (*Metadata, error) {
-	data, readErr := os.ReadFile(inputPath)
+	// Sanitize file path to prevent directory traversal.
+	cleanPath := filepath.Clean(inputPath)
+
+	data, readErr := os.ReadFile(cleanPath)
 	if readErr != nil {
 		return nil, fmt.Errorf("failed to read file: %w", readErr)
 	}
@@ -425,13 +431,16 @@ type Stats struct {
 
 // GetBackupStats returns statistics about a backup file.
 func GetBackupStats(inputPath string) (*Stats, error) {
+	// Sanitize file path to prevent directory traversal.
+	cleanPath := filepath.Clean(inputPath)
+
 	// Get file size
-	fileInfo, statErr := os.Stat(inputPath)
+	fileInfo, statErr := os.Stat(cleanPath)
 	if statErr != nil {
 		return nil, fmt.Errorf("failed to stat file: %w", statErr)
 	}
 
-	data, readErr := os.ReadFile(inputPath)
+	data, readErr := os.ReadFile(cleanPath)
 	if readErr != nil {
 		return nil, fmt.Errorf("failed to read file: %w", readErr)
 	}

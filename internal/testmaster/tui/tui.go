@@ -976,16 +976,20 @@ func (e *Y1564ConfigEditor) buildForm() {
 }
 
 // Show displays the Y.1564 configuration editor.
-func (e *Y1564ConfigEditor) Show() {
+func (e *Y1564ConfigEditor) Show() { //nolint:gocognit // Key handling and form updates add complexity.
 	e.app.pages.SwitchToPage("y1564config")
 
 	// Set up key handler for config page.
 	e.app.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() { //nolint:exhaustive // Only handle specific keys.
 		case tcell.KeyF3:
-			// Add new service.
+			// Add new service (max services to prevent overflow).
+			const maxServices = 256
 			numServices := len(e.services)
-			newID := uint32(numServices + 1) //nolint:gosec // Service count won't overflow uint32.
+			if numServices >= maxServices {
+				return nil
+			}
+			newID := uint32(numServices + 1) // #nosec G115 -- bounds checked above (max 256)
 			e.services = append(e.services, DefaultY1564ServiceConfig(newID))
 			e.currentIndex = len(e.services) - 1
 			e.updateServiceList()
