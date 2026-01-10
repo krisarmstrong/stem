@@ -1561,7 +1561,7 @@ func TestExecuteTest(t *testing.T) {
 	}
 
 	t.Run("unknown module", func(t *testing.T) {
-		execErr := s.executeTest("unknown_module", "test", "eth0", 1518, 60)
+		execErr := s.executeTest("unknown_module", "test", "eth0", nil)
 		if execErr == nil {
 			t.Error("Expected error for unknown module")
 		}
@@ -2409,7 +2409,7 @@ func TestExecuteReflectorCoverage(t *testing.T) {
 	// Note: Actually executing reflector requires a valid interface
 	// and may have platform-specific behavior. Test the error path.
 	t.Run("execute with nonexistent interface", func(t *testing.T) {
-		execErr := s.executeReflector("nonexistent_iface_xyz123")
+		execErr := s.executeReflector("nonexistent_iface_xyz123", nil)
 		if execErr == nil {
 			t.Error("Expected error for nonexistent interface")
 		}
@@ -2432,8 +2432,7 @@ func TestRunModuleTestCoverage(t *testing.T) {
 			"benchmark",
 			"rfc2544_throughput",
 			"nonexistent_iface_xyz123",
-			1518,
-			60,
+			nil,
 		)
 		// May fail due to interface, but that's expected.
 		if execErr != nil {
@@ -3877,7 +3876,7 @@ func TestExecuteReflectorVariations(t *testing.T) {
 			t.Fatalf("NewServer() error: %v", err)
 		}
 
-		execErr := s.executeReflector("nonexistent_iface_xyz")
+		execErr := s.executeReflector("nonexistent_iface_xyz", nil)
 		if execErr == nil {
 			t.Error("Expected error for nonexistent interface")
 		}
@@ -3895,7 +3894,7 @@ func TestExecuteReflectorVariations(t *testing.T) {
 			t.Skip("No network interfaces available")
 		}
 
-		execErr := s.executeReflector(ifaces[0].Name)
+		execErr := s.executeReflector(ifaces[0].Name, nil)
 		// May succeed or fail depending on permissions.
 		t.Logf("executeReflector error: %v", execErr)
 	})
@@ -3917,7 +3916,7 @@ func TestRunModuleTestVariations(t *testing.T) {
 			return nil, errors.New("factory error")
 		}
 
-		runErr := s.runModuleTest(factory, "test", "test_type", "lo0", 64, 10)
+		runErr := s.runModuleTest(factory, "test", "test_type", "lo0", nil)
 		if runErr == nil {
 			t.Error("Expected error from factory")
 		}
@@ -4008,12 +4007,12 @@ func TestResolveTestModuleVariations(t *testing.T) {
 	})
 
 	t.Run("valid test type throughput", func(t *testing.T) {
-		mod, resolveErr := s.resolveTestModule("throughput")
+		mod, resolveErr := s.resolveTestModule("rfc2544_throughput")
 		if resolveErr != nil {
 			t.Errorf("Unexpected error: %v", resolveErr)
 		}
 		if mod == nil {
-			t.Error("Expected module for throughput test")
+			t.Error("Expected module for rfc2544_throughput test")
 		}
 	})
 
@@ -4300,7 +4299,7 @@ func TestExecuteTestWithUnknownModule(t *testing.T) {
 		t.Fatalf("NewServer() error: %v", err)
 	}
 
-	execErr := s.executeTest("unknown_module_xyz", "throughput", "en0", 64, 10)
+	execErr := s.executeTest("unknown_module_xyz", "throughput", "en0", nil)
 	if execErr == nil {
 		t.Error("Expected error for unknown module")
 	}
