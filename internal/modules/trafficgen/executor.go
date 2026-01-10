@@ -4,7 +4,6 @@ package trafficgen
 
 import (
 	"fmt"
-	"math"
 
 	"github.com/krisarmstrong/stem/internal/modules/modtypes"
 	"github.com/krisarmstrong/stem/internal/testmaster/dataplane"
@@ -76,7 +75,7 @@ func (e *Executor) Execute(testType string, cfg *modtypes.TestConfig) (*modtypes
 	config := &dataplane.TrafficGenConfig{
 		FrameSize:       cfg.FrameSize,
 		RatePct:         modtypes.GetFloat64Param(cfg.Params, "rate_pct", defaultRatePct),
-		DurationSec:     safeUint32FromInt(cfg.Duration, 0),
+		DurationSec:     modtypes.SafeIntToUint32(cfg.Duration),
 		WarmupSec:       modtypes.GetUint32Param(cfg.Params, "warmup_sec", defaultWarmupSec),
 		StreamID:        modtypes.GetUint32Param(cfg.Params, "stream_id", defaultStreamID),
 		BurstMode:       modtypes.GetBoolParam(cfg.Params, "burst_mode", false),
@@ -84,8 +83,8 @@ func (e *Executor) Execute(testType string, cfg *modtypes.TestConfig) (*modtypes
 		InterBurstGapUs: modtypes.GetUint32Param(cfg.Params, "inter_burst_gap_us", defaultInterBurstGapUs),
 		SrcMac:          modtypes.GetStringParam(cfg.Params, "src_mac", ""),
 		DstMac:          modtypes.GetStringParam(cfg.Params, "dst_mac", ""),
-		VlanID:          safeUint16(modtypes.GetUint32Param(cfg.Params, "vlan_id", 0)),
-		VlanPriority:    safeUint8(modtypes.GetUint32Param(cfg.Params, "vlan_priority", 0)),
+		VlanID:          modtypes.GetUint16Param(cfg.Params, "vlan_id", 0),
+		VlanPriority:    modtypes.GetUint8Param(cfg.Params, "vlan_priority", 0),
 	}
 
 	if config.DurationSec == 0 {
@@ -101,27 +100,4 @@ func (e *Executor) Execute(testType string, cfg *modtypes.TestConfig) (*modtypes
 	result.Success = true
 	result.Data = data
 	return result, nil
-}
-
-func safeUint32FromInt(value int, fallback uint32) uint32 {
-	if value < 0 || value > math.MaxUint32 {
-		return fallback
-	}
-	return uint32(value)
-}
-
-// safeUint16 converts uint32 to uint16 with bounds checking.
-func safeUint16(value uint32) uint16 {
-	if value > math.MaxUint16 {
-		return math.MaxUint16
-	}
-	return uint16(value)
-}
-
-// safeUint8 converts uint32 to uint8 with bounds checking.
-func safeUint8(value uint32) uint8 {
-	if value > math.MaxUint8 {
-		return math.MaxUint8
-	}
-	return uint8(value)
 }

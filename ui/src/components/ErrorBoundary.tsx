@@ -8,8 +8,9 @@
 
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { type WithTranslation, withTranslation } from 'react-i18next';
 
-interface ErrorBoundaryProps {
+interface ErrorBoundaryOwnProps {
   /** Child components to render */
   children: ReactNode;
   /** Optional fallback UI to show when an error occurs */
@@ -17,6 +18,8 @@ interface ErrorBoundaryProps {
   /** Optional callback when an error is caught */
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
+
+type ErrorBoundaryProps = ErrorBoundaryOwnProps & WithTranslation;
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -41,7 +44,7 @@ interface ErrorBoundaryState {
  * </ErrorBoundary>
  * ```
  */
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundaryComponent extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = {
@@ -86,6 +89,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       }
 
       // Default fallback UI
+      const { t } = this.props;
+
       return (
         <div className="min-h-screen flex items-center justify-center bg-[var(--color-surface-base)] p-4">
           <div className="max-w-md w-full rounded-2xl border border-[var(--color-surface-border)] bg-[var(--color-surface-raised)] p-6 shadow-lg">
@@ -95,10 +100,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                  Something went wrong
+                  {t('errorBoundary.title')}
                 </h2>
                 <p className="text-sm text-[var(--color-text-muted)]">
-                  An unexpected error occurred
+                  {t('errorBoundary.defaultMessage')}
                 </p>
               </div>
             </div>
@@ -106,7 +111,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             {this.state.error && (
               <div className="mb-4 p-3 rounded-lg bg-[var(--color-surface-base)] border border-[var(--color-surface-border)]">
                 <p className="text-sm font-medium text-[var(--color-text-primary)] mb-1">
-                  Error Details
+                  {t('errorBoundary.errorDetails')}
                 </p>
                 <p className="text-sm text-[var(--color-status-error)] font-mono break-all">
                   {this.state.error.message}
@@ -121,19 +126,19 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 className="btn btn-primary flex-1 justify-center"
               >
                 <RefreshCw className="h-4 w-4" />
-                Try Again
+                {t('errorBoundary.tryAgain')}
               </button>
               <button
                 type="button"
                 onClick={this.handleReload}
                 className="btn btn-secondary flex-1 justify-center"
               >
-                Reload Page
+                {t('errorBoundary.reload')}
               </button>
             </div>
 
             <p className="mt-4 text-xs text-center text-[var(--color-text-muted)]">
-              If this problem persists, please contact support.
+              {t('errorBoundary.persistMessage')}
             </p>
           </div>
         </div>
@@ -143,3 +148,6 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return this.props.children;
   }
 }
+
+// Export with translation HOC
+export const ErrorBoundary = withTranslation()(ErrorBoundaryComponent);

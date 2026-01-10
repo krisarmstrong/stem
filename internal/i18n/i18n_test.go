@@ -20,10 +20,10 @@ func TestT(t *testing.T) {
 		key      string
 		expected string
 	}{
-		{"app.name", "The Stem"},
+		{"app.title", "The Stem"},
 		{"status.running", "Running"},
-		{"result.pass", "PASS"},
-		{"ui.dashboard", "Dashboard"},
+		{"results.pass", "PASS"},
+		{"labels.dashboard", "Dashboard"},
 	}
 
 	for _, tt := range tests {
@@ -42,10 +42,10 @@ func TestTWithSpanish(t *testing.T) {
 		key      string
 		expected string
 	}{
-		{"app.name", "The Stem"},
+		{"app.title", "The Stem"},
 		{"status.running", "Ejecutando"},
-		{"result.pass", "APROBADO"},
-		{"ui.dashboard", "Panel de Control"},
+		{"results.pass", "APROBADO"},
+		{"labels.dashboard", "Panel de Control"},
 	}
 
 	for _, tt := range tests {
@@ -75,10 +75,10 @@ func TestTL(t *testing.T) {
 	}{
 		{"status.running", i18n.English, "Running"},
 		{"status.running", i18n.Spanish, "Ejecutando"},
-		{"result.pass", i18n.English, "PASS"},
-		{"result.pass", i18n.Spanish, "APROBADO"},
-		{"ui.dashboard", i18n.English, "Dashboard"},
-		{"ui.dashboard", i18n.Spanish, "Panel de Control"},
+		{"results.pass", i18n.English, "PASS"},
+		{"results.pass", i18n.Spanish, "APROBADO"},
+		{"labels.dashboard", i18n.English, "Dashboard"},
+		{"labels.dashboard", i18n.Spanish, "Panel de Control"},
 	}
 
 	for _, tt := range tests {
@@ -108,17 +108,17 @@ func TestSpanishFallback(t *testing.T) {
 	// All English keys should have Spanish translations
 	// This is a spot check of important keys
 	keysToCheck := []string{
-		"app.name",
+		"app.title",
 		"status.running",
 		"status.completed",
 		"status.failed",
-		"result.pass",
-		"result.fail",
-		"ui.dashboard",
-		"ui.tests",
-		"ui.settings",
-		"err.interface_required",
-		"err.license_required",
+		"results.pass",
+		"results.fail",
+		"labels.dashboard",
+		"labels.tests",
+		"labels.settings",
+		"auth.invalidCredentials",
+		"license.invalid",
 	}
 
 	for _, key := range keysToCheck {
@@ -134,8 +134,8 @@ func TestSpanishFallback(t *testing.T) {
 		}
 
 		// For most keys, Spanish should be different from English
-		// (app.name is an exception as it's a proper noun)
-		if key != "app.name" && en == es {
+		// (app.title is an exception as it's a proper noun)
+		if key != "app.title" && en == es {
 			t.Logf("Warning: %q has same translation in English and Spanish: %q", key, en)
 		}
 	}
@@ -324,7 +324,7 @@ func TestConcurrentAccess(_ *testing.T) {
 			for range 100 {
 				i18n.SetLanguage(i18n.English)
 				_ = i18n.GetLanguage()
-				_ = i18n.T("app.name")
+				_ = i18n.T("app.title")
 			}
 			done <- true
 		}()
@@ -335,7 +335,7 @@ func TestConcurrentAccess(_ *testing.T) {
 			for range 100 {
 				i18n.SetLanguage(i18n.Spanish)
 				_ = i18n.GetLanguage()
-				_ = i18n.TL("app.name", i18n.Spanish)
+				_ = i18n.TL("app.title", i18n.Spanish)
 			}
 			done <- true
 		}()
@@ -350,21 +350,21 @@ func TestConcurrentAccess(_ *testing.T) {
 func TestAllEnglishKeysHaveTranslations(t *testing.T) {
 	// Verify that common keys return expected values
 	englishKeys := []string{
-		"app.name",
+		"app.title",
 		"app.description",
 		"status.starting",
 		"status.running",
 		"status.completed",
 		"status.failed",
-		"result.pass",
-		"result.fail",
-		"result.warning",
-		"ui.dashboard",
-		"ui.tests",
-		"ui.settings",
-		"ui.help",
-		"ui.start",
-		"ui.stop",
+		"results.pass",
+		"results.fail",
+		"results.warning",
+		"labels.dashboard",
+		"labels.tests",
+		"labels.settings",
+		"labels.help",
+		"buttons.start",
+		"buttons.stop",
 	}
 
 	i18n.SetLanguage(i18n.English)
@@ -379,14 +379,14 @@ func TestAllEnglishKeysHaveTranslations(t *testing.T) {
 func TestSpanishTranslationsExist(t *testing.T) {
 	// Verify that Spanish translations exist for common keys
 	spanishKeys := []string{
-		"app.name",
+		"app.title",
 		"status.running",
 		"status.completed",
 		"status.failed",
-		"result.pass",
-		"result.fail",
-		"ui.dashboard",
-		"ui.tests",
+		"results.pass",
+		"results.fail",
+		"labels.dashboard",
+		"labels.tests",
 	}
 
 	for _, key := range spanishKeys {

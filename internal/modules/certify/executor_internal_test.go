@@ -11,8 +11,8 @@ import (
 	"github.com/krisarmstrong/stem/internal/testmaster/dataplane"
 )
 
-// TestGetBoolParam tests the getBoolParam helper function.
-func TestGetBoolParam(t *testing.T) {
+// TestModtypesGetBoolParam tests the modtypes.GetBoolParam helper function.
+func TestModtypesGetBoolParam(t *testing.T) {
 	tests := []struct {
 		name     string
 		params   map[string]any
@@ -80,60 +80,54 @@ func TestGetBoolParam(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := getBoolParam(tt.params, tt.key, tt.defVal)
+			result := modtypes.GetBoolParam(tt.params, tt.key, tt.defVal)
 			if result != tt.expected {
-				t.Errorf("getBoolParam() = %v, want %v", result, tt.expected)
+				t.Errorf("modtypes.GetBoolParam() = %v, want %v", result, tt.expected)
 			}
 		})
 	}
 }
 
-// TestSafeUint32FromInt tests the safeUint32FromInt helper function.
-func TestSafeUint32FromInt(t *testing.T) {
+// TestModtypesSafeIntToUint32 tests the modtypes.SafeIntToUint32 helper function.
+func TestModtypesSafeIntToUint32(t *testing.T) {
 	tests := []struct {
 		name     string
 		value    int
-		fallback uint32
 		expected uint32
 	}{
 		{
 			name:     "zero value",
 			value:    0,
-			fallback: 100,
 			expected: 0,
 		},
 		{
 			name:     "positive value",
 			value:    60,
-			fallback: 100,
 			expected: 60,
 		},
 		{
-			name:     "negative value returns fallback",
+			name:     "negative value returns 0",
 			value:    -1,
-			fallback: 100,
-			expected: 100,
+			expected: 0,
 		},
 		{
 			name:     "max int32",
 			value:    math.MaxInt32,
-			fallback: 100,
 			expected: math.MaxInt32,
 		},
 		{
 			name:     "large positive value",
 			value:    1000000,
-			fallback: 0,
 			expected: 1000000,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := safeUint32FromInt(tt.value, tt.fallback)
+			result := modtypes.SafeIntToUint32(tt.value)
 			if result != tt.expected {
-				t.Errorf("safeUint32FromInt(%d, %d) = %d, want %d",
-					tt.value, tt.fallback, result, tt.expected)
+				t.Errorf("modtypes.SafeIntToUint32(%d) = %d, want %d",
+					tt.value, result, tt.expected)
 			}
 		})
 	}

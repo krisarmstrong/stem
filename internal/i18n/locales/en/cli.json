@@ -1,0 +1,170 @@
+{
+  "commands": {
+    "reflect": {
+      "name": "reflect",
+      "summary": "Run packet reflection mode for remote testing",
+      "description": "Starts the packet reflector to bounce test packets back to their source."
+    },
+    "test": {
+      "name": "test",
+      "summary": "Run network performance tests",
+      "description": "Execute RFC 2544, Y.1564, Y.1731, and other network tests."
+    },
+    "web": {
+      "name": "web",
+      "summary": "Start the Test Master web interface",
+      "description": "Launches the graphical web interface for test configuration and monitoring."
+    },
+    "license": {
+      "name": "license",
+      "summary": "Manage license activation",
+      "description": "Activate, deactivate, or check license status."
+    },
+    "version": {
+      "name": "version",
+      "summary": "Display version information",
+      "description": "Shows version, build info, and license status."
+    },
+    "help": {
+      "name": "help",
+      "summary": "Get help on commands, tests, and concepts",
+      "description": "Displays detailed documentation for any topic."
+    },
+    "tutorial": {
+      "name": "tutorial",
+      "summary": "Interactive tutorials for learning",
+      "description": "Step-by-step guides for common tasks."
+    },
+    "glossary": {
+      "name": "glossary",
+      "summary": "Network terminology definitions",
+      "description": "Look up network testing terms and concepts."
+    }
+  },
+  "flags": {
+    "interface": {
+      "name": "Network interface",
+      "description": "Network interface for packet transmission (e.g., eth0)"
+    },
+    "port": {
+      "name": "Port number",
+      "description": "TCP/UDP port number"
+    },
+    "verbose": {
+      "name": "Verbose output",
+      "description": "Enable detailed logging"
+    },
+    "duration": {
+      "name": "Test duration",
+      "description": "How long to run the test (in seconds)"
+    },
+    "output": {
+      "name": "Output file",
+      "description": "File to save results to"
+    },
+    "config": {
+      "name": "Configuration file",
+      "description": "Path to configuration file"
+    }
+  },
+  "categories": {
+    "rfc2544": {
+      "code": "RFC 2544",
+      "name": "Benchmarking Methodology for Network Interconnect Devices",
+      "description": "Standard tests for measuring network device performance."
+    },
+    "y1564": {
+      "code": "Y.1564",
+      "name": "Ethernet Service Activation Test",
+      "description": "Service turn-up testing for carrier ethernet."
+    },
+    "y1731": {
+      "code": "Y.1731",
+      "name": "Ethernet OAM",
+      "description": "Operations, Administration, and Maintenance for ethernet services."
+    },
+    "rfc2889": {
+      "code": "RFC 2889",
+      "name": "Benchmarking Methodology for LAN Switching Devices",
+      "description": "Tests specific to network switches."
+    },
+    "rfc6349": {
+      "code": "RFC 6349",
+      "name": "Framework for TCP Throughput Testing",
+      "description": "TCP performance testing considering protocol behavior."
+    },
+    "mef": {
+      "code": "MEF",
+      "name": "Metro Ethernet Forum",
+      "description": "Carrier ethernet service certification tests."
+    },
+    "tsn": {
+      "code": "TSN",
+      "name": "Time-Sensitive Networking",
+      "description": "Deterministic networking for industrial applications."
+    },
+    "trafficgen": {
+      "code": "TrafficGen",
+      "name": "Custom Traffic Generation",
+      "description": "Generate custom traffic patterns for specialized testing."
+    }
+  },
+  "tests": {
+    "throughput": {
+      "name": "Throughput Test",
+      "description": "Finds the maximum speed without packet loss"
+    },
+    "latency": {
+      "name": "Latency Test",
+      "description": "Measures packet delay through the network"
+    },
+    "frameLoss": {
+      "name": "Frame Loss Test",
+      "description": "Measures packet loss at various rates"
+    },
+    "backToBack": {
+      "name": "Back-to-Back Test",
+      "description": "Measures burst handling capacity"
+    },
+    "y1564Config": {
+      "name": "Y.1564 Configuration Test",
+      "description": "Validates service at CIR percentages"
+    },
+    "y1564Perf": {
+      "name": "Y.1564 Performance Test",
+      "description": "Extended performance verification"
+    },
+    "frameDelay": {
+      "name": "Frame Delay Test",
+      "description": "OAM-based delay measurement"
+    },
+    "syntheticLoss": {
+      "name": "Synthetic Loss Measurement",
+      "description": "OAM-based loss measurement"
+    },
+    "customStream": {
+      "name": "Custom Traffic Stream",
+      "description": "Generate custom traffic patterns for specialized testing"
+    }
+  },
+  "reflector": {
+    "mode": "Reflector Mode",
+    "started": "Reflector started on {{interface}}",
+    "stopped": "Reflector stopped",
+    "stats": "Reflector Statistics",
+    "packets": "Packets Reflected",
+    "bytes": "Bytes Reflected",
+    "rate": "Current Rate",
+    "uptime": "Uptime"
+  },
+  "license": {
+    "status": "License Status",
+    "tier": "License Tier",
+    "validUntil": "Valid Until",
+    "features": "Available Features",
+    "activate": "Activate License",
+    "deactivate": "Deactivate License",
+    "trial": "Trial Mode",
+    "expired": "Expired"
+  }
+}

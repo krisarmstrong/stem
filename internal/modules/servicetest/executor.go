@@ -4,7 +4,6 @@ package servicetest
 
 import (
 	"fmt"
-	"math"
 	"time"
 
 	"github.com/krisarmstrong/stem/internal/modules/modtypes"
@@ -291,9 +290,9 @@ func (e *Executor) buildMEFConfig(cfg *modtypes.TestConfig) *dataplane.MEFConfig
 	}
 
 	if cfg.Duration > 0 {
-		converted := safeUint32FromInt(cfg.Duration/secondsPerMinute, 0)
+		converted := modtypes.SafeIntToUint32(cfg.Duration / secondsPerMinute)
 		if converted == 0 {
-			converted = safeUint32FromInt(cfg.Duration, 0)
+			converted = modtypes.SafeIntToUint32(cfg.Duration)
 		}
 		if converted > 0 {
 			mefConfig.PerfDurationMin = converted
@@ -358,7 +357,7 @@ func (e *Executor) extractY1564Params(cfg *modtypes.TestConfig, service *datapla
 		service.FrameSize = modtypes.GetUint32Param(cfg.Params, "frame_size", service.FrameSize)
 	}
 	if _, ok := cfg.Params["cos"]; ok {
-		service.CoS = clampUint8(modtypes.GetUint32Param(cfg.Params, "cos", uint32(service.CoS)))
+		service.CoS = modtypes.GetUint8Param(cfg.Params, "cos", service.CoS)
 	}
 	if val, ok := cfg.Params["enabled"]; ok {
 		if enabled, okBool := val.(bool); okBool {
@@ -372,22 +371,9 @@ func (e *Executor) safeDuration(duration int, fallback uint32) uint32 {
 	if duration <= 0 {
 		return fallback
 	}
-	if duration > int(maxUint32) {
-		return maxUint32
-	}
-	return uint32(duration)
-}
-
-func safeUint32FromInt(value int, fallback uint32) uint32 {
-	if value < 0 || value > math.MaxUint32 {
+	converted := modtypes.SafeIntToUint32(duration)
+	if converted == 0 {
 		return fallback
 	}
-	return uint32(value)
-}
-
-func clampUint8(value uint32) uint8 {
-	if value > math.MaxUint8 {
-		return math.MaxUint8
-	}
-	return uint8(value)
+	return converted
 }

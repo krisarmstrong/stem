@@ -1,0 +1,170 @@
+{
+  "commands": {
+    "reflect": {
+      "name": "reflect",
+      "summary": "Ejecutar modo de reflejo de paquetes para pruebas remotas",
+      "description": "Inicia el reflector de paquetes para devolver paquetes de prueba a su origen."
+    },
+    "test": {
+      "name": "test",
+      "summary": "Ejecutar pruebas de rendimiento de red",
+      "description": "Ejecuta pruebas RFC 2544, Y.1564, Y.1731 y otras pruebas de red."
+    },
+    "web": {
+      "name": "web",
+      "summary": "Iniciar la interfaz web de Test Master",
+      "description": "Lanza la interfaz web grafica para configuracion y monitoreo de pruebas."
+    },
+    "license": {
+      "name": "license",
+      "summary": "Gestionar activacion de licencia",
+      "description": "Activar, desactivar o verificar el estado de la licencia."
+    },
+    "version": {
+      "name": "version",
+      "summary": "Mostrar informacion de version",
+      "description": "Muestra version, informacion de compilacion y estado de licencia."
+    },
+    "help": {
+      "name": "help",
+      "summary": "Obtener ayuda sobre comandos, pruebas y conceptos",
+      "description": "Muestra documentacion detallada para cualquier tema."
+    },
+    "tutorial": {
+      "name": "tutorial",
+      "summary": "Tutoriales interactivos para aprender",
+      "description": "Guias paso a paso para tareas comunes."
+    },
+    "glossary": {
+      "name": "glossary",
+      "summary": "Definiciones de terminologia de redes",
+      "description": "Buscar terminos y conceptos de pruebas de red."
+    }
+  },
+  "flags": {
+    "interface": {
+      "name": "Interfaz de red",
+      "description": "Interfaz de red para transmision de paquetes (ej: eth0)"
+    },
+    "port": {
+      "name": "Numero de puerto",
+      "description": "Numero de puerto TCP/UDP"
+    },
+    "verbose": {
+      "name": "Salida detallada",
+      "description": "Habilitar registro detallado"
+    },
+    "duration": {
+      "name": "Duracion de prueba",
+      "description": "Cuanto tiempo ejecutar la prueba (en segundos)"
+    },
+    "output": {
+      "name": "Archivo de salida",
+      "description": "Archivo para guardar resultados"
+    },
+    "config": {
+      "name": "Archivo de configuracion",
+      "description": "Ruta al archivo de configuracion"
+    }
+  },
+  "categories": {
+    "rfc2544": {
+      "code": "RFC 2544",
+      "name": "Benchmarking Methodology for Network Interconnect Devices",
+      "description": "Pruebas estandar para medir el rendimiento de dispositivos de red."
+    },
+    "y1564": {
+      "code": "Y.1564",
+      "name": "Ethernet Service Activation Test",
+      "description": "Pruebas de activacion de servicio para carrier ethernet."
+    },
+    "y1731": {
+      "code": "Y.1731",
+      "name": "Ethernet OAM",
+      "description": "Operations, Administration and Maintenance para servicios ethernet."
+    },
+    "rfc2889": {
+      "code": "RFC 2889",
+      "name": "Benchmarking Methodology for LAN Switching Devices",
+      "description": "Pruebas especificas para switches de red."
+    },
+    "rfc6349": {
+      "code": "RFC 6349",
+      "name": "TCP Throughput Testing Framework",
+      "description": "Pruebas de TCP throughput considerando el comportamiento del protocolo."
+    },
+    "mef": {
+      "code": "MEF",
+      "name": "Metro Ethernet Forum",
+      "description": "Pruebas de certificacion de servicios carrier ethernet."
+    },
+    "tsn": {
+      "code": "TSN",
+      "name": "Time-Sensitive Networking",
+      "description": "Redes deterministicas para aplicaciones industriales."
+    },
+    "trafficgen": {
+      "code": "TrafficGen",
+      "name": "Custom Traffic Generation",
+      "description": "Generar patrones de trafico personalizados para pruebas especializadas."
+    }
+  },
+  "tests": {
+    "throughput": {
+      "name": "Throughput Test",
+      "description": "Encuentra la velocidad maxima sin packet loss"
+    },
+    "latency": {
+      "name": "Latency Test",
+      "description": "Mide el delay de paquetes a traves de la red"
+    },
+    "frameLoss": {
+      "name": "Frame Loss Test",
+      "description": "Mide el packet loss a varias tasas"
+    },
+    "backToBack": {
+      "name": "Back-to-Back Test",
+      "description": "Mide la capacidad de manejo de burst"
+    },
+    "y1564Config": {
+      "name": "Y.1564 Configuration Test",
+      "description": "Valida el servicio en porcentajes de CIR"
+    },
+    "y1564Perf": {
+      "name": "Y.1564 Performance Test",
+      "description": "Verificacion extendida de rendimiento"
+    },
+    "frameDelay": {
+      "name": "Frame Delay Test",
+      "description": "Medicion de delay basada en OAM"
+    },
+    "syntheticLoss": {
+      "name": "Synthetic Loss Measurement",
+      "description": "Medicion de loss basada en OAM"
+    },
+    "customStream": {
+      "name": "Custom Traffic Stream",
+      "description": "Generar patrones de trafico personalizados para pruebas especializadas"
+    }
+  },
+  "reflector": {
+    "mode": "Modo Reflector",
+    "started": "Reflector iniciado en {{interface}}",
+    "stopped": "Reflector detenido",
+    "stats": "Estadisticas del Reflector",
+    "packets": "Paquetes Reflejados",
+    "bytes": "Bytes Reflejados",
+    "rate": "Tasa Actual",
+    "uptime": "Tiempo Activo"
+  },
+  "license": {
+    "status": "Estado de Licencia",
+    "tier": "Nivel de Licencia",
+    "validUntil": "Valido Hasta",
+    "features": "Funciones Disponibles",
+    "activate": "Activar Licencia",
+    "deactivate": "Desactivar Licencia",
+    "trial": "Modo de Prueba",
+    "expired": "Expirado"
+  }
+}

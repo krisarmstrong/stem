@@ -11,6 +11,9 @@ import App from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
 
+// Initialize i18n before rendering
+import './i18n';
+
 const rootElement = document.getElementById('root');
 
 if (rootElement) {

@@ -4,7 +4,6 @@ package certify
 
 import (
 	"fmt"
-	"math"
 
 	"github.com/krisarmstrong/stem/internal/modules/modtypes"
 	"github.com/krisarmstrong/stem/internal/testmaster/dataplane"
@@ -140,7 +139,7 @@ func (e *Executor) Execute(testType string, cfg *modtypes.TestConfig) (*modtypes
 func buildRFC2889Config(cfg *modtypes.TestConfig) *dataplane.RFC2889Config {
 	config := &dataplane.RFC2889Config{
 		FrameSize:         cfg.FrameSize,
-		DurationSec:       safeUint32FromInt(cfg.Duration, 0),
+		DurationSec:       modtypes.SafeIntToUint32(cfg.Duration),
 		WarmupSec:         modtypes.GetUint32Param(cfg.Params, "warmup_sec", defaultRFC2889WarmupSec),
 		AddressCount:      modtypes.GetUint32Param(cfg.Params, "address_count", defaultRFC2889AddressCt),
 		AcceptableLossPct: modtypes.GetFloat64Param(cfg.Params, "acceptable_loss_pct", 0.0),
@@ -165,7 +164,7 @@ func buildRFC6349Config(cfg *modtypes.TestConfig) *dataplane.RFC6349Config {
 		MinRTTMs:        modtypes.GetFloat64Param(cfg.Params, "min_rtt_ms", defaultRFC6349MinRTTMs),
 		MaxRTTMs:        modtypes.GetFloat64Param(cfg.Params, "max_rtt_ms", defaultRFC6349MaxRTTMs),
 		RWNDSize:        modtypes.GetUint32Param(cfg.Params, "rwnd_size", defaultRFC6349RWND),
-		DurationSec:     safeUint32FromInt(cfg.Duration, 0),
+		DurationSec:     modtypes.SafeIntToUint32(cfg.Duration),
 		ParallelStreams: modtypes.GetUint32Param(cfg.Params, "parallel_streams", 1),
 		MSS:             modtypes.GetUint32Param(cfg.Params, "mss", defaultRFC6349MSS),
 		Mode:            modtypes.GetUint32Param(cfg.Params, "mode", 0),
@@ -180,15 +179,15 @@ func buildRFC6349Config(cfg *modtypes.TestConfig) *dataplane.RFC6349Config {
 
 func buildTSNConfig(cfg *modtypes.TestConfig) *dataplane.TSNConfig {
 	config := &dataplane.TSNConfig{
-		DurationSec:       safeUint32FromInt(cfg.Duration, 0),
+		DurationSec:       modtypes.SafeIntToUint32(cfg.Duration),
 		WarmupSec:         modtypes.GetUint32Param(cfg.Params, "warmup_sec", defaultTSNWarmupSec),
 		FrameSize:         cfg.FrameSize,
 		MaxLatencyNs:      modtypes.GetUint32Param(cfg.Params, "max_latency_ns", defaultTSNMaxLatencyNs),
 		MaxJitterNs:       modtypes.GetUint32Param(cfg.Params, "max_jitter_ns", defaultTSNMaxJitterNs),
-		RequirePTPSync:    getBoolParam(cfg.Params, "require_ptp_sync", true), // Match TUI/WebUI.
+		RequirePTPSync:    modtypes.GetBoolParam(cfg.Params, "require_ptp_sync", true), // Match TUI/WebUI.
 		MaxSyncOffsetNs:   modtypes.GetUint32Param(cfg.Params, "max_sync_offset_ns", defaultTSNMaxSyncOffsetNs),
-		PTPEnabled:        getBoolParam(cfg.Params, "ptp_enabled", true), // Match TUI/WebUI.
-		PreemptionEnabled: getBoolParam(cfg.Params, "preemption_enabled", false),
+		PTPEnabled:        modtypes.GetBoolParam(cfg.Params, "ptp_enabled", true), // Match TUI/WebUI.
+		PreemptionEnabled: modtypes.GetBoolParam(cfg.Params, "preemption_enabled", false),
 		NumTrafficClasses: modtypes.GetUint32Param(cfg.Params, "num_traffic_classes", defaultTSNClassCount),
 		BaseTimeNs:        modtypes.GetUint64Param(cfg.Params, "base_time_ns", 0),
 		CycleTimeNs:       modtypes.GetUint32Param(cfg.Params, "cycle_time_ns", defaultTSNCycleTimeNs),
@@ -204,23 +203,4 @@ func buildTSNConfig(cfg *modtypes.TestConfig) *dataplane.TSNConfig {
 	}
 
 	return config
-}
-
-func getBoolParam(params map[string]any, key string, defaultVal bool) bool {
-	if params == nil {
-		return defaultVal
-	}
-	if val, ok := params[key]; ok {
-		if boolVal, okBool := val.(bool); okBool {
-			return boolVal
-		}
-	}
-	return defaultVal
-}
-
-func safeUint32FromInt(value int, fallback uint32) uint32 {
-	if value < 0 || value > math.MaxUint32 {
-		return fallback
-	}
-	return uint32(value)
 }

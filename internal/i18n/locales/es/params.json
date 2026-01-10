@@ -1,0 +1,134 @@
+{
+  "rfc2544": {
+    "frameSizes": {
+      "name": "Frame Sizes",
+      "description": "Ethernet frame sizes en bytes a probar"
+    },
+    "duration": {
+      "name": "Duration",
+      "description": "Duracion de la prueba en segundos"
+    },
+    "resolution": {
+      "name": "Resolution",
+      "description": "Porcentaje de resolucion de binary search"
+    },
+    "maxLoss": {
+      "name": "Max Loss",
+      "description": "Porcentaje maximo aceptable de frame loss"
+    },
+    "warmup": {
+      "name": "Warmup",
+      "description": "Periodo de warmup en segundos antes de las mediciones"
+    },
+    "trials": {
+      "name": "Trials",
+      "description": "Numero de iteraciones de prueba por punto"
+    },
+    "stepSize": {
+      "name": "Step Size",
+      "description": "Step size de tasa para frame loss test"
+    },
+    "bidirectional": {
+      "name": "Bidirectional",
+      "description": "Ejecutar pruebas en ambas direcciones simultaneamente"
+    }
+  },
+  "y1564": {
+    "cir": {
+      "name": "CIR",
+      "description": "Committed Information Rate en Mbps"
+    },
+    "eir": {
+      "name": "EIR",
+      "description": "Excess Information Rate en Mbps"
+    },
+    "cbs": {
+      "name": "CBS",
+      "description": "Committed Burst Size en KB"
+    },
+    "ebs": {
+      "name": "EBS",
+      "description": "Excess Burst Size en KB"
+    },
+    "vlanId": {
+      "name": "VLAN ID",
+      "description": "VLAN identifier para trafico etiquetado (0-4095)"
+    },
+    "pcp": {
+      "name": "PCP",
+      "description": "Priority Code Point para 802.1p CoS (0-7)"
+    },
+    "colorAware": {
+      "name": "Color Aware",
+      "description": "Habilitar color-aware traffic conditioning"
+    },
+    "flrThreshold": {
+      "name": "FLR Threshold",
+      "description": "Frame Loss Ratio acceptance threshold"
+    },
+    "fdThreshold": {
+      "name": "FD Threshold",
+      "description": "Frame Delay acceptance threshold en ms"
+    },
+    "fdvThreshold": {
+      "name": "FDV Threshold",
+      "description": "Frame Delay Variation threshold en ms"
+    }
+  },
+  "tsn": {
+    "maxLatencyNs": {
+      "name": "Max Latency",
+      "description": "Maximum acceptable latency en nanosegundos"
+    },
+    "maxJitterNs": {
+      "name": "Max Jitter",
+      "description": "Maximum acceptable jitter en nanosegundos"
+    },
+    "requirePTPSync": {
+      "name": "Require PTP Sync",
+      "description": "Requerir PTP sync antes de probar"
+    },
+    "baseTimeNs": {
+      "name": "Base Time",
+      "description": "Base time para gate control list en nanosegundos"
+    },
+    "cycleTimeNs": {
+      "name": "Cycle Time",
+      "description": "Gate cycle time en nanosegundos"
+    },
+    "trafficClass": {
+      "name": "Traffic Class",
+      "description": "IEEE 802.1Q traffic class para scheduled traffic"
+    }
+  },
+  "trafficgen": {
+    "ratePct": {
+      "name": "Rate Percent",
+      "description": "Traffic rate como porcentaje de line rate"
+    },
+    "streamId": {
+      "name": "Stream ID",
+      "description": "Unique identifier para traffic stream"
+    },
+    "burstMode": {
+      "name": "Burst Mode",
+      "description": "Habilitar burst traffic mode"
+    },
+    "burstSize": {
+      "name": "Burst Size",
+      "description": "Numero de frames por burst"
+    },
+    "interBurstGapUs": {
+      "name": "Inter-Burst Gap",
+      "description": "Intervalo entre bursts en microsegundos"
+    },
+    "srcMac": {
+      "name": "Source MAC",
+      "description": "Source MAC address para generated frames"
+    },
+    "dstMac": {
+      "name": "Destination MAC",
+      "description": "Destination MAC address para generated frames"
+    }
+  }
+}

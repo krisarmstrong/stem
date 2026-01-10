@@ -4,7 +4,6 @@ package measure
 
 import (
 	"fmt"
-	"math"
 
 	"github.com/krisarmstrong/stem/internal/modules/modtypes"
 	"github.com/krisarmstrong/stem/internal/testmaster/dataplane"
@@ -17,7 +16,7 @@ const (
 	defaultMEPID       = 1
 	defaultMEGLevel    = 4            // Match TUI/WebUI: service level.
 	defaultCCMInterval = 1000         // Match TUI/WebUI: 1000ms (1s).
-	defaultPriority    = 6            // Match TUI/WebUI: priority 6.
+	defaultPriority    = uint8(6)     // Match TUI/WebUI: priority 6.
 	defaultDuration    = 60           // Match TUI/WebUI: 60 seconds.
 	defaultIntervalMs  = 100          // Match TUI/WebUI: 100ms measurement cadence.
 	defaultCount       = 10           // 10 frames per interval.
@@ -108,8 +107,8 @@ func buildY1731Config(cfg *modtypes.TestConfig) *dataplane.Y1731Config {
 		MEGLevel:       modtypes.GetUint32Param(cfg.Params, "meg_level", defaultMEGLevel),
 		MEGID:          modtypes.GetStringParam(cfg.Params, "meg_id", defaultMEGID),
 		CCMInterval:    modtypes.GetUint32Param(cfg.Params, "ccm_interval", defaultCCMInterval),
-		Priority:       clampUint8(modtypes.GetUint32Param(cfg.Params, "priority", defaultPriority)),
-		DurationSec:    safeUint32FromInt(cfg.Duration, 0),
+		Priority:       modtypes.GetUint8Param(cfg.Params, "priority", defaultPriority),
+		DurationSec:    modtypes.SafeIntToUint32(cfg.Duration),
 		IntervalMs:     modtypes.GetUint32Param(cfg.Params, "interval_ms", defaultIntervalMs),
 		Count:          modtypes.GetUint32Param(cfg.Params, "count", defaultCount),
 		FrameSize:      cfg.FrameSize,
@@ -125,18 +124,4 @@ func buildY1731Config(cfg *modtypes.TestConfig) *dataplane.Y1731Config {
 	}
 
 	return config
-}
-
-func safeUint32FromInt(value int, fallback uint32) uint32 {
-	if value < 0 || value > math.MaxUint32 {
-		return fallback
-	}
-	return uint32(value)
-}
-
-func clampUint8(value uint32) uint8 {
-	if value > math.MaxUint8 {
-		return math.MaxUint8
-	}
-	return uint8(value)
 }

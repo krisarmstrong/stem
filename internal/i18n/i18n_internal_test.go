@@ -296,11 +296,14 @@ func TestTFallbackToEnglish(t *testing.T) {
 	// 3. Key exists in English
 	// This tests the fallback branch in T()
 
+	// Ensure messages are loaded
+	loadMessages()
+
 	// Temporarily add a key only to English messages
 	testKey := "test.only.in.english.for.coverage"
 	testValue := "This key only exists in English"
-	englishMessages[testKey] = testValue
-	defer delete(englishMessages, testKey)
+	messages[English][testKey] = testValue
+	defer delete(messages[English], testKey)
 
 	// Set language to Spanish
 	SetLanguage(Spanish)
@@ -317,19 +320,19 @@ func TestTWithCurrentLangMissingKey(t *testing.T) {
 	// Test T when the key exists in current language
 	SetLanguage(English)
 
-	// Use an existing key
-	got := T("app.name")
+	// Use an existing key (now "app.title" in nested JSON)
+	got := T("app.title")
 	if got != "The Stem" {
-		t.Errorf("T(\"app.name\") = %q, want \"The Stem\"", got)
+		t.Errorf("T(\"app.title\") = %q, want \"The Stem\"", got)
 	}
 
 	// Switch to Spanish and test
 	SetLanguage(Spanish)
 	defer SetLanguage(English)
 
-	got = T("app.name")
+	got = T("app.title")
 	if got != "The Stem" {
-		t.Errorf("T(\"app.name\") with Spanish = %q, want \"The Stem\"", got)
+		t.Errorf("T(\"app.title\") with Spanish = %q, want \"The Stem\"", got)
 	}
 }
 

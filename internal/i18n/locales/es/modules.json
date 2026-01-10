@@ -20,15 +20,15 @@
   },
   "benchmark": {
     "title": "Benchmark",
-    "description": "Evaluacion comparativa de red RFC 2544",
+    "description": "Pruebas de red RFC 2544",
     "standard": "RFC 2544",
     "testTypes": {
-      "throughput": "Rendimiento",
-      "latency": "Latencia",
-      "frame_loss": "Perdida de Tramas",
-      "back_to_back": "Consecutivo",
-      "system_recovery": "Recuperacion del Sistema",
-      "reset": "Reinicio"
+      "throughput": "Throughput",
+      "latency": "Latency",
+      "frame_loss": "Frame Loss",
+      "back_to_back": "Back-to-Back",
+      "system_recovery": "System Recovery",
+      "reset": "Reset"
     }
   },
   "servicetest": {
@@ -45,34 +45,34 @@
     }
   },
   "trafficgen": {
-    "title": "Generador de Trafico",
+    "title": "Traffic Generator",
     "description": "Generacion de trafico personalizado",
-    "standard": "Trafico Personalizado",
+    "standard": "Custom Traffic",
     "testTypes": {
-      "custom_stream": "Flujo Personalizado"
+      "custom_stream": "Custom Stream"
     }
   },
   "measure": {
-    "title": "Medicion",
+    "title": "Measure",
     "description": "ITU-T Y.1731 Ethernet OAM",
     "standard": "ITU-T Y.1731",
     "testTypes": {
-      "y1731_delay": "Medicion de Retardo",
-      "y1731_loss": "Medicion de Perdida",
-      "y1731_slm": "Perdida Sintetica",
-      "y1731_loopback": "Bucle"
+      "y1731_delay": "Frame Delay",
+      "y1731_loss": "Frame Loss",
+      "y1731_slm": "Synthetic Loss",
+      "y1731_loopback": "Loopback"
     }
   },
   "certify": {
-    "title": "Certificar",
+    "title": "Certify",
     "description": "Certificacion RFC 2889/6349/TSN",
     "standard": "RFC 2889/6349/TSN",
     "testTypes": {
-      "rfc2889_forwarding": "Reenvio RFC 2889",
-      "rfc2889_congestion": "Congestion RFC 2889",
-      "rfc2889_broadcast": "Difusion RFC 2889",
-      "rfc6349_tcp": "Rendimiento TCP RFC 6349",
-      "tsn_timing": "Sincronizacion TSN"
+      "rfc2889_forwarding": "RFC 2889 Forwarding",
+      "rfc2889_congestion": "RFC 2889 Congestion",
+      "rfc2889_broadcast": "RFC 2889 Broadcast",
+      "rfc6349_tcp": "RFC 6349 TCP Throughput",
+      "tsn_timing": "TSN Timing"
     }
   }
 }

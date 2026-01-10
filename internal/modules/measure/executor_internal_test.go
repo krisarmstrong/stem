@@ -20,111 +20,122 @@ func newTestExecutor() *Executor {
 	}
 }
 
-// TestSafeUint32FromInt tests the safeUint32FromInt helper function.
-func TestSafeUint32FromInt(t *testing.T) {
+// TestModtypesSafeIntToUint32 tests modtypes.SafeIntToUint32 (formerly safeUint32FromInt).
+func TestModtypesSafeIntToUint32(t *testing.T) {
 	tests := []struct {
 		name     string
 		value    int
-		fallback uint32
 		expected uint32
 	}{
 		{
 			name:     "zero value",
 			value:    0,
-			fallback: 100,
 			expected: 0,
 		},
 		{
 			name:     "positive value",
 			value:    60,
-			fallback: 100,
 			expected: 60,
 		},
 		{
 			name:     "max uint32 boundary",
 			value:    math.MaxUint32,
-			fallback: 100,
 			expected: math.MaxUint32,
 		},
 		{
-			name:     "negative value returns fallback",
+			name:     "negative value returns 0",
 			value:    -1,
-			fallback: 100,
-			expected: 100,
+			expected: 0,
 		},
 		{
-			name:     "large negative returns fallback",
+			name:     "large negative returns 0",
 			value:    -1000,
-			fallback: 50,
-			expected: 50,
-		},
-		{
-			name:     "fallback value is zero",
-			value:    -5,
-			fallback: 0,
 			expected: 0,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := safeUint32FromInt(tt.value, tt.fallback)
+			result := modtypes.SafeIntToUint32(tt.value)
 			if result != tt.expected {
-				t.Errorf("safeUint32FromInt(%d, %d) = %d, want %d", tt.value, tt.fallback, result, tt.expected)
+				t.Errorf("modtypes.SafeIntToUint32(%d) = %d, want %d", tt.value, result, tt.expected)
 			}
 		})
 	}
 }
 
-// TestClampUint8 tests the clampUint8 helper function.
-func TestClampUint8(t *testing.T) {
+// TestModtypesGetUint8Param tests modtypes.GetUint8Param (replaces clampUint8).
+func TestModtypesGetUint8Param(t *testing.T) {
 	tests := []struct {
-		name     string
-		value    uint32
-		expected uint8
+		name       string
+		params     map[string]any
+		key        string
+		defaultVal uint8
+		expected   uint8
 	}{
 		{
-			name:     "zero value",
-			value:    0,
-			expected: 0,
+			name:       "zero value",
+			params:     map[string]any{"val": float64(0)},
+			key:        "val",
+			defaultVal: 100,
+			expected:   0,
 		},
 		{
-			name:     "small value",
-			value:    6,
-			expected: 6,
+			name:       "small value",
+			params:     map[string]any{"val": float64(6)},
+			key:        "val",
+			defaultVal: 100,
+			expected:   6,
 		},
 		{
-			name:     "max uint8 boundary",
-			value:    255,
-			expected: 255,
+			name:       "max uint8 boundary",
+			params:     map[string]any{"val": float64(255)},
+			key:        "val",
+			defaultVal: 100,
+			expected:   255,
 		},
 		{
-			name:     "just over max uint8",
-			value:    256,
-			expected: 255,
+			name:       "just over max uint8 returns default",
+			params:     map[string]any{"val": float64(256)},
+			key:        "val",
+			defaultVal: 100,
+			expected:   100,
 		},
 		{
-			name:     "large value clamps to max",
-			value:    1000,
-			expected: 255,
+			name:       "large value returns default",
+			params:     map[string]any{"val": float64(1000)},
+			key:        "val",
+			defaultVal: 50,
+			expected:   50,
 		},
 		{
-			name:     "max uint32 clamps to max uint8",
-			value:    math.MaxUint32,
-			expected: 255,
+			name:       "mid-range value",
+			params:     map[string]any{"val": float64(128)},
+			key:        "val",
+			defaultVal: 100,
+			expected:   128,
 		},
 		{
-			name:     "mid-range value",
-			value:    128,
-			expected: 128,
+			name:       "nil params returns default",
+			params:     nil,
+			key:        "val",
+			defaultVal: 42,
+			expected:   42,
+		},
+		{
+			name:       "missing key returns default",
+			params:     map[string]any{"other": float64(10)},
+			key:        "val",
+			defaultVal: 99,
+			expected:   99,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := clampUint8(tt.value)
+			result := modtypes.GetUint8Param(tt.params, tt.key, tt.defaultVal)
 			if result != tt.expected {
-				t.Errorf("clampUint8(%d) = %d, want %d", tt.value, result, tt.expected)
+				t.Errorf("modtypes.GetUint8Param() = %d, want %d", result, tt.expected)
 			}
 		})
 	}
@@ -372,20 +383,21 @@ func TestBuildY1731ConfigCustomValues(t *testing.T) {
 	}
 }
 
-// TestBuildY1731ConfigPriorityClamping tests priority clamping.
-func TestBuildY1731ConfigPriorityClamping(t *testing.T) {
+// TestBuildY1731ConfigPriorityFallback tests priority fallback for out-of-range values.
+func TestBuildY1731ConfigPriorityFallback(t *testing.T) {
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
 		FrameSize: 64,
 		Duration:  60,
 		Params: map[string]any{
-			"priority": uint32(500), // Exceeds uint8 max
+			"priority": uint32(500), // Exceeds uint8 max, falls back to default
 		},
 	}
 	result := buildY1731Config(cfg)
 
-	if result.Priority != 255 {
-		t.Errorf("Priority = %d, want 255 (clamped)", result.Priority)
+	// Out-of-range values fall back to default priority (6)
+	if result.Priority != defaultPriority {
+		t.Errorf("Priority = %d, want %d (default)", result.Priority, defaultPriority)
 	}
 }
 

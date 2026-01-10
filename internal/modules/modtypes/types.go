@@ -194,3 +194,95 @@ func GetStringParam(params map[string]any, key string, defaultVal string) string
 	}
 	return defaultVal
 }
+
+// GetUint8Param extracts a uint8 parameter from a map with bounds checking.
+func GetUint8Param(params map[string]any, key string, defaultVal uint8) uint8 {
+	if params == nil {
+		return defaultVal
+	}
+	v, ok := params[key]
+	if !ok {
+		return defaultVal
+	}
+	return convertToUint8(v, defaultVal)
+}
+
+// convertToUint8 converts various numeric types to uint8.
+func convertToUint8(v any, defaultVal uint8) uint8 {
+	const maxUint8 = 255
+
+	switch val := v.(type) {
+	case float64:
+		if val >= 0 && val <= maxUint8 {
+			return uint8(val)
+		}
+	case uint8:
+		return val
+	case int:
+		if val >= 0 && val <= maxUint8 {
+			return uint8(val)
+		}
+	case int64:
+		if val >= 0 && val <= maxUint8 {
+			return uint8(val)
+		}
+	case uint32:
+		if val <= maxUint8 {
+			return uint8(val)
+		}
+	}
+	return defaultVal
+}
+
+// GetUint16Param extracts a uint16 parameter from a map with bounds checking.
+func GetUint16Param(params map[string]any, key string, defaultVal uint16) uint16 {
+	if params == nil {
+		return defaultVal
+	}
+	v, ok := params[key]
+	if !ok {
+		return defaultVal
+	}
+	return convertToUint16(v, defaultVal)
+}
+
+// convertToUint16 converts various numeric types to uint16.
+func convertToUint16(v any, defaultVal uint16) uint16 {
+	const maxUint16 = 65535
+
+	switch val := v.(type) {
+	case float64:
+		if val >= 0 && val <= maxUint16 {
+			return uint16(val)
+		}
+	case uint16:
+		return val
+	case int:
+		if val >= 0 && val <= maxUint16 {
+			return uint16(val)
+		}
+	case int64:
+		if val >= 0 && val <= maxUint16 {
+			return uint16(val)
+		}
+	case uint32:
+		if val <= maxUint16 {
+			return uint16(val)
+		}
+	}
+	return defaultVal
+}
+
+// SafeIntToUint32 converts an int to uint32 with bounds checking.
+// Returns 0 for negative values, math.MaxUint32 for overflow.
+func SafeIntToUint32(n int) uint32 {
+	const maxUint32 = 4294967295
+
+	if n < 0 {
+		return 0
+	}
+	if n > maxUint32 {
+		return maxUint32
+	}
+	return uint32(n)
+}
