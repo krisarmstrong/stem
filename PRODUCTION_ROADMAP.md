@@ -1,7 +1,7 @@
 # The Stem - Production Readiness Roadmap
 
 **Created**: 2026-01-05
-**Updated**: 2026-01-06
+**Updated**: 2026-01-10
 **Current Version**: v0.2.3+
 
 ---
@@ -73,6 +73,9 @@
 - [x] #71 - Health check endpoints (/health/live, /health/ready)
 - [x] #73 - Structured JSON logging
 - [x] #76 - Security audit (PASSED)
+- [x] #77 - CSRF protection (double-submit cookie pattern)
+- [x] #78 - First-install setup wizard (password required on initial run)
+- [x] #79 - Password recovery (file-based trigger for headless/SSH access)
 
 **Security Audit Results** (2026-01-06):
 ```
@@ -156,4 +159,4 @@ golangci-lint run ./...
 
 ---
 
-*Last updated: 2026-01-06 (v0.2.3+ - Load tests and production docs complete)*
+*Last updated: 2026-01-10 (v0.2.3+ - CSRF, setup wizard, password recovery complete)*
