@@ -5,7 +5,6 @@ go 1.25.5
 require (
 	github.com/gdamore/tcell/v2 v2.13.5
 	github.com/golang-jwt/jwt/v5 v5.3.0
-	github.com/gorilla/websocket v1.5.3
 	github.com/mattn/go-sqlite3 v1.14.33
 	github.com/prometheus/client_golang v1.23.2
 	github.com/rivo/tview v0.42.0

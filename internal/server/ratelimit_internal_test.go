@@ -110,11 +110,13 @@ func TestTrimSpace(t *testing.T) {
 func TestCleanup(t *testing.T) {
 	t.Run("removes old visitors", func(t *testing.T) {
 		rl := &RateLimiter{
-			visitors: make(map[string]*visitor),
-			mu:       defaultRWMutex(),
-			rate:     rate.Limit(1),
-			burst:    1,
-			done:     make(chan struct{}),
+			visitors:      make(map[string]*visitor),
+			mu:            defaultRWMutex(),
+			rate:          rate.Limit(1),
+			burst:         1,
+			done:          make(chan struct{}),
+			globalLimiter: rate.NewLimiter(1, 1),
+			maxVisitors:   MaxVisitors,
 		}
 
 		// Add visitors with old timestamps.
@@ -149,11 +151,13 @@ func TestCleanup(t *testing.T) {
 
 	t.Run("keeps all recent visitors", func(t *testing.T) {
 		rl := &RateLimiter{
-			visitors: make(map[string]*visitor),
-			mu:       defaultRWMutex(),
-			rate:     rate.Limit(1),
-			burst:    1,
-			done:     make(chan struct{}),
+			visitors:      make(map[string]*visitor),
+			mu:            defaultRWMutex(),
+			rate:          rate.Limit(1),
+			burst:         1,
+			done:          make(chan struct{}),
+			globalLimiter: rate.NewLimiter(1, 1),
+			maxVisitors:   MaxVisitors,
 		}
 
 		// Add multiple recent visitors.
@@ -181,11 +185,13 @@ func TestCleanup(t *testing.T) {
 
 	t.Run("removes all old visitors", func(t *testing.T) {
 		rl := &RateLimiter{
-			visitors: make(map[string]*visitor),
-			mu:       defaultRWMutex(),
-			rate:     rate.Limit(1),
-			burst:    1,
-			done:     make(chan struct{}),
+			visitors:      make(map[string]*visitor),
+			mu:            defaultRWMutex(),
+			rate:          rate.Limit(1),
+			burst:         1,
+			done:          make(chan struct{}),
+			globalLimiter: rate.NewLimiter(1, 1),
+			maxVisitors:   MaxVisitors,
 		}
 
 		// Add multiple old visitors.
@@ -212,11 +218,13 @@ func TestCleanup(t *testing.T) {
 
 	t.Run("handles empty map", func(t *testing.T) {
 		rl := &RateLimiter{
-			visitors: make(map[string]*visitor),
-			mu:       defaultRWMutex(),
-			rate:     rate.Limit(1),
-			burst:    1,
-			done:     make(chan struct{}),
+			visitors:      make(map[string]*visitor),
+			mu:            defaultRWMutex(),
+			rate:          rate.Limit(1),
+			burst:         1,
+			done:          make(chan struct{}),
+			globalLimiter: rate.NewLimiter(1, 1),
+			maxVisitors:   MaxVisitors,
 		}
 
 		// Should not panic on empty map.
@@ -233,11 +241,13 @@ func TestCleanup(t *testing.T) {
 
 	t.Run("boundary condition - exactly at TTL", func(t *testing.T) {
 		rl := &RateLimiter{
-			visitors: make(map[string]*visitor),
-			mu:       defaultRWMutex(),
-			rate:     rate.Limit(1),
-			burst:    1,
-			done:     make(chan struct{}),
+			visitors:      make(map[string]*visitor),
+			mu:            defaultRWMutex(),
+			rate:          rate.Limit(1),
+			burst:         1,
+			done:          make(chan struct{}),
+			globalLimiter: rate.NewLimiter(1, 1),
+			maxVisitors:   MaxVisitors,
 		}
 
 		// Add visitor exactly at TTL boundary.

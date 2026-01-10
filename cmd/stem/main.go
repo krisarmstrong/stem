@@ -362,7 +362,12 @@ func listTestsCmd(args []string) {
 				_, _ = fmt.Fprintf(os.Stdout, "  %-20s %s\n", t, desc)
 			}
 		}
-		_, _ = fmt.Fprintf(os.Stdout, "\nTotal: %d test types across %d categories\n", len(allTestTypes), len(testCategories))
+		_, _ = fmt.Fprintf(
+			os.Stdout,
+			"\nTotal: %d test types across %d categories\n",
+			len(allTestTypes),
+			len(testCategories),
+		)
 		_, _ = fmt.Fprintln(os.Stdout, "\nTip: Use --by-module to see tests grouped by module")
 	}
 }
