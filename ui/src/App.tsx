@@ -33,7 +33,7 @@ import { defaultRFC2544Config, type RFC2544Config } from './components/RFC2544Co
 import { defaultRFC2889Config, type RFC2889Config } from './components/RFC2889ConfigForm';
 import { defaultRFC6349Config, type RFC6349Config } from './components/RFC6349ConfigForm';
 import { RecoveryForm } from './components/recovery/RecoveryForm';
-import { SettingsDrawer } from './components/SettingsDrawer';
+import { type ReflectorProfile, SettingsDrawer } from './components/SettingsDrawer';
 import { SetupWizard } from './components/setup/SetupWizard';
 import { TestProgressBar, useTestProgress } from './components/TestProgressBar';
 import { defaultTrafficGenConfig, type TrafficGenConfig } from './components/TrafficGenConfigForm';
@@ -390,7 +390,7 @@ function AppContent(): ReactElement {
     'rfc2544_frame_loss',
     'rfc2544_back_to_back',
   ]);
-  const [reflectorProfile, setReflectorProfile] = useState<string>('all');
+  const [reflectorProfile, setReflectorProfile] = useState<ReflectorProfile>('all');
   const [isStartingTest, setIsStartingTest] = useState(false);
   const [rfc2544Config, setRFC2544Config] = useState<RFC2544Config>(defaultRFC2544Config);
   const [rfc2889Config, setRFC2889Config] = useState<RFC2889Config>(defaultRFC2889Config);

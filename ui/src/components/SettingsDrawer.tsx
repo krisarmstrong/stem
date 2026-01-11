@@ -1,63 +1,65 @@
+// Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
+
 /**
- * @fileoverview The Stem - Settings Drawer Component
- * @description The main configuration panel for the test suite. Allows users to:
- *              - Select operating mode (Reflector vs Test Master)
- *              - Configure network interfaces
- *              - Select and configure test suites (RFC 2544, Y.1564, RFC 2889, etc.)
- *              - Manage license activation
- * @copyright 2025 Mustard Seed Networks. All rights reserved.
- * @license Proprietary
+ * SettingsDrawer Component
+ *
+ * Main configuration panel for The Stem test suite.
+ * Refactored to use modular section components for maintainability.
+ *
+ * Features:
+ * - Operating mode selection (Reflector / Test Master)
+ * - Network interface selection
+ * - Test suite configuration (RFC 2544, Y.1564, etc.)
+ * - Reflector profile selection
+ * - License management
+ *
+ * Uses theme tokens for consistent styling.
  */
 
-import {
-  Activity,
-  Cpu,
-  Grid,
-  List,
-  Monitor,
-  Network,
-  Radio,
-  Settings2,
-  X,
-  Zap,
-} from 'lucide-react';
-import { useState } from 'react';
+import { Grid, List, X } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useFocusTrap } from '../hooks/useFocusTrap';
-import { CollapsibleSection } from './CollapsibleSection';
-import { HelpIcon } from './HelpIcon';
+import { cn, radius, spacing } from '../styles/theme';
 import { LicenseSection } from './LicenseSection';
 import { ModuleSelector } from './ModuleSelector';
-import { type RFC2544Config, RFC2544ConfigForm } from './RFC2544ConfigForm';
-import { type RFC2889Config, RFC2889ConfigForm } from './RFC2889ConfigForm';
-import { type RFC6349Config, RFC6349ConfigForm } from './RFC6349ConfigForm';
-import { type TrafficGenConfig, TrafficGenConfigForm } from './TrafficGenConfigForm';
-import { type TSNConfig, TSNConfigForm } from './TSNConfigForm';
-import { type Y1564Config, Y1564ConfigForm } from './Y1564ConfigForm';
-import { type Y1731Config, Y1731ConfigForm } from './Y1731ConfigForm';
+import type { RFC2544Config } from './RFC2544ConfigForm';
+import type { RFC2889Config } from './RFC2889ConfigForm';
+import type { RFC6349Config } from './RFC6349ConfigForm';
+import {
+  InterfaceSection,
+  MEFSection,
+  ModeSection,
+  ReflectorSection,
+  RFC2544Section,
+  RFC2889Section,
+  RFC6349Section,
+  TrafficGenSection,
+  TSNSection,
+  Y1564Section,
+  Y1731Section,
+} from './settings';
+import type { InterfaceInfo, OperatingMode, ReflectorProfile } from './settings/types';
+import type { TrafficGenConfig } from './TrafficGenConfigForm';
+import type { TSNConfig } from './TSNConfigForm';
+import type { Y1564Config } from './Y1564ConfigForm';
+import type { Y1731Config } from './Y1731ConfigForm';
 
-interface InterfaceInfo {
-  name: string;
-  mac: string;
-  speed: number;
-  state: string;
-  driver: string;
-  physical: boolean;
-  xdp: boolean;
-  score: number;
-}
+// Re-export types for backwards compatibility
+export type { InterfaceInfo, OperatingMode, ReflectorProfile };
 
 interface SettingsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  mode: 'reflector' | 'test_master';
-  setMode: (mode: 'reflector' | 'test_master') => void;
+  mode: OperatingMode;
+  setMode: (mode: OperatingMode) => void;
   interfaces: InterfaceInfo[];
   selectedInterface: string;
   setSelectedInterface: (iface: string) => void;
   selectedTests: string[];
   setSelectedTests: (tests: string[]) => void;
-  reflectorProfile: string;
-  setReflectorProfile: (profile: string) => void;
+  reflectorProfile: ReflectorProfile;
+  setReflectorProfile: (profile: ReflectorProfile) => void;
   rfc2544Config: RFC2544Config;
   setRFC2544Config: (config: RFC2544Config) => void;
   rfc2889Config: RFC2889Config;
@@ -74,7 +76,8 @@ interface SettingsDrawerProps {
   setTrafficGenConfig: (config: TrafficGenConfig) => void;
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Settings component with many configuration options
+type ViewMode = 'standard' | 'module';
+
 export function SettingsDrawer({
   isOpen,
   onClose,
@@ -102,33 +105,26 @@ export function SettingsDrawer({
   trafficGenConfig,
   setTrafficGenConfig,
 }: SettingsDrawerProps) {
-  const [viewMode, setViewMode] = useState<'standard' | 'module'>('standard');
+  const { t } = useTranslation();
+  const [viewMode, setViewMode] = useState<ViewMode>('standard');
+
   const drawerRef = useFocusTrap<HTMLDivElement>({
     isActive: isOpen,
     onEscape: onClose,
   });
 
+  const toggleTest = useCallback(
+    (testId: string) => {
+      if (selectedTests.includes(testId)) {
+        setSelectedTests(selectedTests.filter((t) => t !== testId));
+      } else {
+        setSelectedTests([...selectedTests, testId]);
+      }
+    },
+    [selectedTests, setSelectedTests],
+  );
+
   if (!isOpen) return null;
-
-  const toggleTest = (test: string) => {
-    if (selectedTests.includes(test)) {
-      setSelectedTests(selectedTests.filter((t) => t !== test));
-    } else {
-      setSelectedTests([...selectedTests, test]);
-    }
-  };
-
-  const maxScore = Math.max(...interfaces.map((i) => i.score), 0);
-
-  // Check which test categories are selected
-  const hasRFC2544 = selectedTests.some((t) => t.startsWith('rfc2544'));
-  const hasY1564 = selectedTests.some((t) => t.startsWith('y1564'));
-  // Note: MEF uses the same config as Y.1564, so no separate hasMEF needed
-  const hasRFC2889 = selectedTests.some((t) => t.startsWith('rfc2889'));
-  const hasRFC6349 = selectedTests.some((t) => t.startsWith('rfc6349'));
-  const hasY1731 = selectedTests.some((t) => t.startsWith('y1731'));
-  const hasTSN = selectedTests.some((t) => t.startsWith('tsn'));
-  const hasTrafficGen = selectedTests.some((t) => t.includes('stream') || t.includes('trafficgen'));
 
   return (
     <>
@@ -137,7 +133,7 @@ export function SettingsDrawer({
         type="button"
         className="fixed inset-0 bg-black/50 z-40 cursor-default"
         onClick={onClose}
-        aria-label="Close settings drawer"
+        aria-label={t('accessibility.closeSettings', 'Close settings drawer')}
       />
 
       {/* Drawer */}
@@ -145,806 +141,168 @@ export function SettingsDrawer({
         ref={drawerRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Settings"
-        className="fixed right-0 top-0 h-full w-96 max-w-full bg-[var(--color-surface-raised)] border-l border-[var(--color-surface-border)] z-50 overflow-y-auto"
+        aria-label={t('settings.title', 'Settings')}
+        className="fixed right-0 top-0 h-full w-96 max-w-full bg-surface-raised border-l border-surface-border z-50 overflow-y-auto"
       >
         {/* Header */}
-        <div className="sticky top-0 bg-[var(--color-surface-raised)] border-b border-[var(--color-surface-border)] px-4 py-3 flex items-center justify-between">
-          <h2 className="heading-3 text-text-primary">Settings</h2>
+        <div className="sticky top-0 bg-surface-raised border-b border-surface-border px-4 py-3 flex items-center justify-between">
+          <h2 className="heading-3 text-text-primary">{t('settings.title', 'Settings')}</h2>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 hover:bg-[var(--color-surface-hover)] rounded-lg transition-colors"
-            aria-label="Close settings"
+            className={cn(spacing.pad.sm, 'hover:bg-surface-hover', radius.lg, 'transition-colors')}
+            aria-label={t('accessibility.closeSettings', 'Close settings')}
           >
-            <X className="w-5 h-5 text-[var(--color-text-muted)]" aria-hidden="true" />
+            <X className="w-5 h-5 text-text-muted" aria-hidden="true" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-4 space-y-4">
+        <div className={cn(spacing.pad.default, 'space-y-4')}>
           {/* License Section */}
           <LicenseSection />
 
           {/* Mode Selection */}
-          <CollapsibleSection
-            title={
-              <div className="flex items-center gap-2">
-                <Monitor className="w-4 h-4" />
-                <span>Mode</span>
-              </div>
-            }
-            defaultOpen={true}
-          >
-            <div className="space-y-2">
-              <label className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]">
-                <input
-                  type="radio"
-                  name="mode"
-                  checked={mode === 'reflector'}
-                  onChange={() => setMode('reflector')}
-                  className="w-4 h-4 accent-[var(--color-brand-primary)]"
-                />
-                <div>
-                  <div className="font-medium text-sm">Reflector Mode</div>
-                  <div className="text-xs text-[var(--color-text-muted)]">
-                    Packet reflection (Tier 1)
-                  </div>
-                </div>
-              </label>
-              <label className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]">
-                <input
-                  type="radio"
-                  name="mode"
-                  checked={mode === 'test_master'}
-                  onChange={() => setMode('test_master')}
-                  className="w-4 h-4 accent-[var(--color-brand-primary)]"
-                />
-                <div>
-                  <div className="font-medium text-sm">Test Master Mode</div>
-                  <div className="text-xs text-[var(--color-text-muted)]">
-                    Network testing (Tier 2)
-                  </div>
-                </div>
-              </label>
-            </div>
-          </CollapsibleSection>
+          <ModeSection mode={mode} onModeChange={setMode} />
 
           {/* Interface Selection */}
-          <CollapsibleSection
-            title={
-              <div className="flex items-center gap-2">
-                <Network className="w-4 h-4" />
-                <span>Interface</span>
-              </div>
-            }
-            defaultOpen={true}
-          >
-            <div className="space-y-3">
-              <select
-                value={selectedInterface}
-                onChange={(e) => setSelectedInterface(e.target.value)}
-                className="w-full"
-              >
-                {interfaces.map((iface) => (
-                  <option key={iface.name} value={iface.name}>
-                    {iface.name} ({iface.speed}Mbps)
-                    {iface.score === maxScore && ' ★'}
-                  </option>
-                ))}
-              </select>
-              {interfaces.find((i) => i.name === selectedInterface) && (
-                <div className="text-xs text-[var(--color-text-muted)] space-y-1">
-                  <div>Driver: {interfaces.find((i) => i.name === selectedInterface)?.driver}</div>
-                  <div className="flex gap-2">
-                    {interfaces.find((i) => i.name === selectedInterface)?.xdp && (
-                      <span className="status-badge success">XDP</span>
-                    )}
-                    {interfaces.find((i) => i.name === selectedInterface)?.physical && (
-                      <span className="status-badge success">Physical</span>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </CollapsibleSection>
+          <InterfaceSection
+            interfaces={interfaces}
+            selectedInterface={selectedInterface}
+            onInterfaceChange={setSelectedInterface}
+          />
 
-          {/* Test Master Tests */}
+          {/* Test Master Mode */}
           {mode === 'test_master' && (
             <>
               {/* View Toggle */}
-              <div className="flex items-center justify-between p-2 bg-[var(--color-surface-base)] rounded-lg mb-2">
-                <span className="text-sm text-[var(--color-text-muted)]">View by:</span>
-                <div className="flex rounded-lg overflow-hidden border border-[var(--color-surface-border)]">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('standard')}
-                    className={`flex items-center gap-1 px-3 py-1.5 text-xs ${
-                      viewMode === 'standard'
-                        ? 'bg-[var(--color-brand-primary)] text-white'
-                        : 'bg-[var(--color-surface-raised)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]'
-                    }`}
-                  >
-                    <List className="w-3 h-3" />
-                    Standard
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('module')}
-                    className={`flex items-center gap-1 px-3 py-1.5 text-xs ${
-                      viewMode === 'module'
-                        ? 'bg-[var(--color-brand-primary)] text-white'
-                        : 'bg-[var(--color-surface-raised)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]'
-                    }`}
-                  >
-                    <Grid className="w-3 h-3" />
-                    Module
-                  </button>
-                </div>
-              </div>
+              <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
 
               {/* Module View */}
               {viewMode === 'module' && (
                 <ModuleSelector selectedTests={selectedTests} setSelectedTests={setSelectedTests} />
               )}
 
-              {/* Standard View - Tests with embedded configuration */}
+              {/* Standard View - Tests by Standard */}
               {viewMode === 'standard' && (
                 <>
-                  {/* RFC 2544 Tests */}
-                  <CollapsibleSection
-                    title={
-                      <div className="flex items-center gap-2">
-                        <Zap className="w-4 h-4" />
-                        <span>RFC 2544 Tests</span>
-                        <span className="text-xs text-[var(--color-text-muted)]">
-                          ({selectedTests.filter((t) => t.startsWith('rfc2544')).length}/6)
-                        </span>
-                      </div>
-                    }
-                  >
-                    <div className="space-y-4">
-                      {/* Test Selection */}
-                      <div className="space-y-2">
-                        {[
-                          {
-                            id: 'rfc2544_throughput',
-                            name: 'Throughput',
-                            desc: 'Max rate with 0% loss',
-                            tooltip:
-                              'Find the maximum rate at which the DUT can forward frames with zero packet loss using binary search.',
-                          },
-                          {
-                            id: 'rfc2544_latency',
-                            name: 'Latency',
-                            desc: 'Round-trip time',
-                            tooltip:
-                              'Measure round-trip packet delay at various loads and frame sizes.',
-                          },
-                          {
-                            id: 'rfc2544_frame_loss',
-                            name: 'Frame Loss',
-                            desc: 'Loss vs offered load',
-                            tooltip:
-                              'Measure packet loss percentage across different offered load levels.',
-                          },
-                          {
-                            id: 'rfc2544_back_to_back',
-                            name: 'Back-to-Back',
-                            desc: 'Burst capacity',
-                            tooltip:
-                              'Test maximum burst capacity - how many frames at line rate before drops occur.',
-                          },
-                          {
-                            id: 'rfc2544_system_recovery',
-                            name: 'System Recovery',
-                            desc: 'Recovery after overload',
-                            tooltip:
-                              'Measure time to recover normal forwarding after sustained overload condition.',
-                          },
-                          {
-                            id: 'rfc2544_reset',
-                            name: 'Reset',
-                            desc: 'Device reset recovery',
-                            tooltip:
-                              'Measure time from device restart to when it resumes forwarding traffic.',
-                          },
-                        ].map((test) => (
-                          <label
-                            key={test.id}
-                            className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedTests.includes(test.id)}
-                              onChange={() => toggleTest(test.id)}
-                              className="mt-0.5 w-4 h-4 accent-[var(--color-brand-primary)]"
-                            />
-                            <div className="flex-1">
-                              <div className="font-medium text-sm flex items-center gap-1">
-                                {test.name}
-                                <HelpIcon tooltip={test.tooltip} />
-                              </div>
-                              <div className="text-xs text-[var(--color-text-muted)]">
-                                {test.desc}
-                              </div>
-                            </div>
-                          </label>
-                        ))}
-                      </div>
+                  <RFC2544Section
+                    selectedTests={selectedTests}
+                    onToggleTest={toggleTest}
+                    config={rfc2544Config}
+                    onConfigChange={setRFC2544Config}
+                  />
 
-                      {/* RFC 2544 Configuration - Embedded */}
-                      {hasRFC2544 && (
-                        <div className="border-t border-[var(--color-surface-border)] pt-4">
-                          <RFC2544ConfigForm
-                            config={rfc2544Config}
-                            setConfig={setRFC2544Config}
-                            selectedTests={selectedTests}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </CollapsibleSection>
+                  <Y1564Section
+                    selectedTests={selectedTests}
+                    onToggleTest={toggleTest}
+                    config={y1564Config}
+                    onConfigChange={setY1564Config}
+                  />
 
-                  {/* Y.1564 Tests */}
-                  <CollapsibleSection
-                    title={
-                      <div className="flex items-center gap-2">
-                        <Activity className="w-4 h-4" />
-                        <span>Y.1564 / EtherSAM</span>
-                        <span className="text-xs text-[var(--color-text-muted)]">
-                          ({selectedTests.filter((t) => t.startsWith('y1564')).length}/3)
-                        </span>
-                      </div>
-                    }
-                  >
-                    <div className="space-y-4">
-                      {/* Test Selection */}
-                      <div className="space-y-2">
-                        {[
-                          {
-                            id: 'y1564_config',
-                            name: 'Configuration Test',
-                            desc: 'Service config validation',
-                            tooltip:
-                              'Validate service at step loads (25%, 50%, 75%, 100% of CIR) with quick pass/fail.',
-                          },
-                          {
-                            id: 'y1564_perf',
-                            name: 'Performance Test',
-                            desc: 'Sustained 15+ min test',
-                            tooltip:
-                              'Extended duration test at full CIR to verify SLA compliance over time.',
-                          },
-                          {
-                            id: 'y1564_full',
-                            name: 'Full Test',
-                            desc: 'Both config and perf',
-                            tooltip:
-                              'Complete Service Activation Test combining both configuration and performance phases.',
-                          },
-                        ].map((test) => (
-                          <label
-                            key={test.id}
-                            className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedTests.includes(test.id)}
-                              onChange={() => toggleTest(test.id)}
-                              className="mt-0.5 w-4 h-4 accent-[var(--color-brand-primary)]"
-                            />
-                            <div className="flex-1">
-                              <div className="font-medium text-sm flex items-center gap-1">
-                                {test.name}
-                                <HelpIcon tooltip={test.tooltip} />
-                              </div>
-                              <div className="text-xs text-[var(--color-text-muted)]">
-                                {test.desc}
-                              </div>
-                            </div>
-                          </label>
-                        ))}
-                      </div>
+                  <RFC2889Section
+                    selectedTests={selectedTests}
+                    onToggleTest={toggleTest}
+                    config={rfc2889Config}
+                    onConfigChange={setRFC2889Config}
+                  />
 
-                      {/* Y.1564 Configuration - Embedded */}
-                      {hasY1564 && (
-                        <div className="border-t border-[var(--color-surface-border)] pt-4">
-                          <Y1564ConfigForm
-                            config={y1564Config}
-                            setConfig={setY1564Config}
-                            selectedTests={selectedTests}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </CollapsibleSection>
+                  <RFC6349Section
+                    selectedTests={selectedTests}
+                    onToggleTest={toggleTest}
+                    config={rfc6349Config}
+                    onConfigChange={setRFC6349Config}
+                  />
 
-                  {/* RFC 2889 Tests */}
-                  <CollapsibleSection
-                    title={
-                      <div className="flex items-center gap-2">
-                        <Cpu className="w-4 h-4" />
-                        <span>RFC 2889 LAN Switch</span>
-                        <span className="text-xs text-[var(--color-text-muted)]">
-                          ({selectedTests.filter((t) => t.startsWith('rfc2889')).length}/5)
-                        </span>
-                      </div>
-                    }
-                  >
-                    <div className="space-y-4">
-                      {/* Test Selection */}
-                      <div className="space-y-2">
-                        {[
-                          {
-                            id: 'rfc2889_forwarding',
-                            name: 'Forwarding Rate',
-                            desc: 'Switch forwarding capacity',
-                            tooltip:
-                              'Measure aggregate forwarding rate across all ports of a LAN switch.',
-                          },
-                          {
-                            id: 'rfc2889_caching',
-                            name: 'Address Caching',
-                            desc: 'MAC table capacity',
-                            tooltip:
-                              'Determine maximum number of MAC addresses the switch can learn and forward.',
-                          },
-                          {
-                            id: 'rfc2889_learning',
-                            name: 'Address Learning',
-                            desc: 'Learning rate',
-                            tooltip: 'Measure how quickly the switch learns new MAC addresses.',
-                          },
-                          {
-                            id: 'rfc2889_broadcast',
-                            name: 'Broadcast',
-                            desc: 'Broadcast forwarding',
-                            tooltip: 'Test how the switch handles broadcast traffic flooding.',
-                          },
-                          {
-                            id: 'rfc2889_congestion',
-                            name: 'Congestion Control',
-                            desc: 'Backpressure handling',
-                            tooltip: 'Verify backpressure and flow control under congestion.',
-                          },
-                        ].map((test) => (
-                          <label
-                            key={test.id}
-                            className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedTests.includes(test.id)}
-                              onChange={() => toggleTest(test.id)}
-                              className="mt-0.5 w-4 h-4 accent-[var(--color-brand-primary)]"
-                            />
-                            <div className="flex-1">
-                              <div className="font-medium text-sm flex items-center gap-1">
-                                {test.name}
-                                <HelpIcon tooltip={test.tooltip} />
-                              </div>
-                              <div className="text-xs text-[var(--color-text-muted)]">
-                                {test.desc}
-                              </div>
-                            </div>
-                          </label>
-                        ))}
-                      </div>
+                  <Y1731Section
+                    selectedTests={selectedTests}
+                    onToggleTest={toggleTest}
+                    config={y1731Config}
+                    onConfigChange={setY1731Config}
+                  />
 
-                      {/* RFC 2889 Configuration - Embedded */}
-                      {hasRFC2889 && (
-                        <div className="border-t border-[var(--color-surface-border)] pt-4">
-                          <RFC2889ConfigForm
-                            config={rfc2889Config}
-                            setConfig={setRFC2889Config}
-                            selectedTests={selectedTests}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </CollapsibleSection>
+                  <MEFSection selectedTests={selectedTests} onToggleTest={toggleTest} />
 
-                  {/* RFC 6349 Tests */}
-                  <CollapsibleSection
-                    title={
-                      <div className="flex items-center gap-2">
-                        <Activity className="w-4 h-4" />
-                        <span>RFC 6349 TCP</span>
-                        <span className="text-xs text-[var(--color-text-muted)]">
-                          ({selectedTests.filter((t) => t.startsWith('rfc6349')).length}/2)
-                        </span>
-                      </div>
-                    }
-                  >
-                    <div className="space-y-4">
-                      {/* Test Selection */}
-                      <div className="space-y-2">
-                        {[
-                          {
-                            id: 'rfc6349_throughput',
-                            name: 'TCP Throughput',
-                            desc: 'BDP analysis',
-                            tooltip:
-                              'Measure real TCP performance with Bandwidth-Delay Product optimization.',
-                          },
-                          {
-                            id: 'rfc6349_path',
-                            name: 'Path Analysis',
-                            desc: 'RTT/Bandwidth',
-                            tooltip:
-                              'Characterize network path properties including RTT, loss, and capacity.',
-                          },
-                        ].map((test) => (
-                          <label
-                            key={test.id}
-                            className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedTests.includes(test.id)}
-                              onChange={() => toggleTest(test.id)}
-                              className="mt-0.5 w-4 h-4 accent-[var(--color-brand-primary)]"
-                            />
-                            <div className="flex-1">
-                              <div className="font-medium text-sm flex items-center gap-1">
-                                {test.name}
-                                <HelpIcon tooltip={test.tooltip} />
-                              </div>
-                              <div className="text-xs text-[var(--color-text-muted)]">
-                                {test.desc}
-                              </div>
-                            </div>
-                          </label>
-                        ))}
-                      </div>
+                  <TSNSection
+                    selectedTests={selectedTests}
+                    onToggleTest={toggleTest}
+                    config={tsnConfig}
+                    onConfigChange={setTSNConfig}
+                  />
 
-                      {/* RFC 6349 Configuration - Embedded */}
-                      {hasRFC6349 && (
-                        <div className="border-t border-[var(--color-surface-border)] pt-4">
-                          <RFC6349ConfigForm
-                            config={rfc6349Config}
-                            setConfig={setRFC6349Config}
-                            selectedTests={selectedTests}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </CollapsibleSection>
-
-                  {/* Y.1731 Tests */}
-                  <CollapsibleSection
-                    title={
-                      <div className="flex items-center gap-2">
-                        <Radio className="w-4 h-4" />
-                        <span>Y.1731 OAM</span>
-                        <span className="text-xs text-[var(--color-text-muted)]">
-                          ({selectedTests.filter((t) => t.startsWith('y1731')).length}/4)
-                        </span>
-                      </div>
-                    }
-                  >
-                    <div className="space-y-4">
-                      {/* Test Selection */}
-                      <div className="space-y-2">
-                        {[
-                          {
-                            id: 'y1731_delay',
-                            name: 'Delay (DMM/DMR)',
-                            desc: 'Frame delay measurement',
-                            tooltip:
-                              'Measure one-way and two-way frame delay using DMM/DMR OAM messages.',
-                          },
-                          {
-                            id: 'y1731_loss',
-                            name: 'Loss (LMM/LMR)',
-                            desc: 'Frame loss measurement',
-                            tooltip: 'Measure frame loss ratio using LMM/LMR OAM messages.',
-                          },
-                          {
-                            id: 'y1731_slm',
-                            name: 'Synthetic Loss',
-                            desc: 'SLM measurement',
-                            tooltip: 'Synthetic loss measurement using SLM/SLR frames.',
-                          },
-                          {
-                            id: 'y1731_loopback',
-                            name: 'Loopback',
-                            desc: 'LBM/LBR test',
-                            tooltip: 'Verify connectivity using OAM loopback messages (LBM/LBR).',
-                          },
-                        ].map((test) => (
-                          <label
-                            key={test.id}
-                            className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedTests.includes(test.id)}
-                              onChange={() => toggleTest(test.id)}
-                              className="mt-0.5 w-4 h-4 accent-[var(--color-brand-primary)]"
-                            />
-                            <div className="flex-1">
-                              <div className="font-medium text-sm flex items-center gap-1">
-                                {test.name}
-                                <HelpIcon tooltip={test.tooltip} />
-                              </div>
-                              <div className="text-xs text-[var(--color-text-muted)]">
-                                {test.desc}
-                              </div>
-                            </div>
-                          </label>
-                        ))}
-                      </div>
-
-                      {/* Y.1731 Configuration - Embedded */}
-                      {hasY1731 && (
-                        <div className="border-t border-[var(--color-surface-border)] pt-4">
-                          <Y1731ConfigForm
-                            config={y1731Config}
-                            setConfig={setY1731Config}
-                            selectedTests={selectedTests}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </CollapsibleSection>
-
-                  {/* MEF Tests */}
-                  <CollapsibleSection
-                    title={
-                      <div className="flex items-center gap-2">
-                        <Settings2 className="w-4 h-4" />
-                        <span>MEF Service</span>
-                        <span className="text-xs text-[var(--color-text-muted)]">
-                          ({selectedTests.filter((t) => t.startsWith('mef')).length}/3)
-                        </span>
-                      </div>
-                    }
-                  >
-                    <div className="space-y-2">
-                      {[
-                        {
-                          id: 'mef_config',
-                          name: 'Configuration',
-                          desc: 'Service step test',
-                          tooltip:
-                            'MEF service configuration test - validates service at step loads.',
-                        },
-                        {
-                          id: 'mef_perf',
-                          name: 'Performance',
-                          desc: 'Sustained test',
-                          tooltip:
-                            'MEF service performance test - verifies SLA compliance over time.',
-                        },
-                        {
-                          id: 'mef_full',
-                          name: 'Full Test',
-                          desc: 'Both phases',
-                          tooltip:
-                            'Complete MEF validation including both configuration and performance.',
-                        },
-                      ].map((test) => (
-                        <label
-                          key={test.id}
-                          className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedTests.includes(test.id)}
-                            onChange={() => toggleTest(test.id)}
-                            className="mt-0.5 w-4 h-4 accent-[var(--color-brand-primary)]"
-                          />
-                          <div className="flex-1">
-                            <div className="font-medium text-sm flex items-center gap-1">
-                              {test.name}
-                              <HelpIcon tooltip={test.tooltip} />
-                            </div>
-                            <div className="text-xs text-[var(--color-text-muted)]">
-                              {test.desc}
-                            </div>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                    {/* MEF uses same config as Y.1564 */}
-                  </CollapsibleSection>
-
-                  {/* TSN Tests */}
-                  <CollapsibleSection
-                    title={
-                      <div className="flex items-center gap-2">
-                        <Cpu className="w-4 h-4" />
-                        <span>TSN 802.1Qbv</span>
-                        <span className="text-xs text-[var(--color-text-muted)]">
-                          ({selectedTests.filter((t) => t.startsWith('tsn')).length}/4)
-                        </span>
-                      </div>
-                    }
-                  >
-                    <div className="space-y-4">
-                      {/* Test Selection */}
-                      <div className="space-y-2">
-                        {[
-                          {
-                            id: 'tsn_timing',
-                            name: 'Gate Timing',
-                            desc: 'GCL accuracy',
-                            tooltip:
-                              'Verify Time-Aware Shaper (TAS) gate control list timing accuracy.',
-                          },
-                          {
-                            id: 'tsn_isolation',
-                            name: 'Traffic Isolation',
-                            desc: 'Class isolation',
-                            tooltip: 'Verify traffic class separation and priority enforcement.',
-                          },
-                          {
-                            id: 'tsn_latency',
-                            name: 'Scheduled Latency',
-                            desc: 'Deterministic delay',
-                            tooltip: 'Measure deterministic latency for scheduled traffic flows.',
-                          },
-                          {
-                            id: 'tsn_full',
-                            name: 'Full Suite',
-                            desc: 'All TSN tests',
-                            tooltip:
-                              'Complete TSN validation including timing, isolation, and latency.',
-                          },
-                        ].map((test) => (
-                          <label
-                            key={test.id}
-                            className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedTests.includes(test.id)}
-                              onChange={() => toggleTest(test.id)}
-                              className="mt-0.5 w-4 h-4 accent-[var(--color-brand-primary)]"
-                            />
-                            <div className="flex-1">
-                              <div className="font-medium text-sm flex items-center gap-1">
-                                {test.name}
-                                <HelpIcon tooltip={test.tooltip} />
-                              </div>
-                              <div className="text-xs text-[var(--color-text-muted)]">
-                                {test.desc}
-                              </div>
-                            </div>
-                          </label>
-                        ))}
-                      </div>
-
-                      {/* TSN Configuration - Embedded */}
-                      {hasTSN && (
-                        <div className="border-t border-[var(--color-surface-border)] pt-4">
-                          <TSNConfigForm
-                            config={tsnConfig}
-                            setConfig={setTSNConfig}
-                            selectedTests={selectedTests}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </CollapsibleSection>
-
-                  {/* Traffic Generator Tests */}
-                  <CollapsibleSection
-                    title={
-                      <div className="flex items-center gap-2">
-                        <Radio className="w-4 h-4" />
-                        <span>Traffic Generator</span>
-                      </div>
-                    }
-                  >
-                    <div className="space-y-4">
-                      {/* Test Selection */}
-                      <div className="space-y-2">
-                        {[
-                          {
-                            id: 'custom_stream',
-                            name: 'Custom Stream',
-                            desc: 'Configurable traffic',
-                            tooltip:
-                              'Generate custom traffic patterns with configurable frame size, rate, and duration.',
-                          },
-                          {
-                            id: 'trafficgen_burst',
-                            name: 'Burst Mode',
-                            desc: 'Burst traffic generation',
-                            tooltip: 'Generate burst traffic with configurable burst size and gap.',
-                          },
-                          {
-                            id: 'trafficgen_multistream',
-                            name: 'Multi-Stream',
-                            desc: 'Multiple traffic streams',
-                            tooltip:
-                              'Generate multiple concurrent traffic streams with different parameters.',
-                          },
-                        ].map((test) => (
-                          <label
-                            key={test.id}
-                            className="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedTests.includes(test.id)}
-                              onChange={() => toggleTest(test.id)}
-                              className="mt-0.5 w-4 h-4 accent-[var(--color-brand-primary)]"
-                            />
-                            <div className="flex-1">
-                              <div className="font-medium text-sm flex items-center gap-1">
-                                {test.name}
-                                <HelpIcon tooltip={test.tooltip} />
-                              </div>
-                              <div className="text-xs text-[var(--color-text-muted)]">
-                                {test.desc}
-                              </div>
-                            </div>
-                          </label>
-                        ))}
-                      </div>
-
-                      {/* Traffic Generator Configuration - Embedded */}
-                      {hasTrafficGen && (
-                        <div className="border-t border-[var(--color-surface-border)] pt-4">
-                          <TrafficGenConfigForm
-                            config={trafficGenConfig}
-                            setConfig={setTrafficGenConfig}
-                            selectedTests={selectedTests}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </CollapsibleSection>
+                  <TrafficGenSection
+                    selectedTests={selectedTests}
+                    onToggleTest={toggleTest}
+                    config={trafficGenConfig}
+                    onConfigChange={setTrafficGenConfig}
+                  />
                 </>
               )}
             </>
           )}
 
-          {/* Reflector Config */}
+          {/* Reflector Mode */}
           {mode === 'reflector' && (
-            <CollapsibleSection
-              title={
-                <div className="flex items-center gap-2">
-                  <Settings2 className="w-4 h-4" />
-                  <span>Reflector Profile</span>
-                </div>
-              }
-              defaultOpen={true}
-            >
-              <div className="space-y-2">
-                {[
-                  { id: 'netally', name: 'NetAlly', desc: 'ITO signatures only' },
-                  { id: 'msn', name: 'MSN', desc: 'Mustard Seed signatures' },
-                  { id: 'all', name: 'All', desc: 'All signature types' },
-                  { id: 'custom', name: 'Custom', desc: 'Manual configuration' },
-                ].map((profile) => (
-                  <label
-                    key={profile.id}
-                    className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]"
-                  >
-                    <input
-                      type="radio"
-                      name="profile"
-                      checked={reflectorProfile === profile.id}
-                      onChange={() => setReflectorProfile(profile.id)}
-                      className="w-4 h-4 accent-[var(--color-brand-primary)]"
-                    />
-                    <div>
-                      <div className="font-medium text-sm">{profile.name}</div>
-                      <div className="text-xs text-[var(--color-text-muted)]">{profile.desc}</div>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </CollapsibleSection>
+            <ReflectorSection profile={reflectorProfile} onProfileChange={setReflectorProfile} />
           )}
         </div>
       </div>
     </>
+  );
+}
+
+// =============================================================================
+// View Toggle Sub-component
+// =============================================================================
+
+interface ViewToggleProps {
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
+}
+
+function ViewToggle({ viewMode, onViewModeChange }: ViewToggleProps) {
+  const { t } = useTranslation();
+
+  return (
+    <div
+      className={cn(
+        'flex items-center justify-between',
+        spacing.pad.sm,
+        'bg-surface-base',
+        radius.lg,
+        'mb-2',
+      )}
+    >
+      <span className="body-small text-text-muted">{t('settings.viewBy', 'View by')}:</span>
+      <div className={cn('flex', radius.lg, 'overflow-hidden border border-surface-border')}>
+        <button
+          type="button"
+          onClick={() => onViewModeChange('standard')}
+          className={cn(
+            'flex items-center gap-1 px-3 py-1.5 caption',
+            viewMode === 'standard'
+              ? 'bg-brand-primary text-text-inverse'
+              : 'bg-surface-raised text-text-muted hover:bg-surface-hover',
+          )}
+        >
+          <List className="w-3 h-3" aria-hidden="true" />
+          {t('settings.viewStandard', 'Standard')}
+        </button>
+        <button
+          type="button"
+          onClick={() => onViewModeChange('module')}
+          className={cn(
+            'flex items-center gap-1 px-3 py-1.5 caption',
+            viewMode === 'module'
+              ? 'bg-brand-primary text-text-inverse'
+              : 'bg-surface-raised text-text-muted hover:bg-surface-hover',
+          )}
+        >
+          <Grid className="w-3 h-3" aria-hidden="true" />
+          {t('settings.viewModule', 'Module')}
+        </button>
+      </div>
+    </div>
   );
 }
 
