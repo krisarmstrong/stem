@@ -26,6 +26,7 @@ import enErrors from '@locales/en/errors.json';
 import enModules from '@locales/en/modules.json';
 import enParams from '@locales/en/params.json';
 import enSettings from '@locales/en/settings.json';
+import enSetup from '@locales/en/setup.json';
 // Import Spanish translations
 import esCli from '@locales/es/cli.json';
 import esCommon from '@locales/es/common.json';
@@ -33,6 +34,7 @@ import esErrors from '@locales/es/errors.json';
 import esModules from '@locales/es/modules.json';
 import esParams from '@locales/es/params.json';
 import esSettings from '@locales/es/settings.json';
+import esSetup from '@locales/es/setup.json';
 import i18n from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import { initReactI18next } from 'react-i18next';
@@ -50,7 +52,15 @@ export type LanguageCode = (typeof languages)[number]['code'];
 /**
  * Translation namespaces.
  */
-export const namespaces = ['common', 'errors', 'modules', 'settings', 'cli', 'params'] as const;
+export const namespaces = [
+  'common',
+  'errors',
+  'modules',
+  'settings',
+  'setup',
+  'cli',
+  'params',
+] as const;
 
 export type Namespace = (typeof namespaces)[number];
 
@@ -68,6 +78,7 @@ const resources = {
     errors: enErrors,
     modules: enModules,
     settings: enSettings,
+    setup: enSetup,
     cli: enCli,
     params: enParams,
   },
@@ -76,6 +87,7 @@ const resources = {
     errors: esErrors,
     modules: esModules,
     settings: esSettings,
+    setup: esSetup,
     cli: esCli,
     params: esParams,
   },

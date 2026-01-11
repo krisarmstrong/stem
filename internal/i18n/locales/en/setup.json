@@ -1,0 +1,45 @@
+{
+  "welcome": {
+    "title": "Welcome to The Stem",
+    "subtitle": "Set up your admin password to get started"
+  },
+  "username": {
+    "label": "Username:",
+    "description": "This is your admin username for The Stem."
+  },
+  "password": {
+    "chooseMethod": "Choose password method",
+    "custom": {
+      "title": "Create my own password",
+      "description": "Enter a custom password of your choice."
+    },
+    "generated": {
+      "title": "Use generated password",
+      "description": "Use a secure random password (save it somewhere safe!).",
+      "saveWarning": "Save this password securely - you won't see it again!"
+    },
+    "label": "Password",
+    "minLength": "Minimum {{count}} characters",
+    "placeholder": "Enter password",
+    "confirm": {
+      "label": "Confirm Password",
+      "placeholder": "Confirm password"
+    }
+  },
+  "buttons": {
+    "copy": "Copy",
+    "copied": "Copied!",
+    "settingUp": "Setting up...",
+    "completeSetup": "Complete Setup"
+  },
+  "errors": {
+    "passwordTooShort": "Password must be at least {{count}} characters",
+    "passwordMismatch": "Passwords do not match",
+    "setupFailed": "Setup failed",
+    "loginFailed": "Setup complete but login failed. Please sign in manually.",
+    "networkError": "Unable to reach server. Please try again."
+  },
+  "footer": {
+    "copyright": "© {{year}} Mustard Seed Networks. All rights reserved."
+  }
+}

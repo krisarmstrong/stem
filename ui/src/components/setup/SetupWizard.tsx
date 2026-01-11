@@ -8,6 +8,7 @@
 import { Activity, Copy, Eye, EyeOff, Lock, Zap } from 'lucide-react';
 import type { FormEvent, ReactElement } from 'react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 /** Minimum password length (matches backend validation) */
 const MIN_PASSWORD_LENGTH = 12;
@@ -39,6 +40,7 @@ export function SetupWizard({
   username = 'admin',
   setupToken,
 }: SetupWizardProps): ReactElement {
+  const { t } = useTranslation('setup');
   const [passwordMode, setPasswordMode] = useState<'generated' | 'custom'>('custom');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -82,12 +84,12 @@ export function SetupWizard({
     setError(null);
 
     if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
+      setError(t('errors.passwordTooShort', { count: MIN_PASSWORD_LENGTH }));
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('errors.passwordMismatch'));
       return;
     }
 
@@ -105,7 +107,7 @@ export function SetupWizard({
 
       if (!response.ok) {
         const data = (await response.json()) as { error?: string; message?: string };
-        setError(data.error ?? data.message ?? 'Setup failed');
+        setError(data.error ?? data.message ?? t('errors.setupFailed'));
         return;
       }
 
@@ -113,7 +115,7 @@ export function SetupWizard({
       const loginSuccess = await onLogin(username, password);
 
       if (!loginSuccess) {
-        setError('Setup complete but login failed. Please sign in manually.');
+        setError(t('errors.loginFailed'));
         onComplete();
         return;
       }
@@ -121,7 +123,7 @@ export function SetupWizard({
       // Step 3: Setup complete and user is logged in
       onComplete();
     } catch {
-      setError('Unable to reach server. Please try again.');
+      setError(t('errors.networkError'));
     } finally {
       setIsSubmitting(false);
     }
@@ -136,11 +138,9 @@ export function SetupWizard({
             <Activity className="w-8 h-8" />
           </div>
           <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
-            Welcome to The Stem
+            {t('welcome.title')}
           </h1>
-          <p className="text-sm text-[var(--color-text-muted)] mt-1">
-            Let&apos;s set up your admin password to get started.
-          </p>
+          <p className="text-sm text-[var(--color-text-muted)] mt-1">{t('welcome.subtitle')}</p>
         </div>
 
         {/* Form */}
@@ -151,17 +151,18 @@ export function SetupWizard({
           {/* Username display */}
           <div className="mb-6 p-3 rounded-xl bg-[var(--color-surface-base)] border border-[var(--color-surface-border)]">
             <p className="text-sm text-[var(--color-text-muted)]">
-              Username: <strong className="text-[var(--color-text-primary)]">{username}</strong>
+              {t('username.label')}{' '}
+              <strong className="text-[var(--color-text-primary)]">{username}</strong>
             </p>
             <p className="text-xs text-[var(--color-text-muted)] mt-1">
-              This is your admin username for The Stem.
+              {t('username.description')}
             </p>
           </div>
 
           {/* Password mode selection */}
           <div className="mb-6 space-y-3">
             <p className="text-xs font-semibold text-[var(--color-text-muted)]">
-              Choose password method
+              {t('password.chooseMethod')}
             </p>
 
             {/* Custom password option */}
@@ -177,10 +178,10 @@ export function SetupWizard({
               <div>
                 <span className="text-sm font-medium text-[var(--color-text-primary)] flex items-center gap-2">
                   <Lock className="w-4 h-4" />
-                  Create my own password
+                  {t('password.custom.title')}
                 </span>
                 <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                  Enter a custom password of your choice.
+                  {t('password.custom.description')}
                 </p>
               </div>
             </label>
@@ -199,10 +200,10 @@ export function SetupWizard({
                 <div className="flex-1">
                   <span className="text-sm font-medium text-[var(--color-text-primary)] flex items-center gap-2">
                     <Zap className="w-4 h-4" />
-                    Use generated password
+                    {t('password.generated.title')}
                   </span>
                   <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                    Use a secure random password (save it somewhere safe!).
+                    {t('password.generated.description')}
                   </p>
                   {passwordMode === 'generated' && (
                     <div className="mt-3 p-2 rounded-lg bg-[var(--color-surface-sunken)] border border-[var(--color-surface-border)]">
@@ -214,18 +215,18 @@ export function SetupWizard({
                           type="button"
                           onClick={handleCopyPassword}
                           className="shrink-0 p-1.5 rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-base)] border border-[var(--color-surface-border)]"
-                          title="Copy to clipboard"
+                          title={t('buttons.copy')}
                         >
                           <Copy className="w-3.5 h-3.5" />
                         </button>
                       </div>
                       {copied && (
                         <p className="text-xs text-[var(--color-status-success)] mt-1">
-                          Copied to clipboard!
+                          {t('buttons.copied')}
                         </p>
                       )}
                       <p className="text-xs text-[var(--color-status-warning)] mt-2">
-                        Save this password securely - you won&apos;t see it again!
+                        {t('password.generated.saveWarning')}
                       </p>
                     </div>
                   )}
@@ -242,7 +243,7 @@ export function SetupWizard({
                   htmlFor="setup-password"
                   className="text-xs font-semibold text-[var(--color-text-muted)]"
                 >
-                  Password
+                  {t('password.label')}
                 </label>
                 <div className="relative mt-1">
                   <input
@@ -251,7 +252,7 @@ export function SetupWizard({
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full rounded-xl border border-[var(--color-surface-border)] bg-[var(--color-surface-base)] px-3 py-2 pr-10 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-brand-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)]/30"
-                    placeholder="Enter password"
+                    placeholder={t('password.placeholder')}
                     required
                     minLength={MIN_PASSWORD_LENGTH}
                   />
@@ -265,7 +266,7 @@ export function SetupWizard({
                   </button>
                 </div>
                 <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                  Minimum {MIN_PASSWORD_LENGTH} characters
+                  {t('password.minLength', { count: MIN_PASSWORD_LENGTH })}
                 </p>
               </div>
 
@@ -274,7 +275,7 @@ export function SetupWizard({
                   htmlFor="setup-confirm-password"
                   className="text-xs font-semibold text-[var(--color-text-muted)]"
                 >
-                  Confirm Password
+                  {t('password.confirm.label')}
                 </label>
                 <input
                   id="setup-confirm-password"
@@ -282,7 +283,7 @@ export function SetupWizard({
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-[var(--color-surface-border)] bg-[var(--color-surface-base)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-brand-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)]/30"
-                  placeholder="Confirm password"
+                  placeholder={t('password.confirm.placeholder')}
                   required
                 />
               </div>
@@ -305,13 +306,13 @@ export function SetupWizard({
             disabled={isSubmitting}
             className="btn btn-primary w-full justify-center"
           >
-            {isSubmitting ? 'Setting up...' : 'Complete Setup'}
+            {isSubmitting ? t('buttons.settingUp') : t('buttons.completeSetup')}
           </button>
         </form>
 
         {/* Footer */}
         <p className="text-xs text-[var(--color-text-muted)] text-center mt-4">
-          &copy; {new Date().getFullYear()} Mustard Seed Networks. All rights reserved.
+          {t('footer.copyright', { year: new Date().getFullYear() })}
         </p>
       </div>
     </div>
