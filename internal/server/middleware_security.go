@@ -36,21 +36,22 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 		// Referrer-Policy: Only send origin on cross-origin requests.
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 
-		// Content-Security-Policy: Restrict resource loading.
+		// Content-Security-Policy: Strict policy without 'unsafe-inline' (ported from Seed).
 		// - default-src 'self': Only load resources from same origin.
 		// - script-src 'self': Only allow same-origin scripts.
-		// - style-src 'self' 'unsafe-inline': Allow inline styles (React needs this).
+		// - style-src 'self': Only same-origin styles (no unsafe-inline for XSS protection).
 		// - img-src 'self' data:: Allow same-origin images and data URIs.
-		// - connect-src 'self': Only connect to same origin (API calls).
+		// - connect-src 'self' ws: wss:: API calls and WebSockets.
+		// - font-src 'self': Only same-origin fonts.
 		// - object-src 'none': Block plugins (Flash, etc.).
 		// - base-uri 'self': Restrict <base> tag.
 		// - form-action 'self': Forms can only submit to same origin.
 		// - frame-ancestors 'none': Prevent framing (like X-Frame-Options).
 		csp := "default-src 'self'; " +
 			"script-src 'self'; " +
-			"style-src 'self' 'unsafe-inline'; " +
+			"style-src 'self'; " +
 			"img-src 'self' data:; " +
-			"connect-src 'self'; " +
+			"connect-src 'self' ws: wss:; " +
 			"font-src 'self'; " +
 			"object-src 'none'; " +
 			"base-uri 'self'; " +

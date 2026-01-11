@@ -311,6 +311,66 @@ func TestCorsMiddleware_BypassAttemptBlocked(t *testing.T) {
 	}
 }
 
+// TestCorsMiddleware_RFC1918Origin tests corsMiddleware allows RFC 1918 private network origins.
+func TestCorsMiddleware_RFC1918Origin(t *testing.T) {
+	wrapped := setupCorsTestHandler()
+	tests := []struct {
+		name   string
+		origin string
+	}{
+		{"class C 192.168.x.x", "http://192.168.1.100:8080"},
+		{"class A 10.x.x.x", "http://10.0.0.50:8080"},
+		{"class B 172.16.x.x", "http://172.16.0.1:8080"},
+		{"class B 172.31.x.x", "http://172.31.255.255:8080"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			req.Header.Set("Origin", tt.origin)
+			w := httptest.NewRecorder()
+
+			wrapped.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Errorf("Expected status 200 for RFC 1918 origin %s, got %d", tt.origin, w.Code)
+			}
+			if w.Header().Get("Access-Control-Allow-Origin") != tt.origin {
+				t.Errorf("Expected Access-Control-Allow-Origin=%s, got %s",
+					tt.origin, w.Header().Get("Access-Control-Allow-Origin"))
+			}
+		})
+	}
+}
+
+// TestCorsMiddleware_RFC1918BypassBlocked tests corsMiddleware blocks RFC 1918 bypass attempts.
+func TestCorsMiddleware_RFC1918BypassBlocked(t *testing.T) {
+	wrapped := setupCorsTestHandler()
+	tests := []struct {
+		name   string
+		origin string
+	}{
+		{"bypass via subdomain", "http://192.168.1.1.evil.com"},
+		{"bypass via path", "http://evil.com/192.168.1.1"},
+		{"bypass via prefix", "http://192.168.1.1000"},
+		{"invalid class B range", "http://172.32.0.1:8080"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			req.Header.Set("Origin", tt.origin)
+			w := httptest.NewRecorder()
+
+			wrapped.ServeHTTP(w, req)
+
+			if w.Code != http.StatusForbidden {
+				t.Errorf("Expected status 403 for bypass attempt %s, got %d", tt.origin, w.Code)
+			}
+		})
+	}
+}
+
 // TestHandleAPIRedirect tests the handleAPIRedirect function.
 func TestHandleAPIRedirect(t *testing.T) {
 	t.Setenv("STEM_AUTH_USERNAME", "redirectuser")
