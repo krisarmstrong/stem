@@ -20,20 +20,13 @@ interface RFC6349SectionProps extends TestSectionProps {
   onConfigChange: (config: RFC6349Config) => void;
 }
 
-const RFC6349_TESTS: TestDefinition[] = [
-  {
-    id: 'rfc6349_throughput',
-    name: 'TCP Throughput',
-    desc: 'BDP analysis',
-    tooltip: 'Measure real TCP performance with Bandwidth-Delay Product optimization.',
-  },
-  {
-    id: 'rfc6349_path',
-    name: 'Path Analysis',
-    desc: 'RTT/Bandwidth',
-    tooltip: 'Characterize network path properties including RTT, loss, and capacity.',
-  },
-];
+/** Test ID to translation key mapping */
+const TEST_KEYS = {
+  rfc6349_throughput: 'capacity',
+  rfc6349_path: 'path',
+} as const;
+
+const TEST_IDS = Object.keys(TEST_KEYS) as Array<keyof typeof TEST_KEYS>;
 
 export function RFC6349Section({
   selectedTests,
@@ -41,7 +34,21 @@ export function RFC6349Section({
   config,
   onConfigChange,
 }: RFC6349SectionProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('settings');
+
+  const tests: TestDefinition[] = useMemo(
+    () =>
+      TEST_IDS.map((id) => {
+        const key = TEST_KEYS[id];
+        return {
+          id,
+          name: t(`tests.rfc6349.${key}.name`),
+          desc: t(`tests.rfc6349.${key}.desc`),
+          tooltip: t(`tests.rfc6349.${key}.tooltip`),
+        };
+      }),
+    [t],
+  );
 
   const selectedCount = useMemo(
     () => selectedTests.filter((test) => test.startsWith('rfc6349')).length,
@@ -63,7 +70,7 @@ export function RFC6349Section({
       <div className="space-y-4">
         {/* Test Selection */}
         <div className="space-y-2">
-          {RFC6349_TESTS.map((test) => (
+          {tests.map((test) => (
             <TestCheckbox
               key={test.id}
               test={test}

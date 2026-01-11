@@ -20,45 +20,17 @@ interface RFC2544SectionProps extends TestSectionProps {
   onConfigChange: (config: RFC2544Config) => void;
 }
 
-const RFC2544_TESTS: TestDefinition[] = [
-  {
-    id: 'rfc2544_throughput',
-    name: 'Throughput',
-    desc: 'Max rate with 0% loss',
-    tooltip:
-      'Find the maximum rate at which the DUT can forward frames with zero packet loss using binary search.',
-  },
-  {
-    id: 'rfc2544_latency',
-    name: 'Latency',
-    desc: 'Round-trip time',
-    tooltip: 'Measure round-trip packet delay at various loads and frame sizes.',
-  },
-  {
-    id: 'rfc2544_frame_loss',
-    name: 'Frame Loss',
-    desc: 'Loss vs offered load',
-    tooltip: 'Measure packet loss percentage across different offered load levels.',
-  },
-  {
-    id: 'rfc2544_back_to_back',
-    name: 'Back-to-Back',
-    desc: 'Burst capacity',
-    tooltip: 'Test maximum burst capacity - how many frames at line rate before drops occur.',
-  },
-  {
-    id: 'rfc2544_system_recovery',
-    name: 'System Recovery',
-    desc: 'Recovery after overload',
-    tooltip: 'Measure time to recover normal forwarding after sustained overload condition.',
-  },
-  {
-    id: 'rfc2544_reset',
-    name: 'Reset',
-    desc: 'Device reset recovery',
-    tooltip: 'Measure time from device restart to when it resumes forwarding traffic.',
-  },
-];
+/** Test ID to translation key mapping */
+const TEST_KEYS = {
+  rfc2544_throughput: 'throughput',
+  rfc2544_latency: 'latency',
+  rfc2544_frame_loss: 'frameLoss',
+  rfc2544_back_to_back: 'backToBack',
+  rfc2544_system_recovery: 'systemRecovery',
+  rfc2544_reset: 'reset',
+} as const;
+
+const TEST_IDS = Object.keys(TEST_KEYS) as Array<keyof typeof TEST_KEYS>;
 
 export function RFC2544Section({
   selectedTests,
@@ -66,7 +38,21 @@ export function RFC2544Section({
   config,
   onConfigChange,
 }: RFC2544SectionProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('settings');
+
+  const tests: TestDefinition[] = useMemo(
+    () =>
+      TEST_IDS.map((id) => {
+        const key = TEST_KEYS[id];
+        return {
+          id,
+          name: t(`tests.rfc2544.${key}.name`),
+          desc: t(`tests.rfc2544.${key}.desc`),
+          tooltip: t(`tests.rfc2544.${key}.tooltip`),
+        };
+      }),
+    [t],
+  );
 
   const selectedCount = useMemo(
     () => selectedTests.filter((test) => test.startsWith('rfc2544')).length,
@@ -88,7 +74,7 @@ export function RFC2544Section({
       <div className="space-y-4">
         {/* Test Selection */}
         <div className="space-y-2">
-          {RFC2544_TESTS.map((test) => (
+          {tests.map((test) => (
             <TestCheckbox
               key={test.id}
               test={test}

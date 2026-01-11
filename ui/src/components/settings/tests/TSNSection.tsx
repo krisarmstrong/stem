@@ -20,32 +20,15 @@ interface TSNSectionProps extends TestSectionProps {
   onConfigChange: (config: TSNConfig) => void;
 }
 
-const TSN_TESTS: TestDefinition[] = [
-  {
-    id: 'tsn_timing',
-    name: 'Gate Timing',
-    desc: 'GCL accuracy',
-    tooltip: 'Verify Time-Aware Shaper (TAS) gate control list timing accuracy.',
-  },
-  {
-    id: 'tsn_isolation',
-    name: 'Traffic Isolation',
-    desc: 'Class isolation',
-    tooltip: 'Verify traffic class separation and priority enforcement.',
-  },
-  {
-    id: 'tsn_latency',
-    name: 'Scheduled Latency',
-    desc: 'Deterministic delay',
-    tooltip: 'Measure deterministic latency for scheduled traffic flows.',
-  },
-  {
-    id: 'tsn_full',
-    name: 'Full Suite',
-    desc: 'All TSN tests',
-    tooltip: 'Complete TSN validation including timing, isolation, and latency.',
-  },
-];
+/** Test ID to translation key mapping */
+const TEST_KEYS = {
+  tsn_timing: 'timing',
+  tsn_isolation: 'isolation',
+  tsn_latency: 'latency',
+  tsn_full: 'full',
+} as const;
+
+const TEST_IDS = Object.keys(TEST_KEYS) as Array<keyof typeof TEST_KEYS>;
 
 export function TSNSection({
   selectedTests,
@@ -53,7 +36,21 @@ export function TSNSection({
   config,
   onConfigChange,
 }: TSNSectionProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('settings');
+
+  const tests: TestDefinition[] = useMemo(
+    () =>
+      TEST_IDS.map((id) => {
+        const key = TEST_KEYS[id];
+        return {
+          id,
+          name: t(`tests.tsn.${key}.name`),
+          desc: t(`tests.tsn.${key}.desc`),
+          tooltip: t(`tests.tsn.${key}.tooltip`),
+        };
+      }),
+    [t],
+  );
 
   const selectedCount = useMemo(
     () => selectedTests.filter((test) => test.startsWith('tsn')).length,
@@ -75,7 +72,7 @@ export function TSNSection({
       <div className="space-y-4">
         {/* Test Selection */}
         <div className="space-y-2">
-          {TSN_TESTS.map((test) => (
+          {tests.map((test) => (
             <TestCheckbox
               key={test.id}
               test={test}

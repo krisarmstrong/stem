@@ -15,29 +15,31 @@ import { CollapsibleSection } from '../../CollapsibleSection';
 import { TestCheckbox } from '../TestCheckbox';
 import type { TestDefinition, TestSectionProps } from '../types';
 
-const MEF_TESTS: TestDefinition[] = [
-  {
-    id: 'mef_config',
-    name: 'Configuration',
-    desc: 'Service step test',
-    tooltip: 'MEF service configuration test - validates service at step loads.',
-  },
-  {
-    id: 'mef_perf',
-    name: 'Performance',
-    desc: 'Sustained test',
-    tooltip: 'MEF service performance test - verifies SLA compliance over time.',
-  },
-  {
-    id: 'mef_full',
-    name: 'Full Test',
-    desc: 'Both phases',
-    tooltip: 'Complete MEF validation including both configuration and performance.',
-  },
-];
+/** Test ID to translation key mapping */
+const TEST_KEYS = {
+  mef_config: 'config',
+  mef_perf: 'performance',
+  mef_full: 'full',
+} as const;
+
+const TEST_IDS = Object.keys(TEST_KEYS) as Array<keyof typeof TEST_KEYS>;
 
 export function MEFSection({ selectedTests, onToggleTest }: TestSectionProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('settings');
+
+  const tests: TestDefinition[] = useMemo(
+    () =>
+      TEST_IDS.map((id) => {
+        const key = TEST_KEYS[id];
+        return {
+          id,
+          name: t(`tests.mef.${key}.name`),
+          desc: t(`tests.mef.${key}.desc`),
+          tooltip: t(`tests.mef.${key}.tooltip`),
+        };
+      }),
+    [t],
+  );
 
   const selectedCount = useMemo(
     () => selectedTests.filter((test) => test.startsWith('mef')).length,
@@ -55,7 +57,7 @@ export function MEFSection({ selectedTests, onToggleTest }: TestSectionProps) {
       }
     >
       <div className="space-y-2">
-        {MEF_TESTS.map((test) => (
+        {tests.map((test) => (
           <TestCheckbox
             key={test.id}
             test={test}

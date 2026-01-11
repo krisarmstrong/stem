@@ -20,32 +20,15 @@ interface Y1731SectionProps extends TestSectionProps {
   onConfigChange: (config: Y1731Config) => void;
 }
 
-const Y1731_TESTS: TestDefinition[] = [
-  {
-    id: 'y1731_delay',
-    name: 'Delay (DMM/DMR)',
-    desc: 'Frame delay measurement',
-    tooltip: 'Measure one-way and two-way frame delay using DMM/DMR OAM messages.',
-  },
-  {
-    id: 'y1731_loss',
-    name: 'Loss (LMM/LMR)',
-    desc: 'Frame loss measurement',
-    tooltip: 'Measure frame loss ratio using LMM/LMR OAM messages.',
-  },
-  {
-    id: 'y1731_slm',
-    name: 'Synthetic Loss',
-    desc: 'SLM measurement',
-    tooltip: 'Synthetic loss measurement using SLM/SLR frames.',
-  },
-  {
-    id: 'y1731_loopback',
-    name: 'Loopback',
-    desc: 'LBM/LBR test',
-    tooltip: 'Verify connectivity using OAM loopback messages (LBM/LBR).',
-  },
-];
+/** Test ID to translation key mapping */
+const TEST_KEYS = {
+  y1731_delay: 'delay',
+  y1731_loss: 'loss',
+  y1731_slm: 'slm',
+  y1731_loopback: 'loopback',
+} as const;
+
+const TEST_IDS = Object.keys(TEST_KEYS) as Array<keyof typeof TEST_KEYS>;
 
 export function Y1731Section({
   selectedTests,
@@ -53,7 +36,21 @@ export function Y1731Section({
   config,
   onConfigChange,
 }: Y1731SectionProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('settings');
+
+  const tests: TestDefinition[] = useMemo(
+    () =>
+      TEST_IDS.map((id) => {
+        const key = TEST_KEYS[id];
+        return {
+          id,
+          name: t(`tests.y1731.${key}.name`),
+          desc: t(`tests.y1731.${key}.desc`),
+          tooltip: t(`tests.y1731.${key}.tooltip`),
+        };
+      }),
+    [t],
+  );
 
   const selectedCount = useMemo(
     () => selectedTests.filter((test) => test.startsWith('y1731')).length,
@@ -75,7 +72,7 @@ export function Y1731Section({
       <div className="space-y-4">
         {/* Test Selection */}
         <div className="space-y-2">
-          {Y1731_TESTS.map((test) => (
+          {tests.map((test) => (
             <TestCheckbox
               key={test.id}
               test={test}

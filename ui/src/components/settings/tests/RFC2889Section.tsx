@@ -20,38 +20,16 @@ interface RFC2889SectionProps extends TestSectionProps {
   onConfigChange: (config: RFC2889Config) => void;
 }
 
-const RFC2889_TESTS: TestDefinition[] = [
-  {
-    id: 'rfc2889_forwarding',
-    name: 'Forwarding Rate',
-    desc: 'Switch forwarding capacity',
-    tooltip: 'Measure aggregate forwarding rate across all ports of a LAN switch.',
-  },
-  {
-    id: 'rfc2889_caching',
-    name: 'Address Caching',
-    desc: 'MAC table capacity',
-    tooltip: 'Determine maximum number of MAC addresses the switch can learn and forward.',
-  },
-  {
-    id: 'rfc2889_learning',
-    name: 'Address Learning',
-    desc: 'Learning rate',
-    tooltip: 'Measure how quickly the switch learns new MAC addresses.',
-  },
-  {
-    id: 'rfc2889_broadcast',
-    name: 'Broadcast',
-    desc: 'Broadcast forwarding',
-    tooltip: 'Test how the switch handles broadcast traffic flooding.',
-  },
-  {
-    id: 'rfc2889_congestion',
-    name: 'Congestion Control',
-    desc: 'Backpressure handling',
-    tooltip: 'Verify backpressure and flow control under congestion.',
-  },
-];
+/** Test ID to translation key mapping */
+const TEST_KEYS = {
+  rfc2889_forwarding: 'forwarding',
+  rfc2889_caching: 'caching',
+  rfc2889_learning: 'learning',
+  rfc2889_broadcast: 'broadcast',
+  rfc2889_congestion: 'congestion',
+} as const;
+
+const TEST_IDS = Object.keys(TEST_KEYS) as Array<keyof typeof TEST_KEYS>;
 
 export function RFC2889Section({
   selectedTests,
@@ -59,7 +37,21 @@ export function RFC2889Section({
   config,
   onConfigChange,
 }: RFC2889SectionProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('settings');
+
+  const tests: TestDefinition[] = useMemo(
+    () =>
+      TEST_IDS.map((id) => {
+        const key = TEST_KEYS[id];
+        return {
+          id,
+          name: t(`tests.rfc2889.${key}.name`),
+          desc: t(`tests.rfc2889.${key}.desc`),
+          tooltip: t(`tests.rfc2889.${key}.tooltip`),
+        };
+      }),
+    [t],
+  );
 
   const selectedCount = useMemo(
     () => selectedTests.filter((test) => test.startsWith('rfc2889')).length,
@@ -81,7 +73,7 @@ export function RFC2889Section({
       <div className="space-y-4">
         {/* Test Selection */}
         <div className="space-y-2">
-          {RFC2889_TESTS.map((test) => (
+          {tests.map((test) => (
             <TestCheckbox
               key={test.id}
               test={test}

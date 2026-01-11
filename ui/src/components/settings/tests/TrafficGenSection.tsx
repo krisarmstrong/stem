@@ -20,26 +20,14 @@ interface TrafficGenSectionProps extends TestSectionProps {
   onConfigChange: (config: TrafficGenConfig) => void;
 }
 
-const TRAFFICGEN_TESTS: TestDefinition[] = [
-  {
-    id: 'custom_stream',
-    name: 'Custom Stream',
-    desc: 'Configurable traffic',
-    tooltip: 'Generate custom traffic patterns with configurable frame size, rate, and duration.',
-  },
-  {
-    id: 'trafficgen_burst',
-    name: 'Burst Mode',
-    desc: 'Burst traffic generation',
-    tooltip: 'Generate burst traffic with configurable burst size and gap.',
-  },
-  {
-    id: 'trafficgen_multistream',
-    name: 'Multi-Stream',
-    desc: 'Multiple traffic streams',
-    tooltip: 'Generate multiple concurrent traffic streams with different parameters.',
-  },
-];
+/** Test ID to translation key mapping */
+const TEST_KEYS = {
+  custom_stream: 'stream',
+  trafficgen_burst: 'burst',
+  trafficgen_multistream: 'multistream',
+} as const;
+
+const TEST_IDS = Object.keys(TEST_KEYS) as Array<keyof typeof TEST_KEYS>;
 
 export function TrafficGenSection({
   selectedTests,
@@ -47,7 +35,21 @@ export function TrafficGenSection({
   config,
   onConfigChange,
 }: TrafficGenSectionProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('settings');
+
+  const tests: TestDefinition[] = useMemo(
+    () =>
+      TEST_IDS.map((id) => {
+        const key = TEST_KEYS[id];
+        return {
+          id,
+          name: t(`tests.trafficgen.${key}.name`),
+          desc: t(`tests.trafficgen.${key}.desc`),
+          tooltip: t(`tests.trafficgen.${key}.tooltip`),
+        };
+      }),
+    [t],
+  );
 
   const selectedCount = useMemo(
     () =>
@@ -69,7 +71,7 @@ export function TrafficGenSection({
       <div className="space-y-4">
         {/* Test Selection */}
         <div className="space-y-2">
-          {TRAFFICGEN_TESTS.map((test) => (
+          {tests.map((test) => (
             <TestCheckbox
               key={test.id}
               test={test}

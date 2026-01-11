@@ -20,27 +20,14 @@ interface Y1564SectionProps extends TestSectionProps {
   onConfigChange: (config: Y1564Config) => void;
 }
 
-const Y1564_TESTS: TestDefinition[] = [
-  {
-    id: 'y1564_config',
-    name: 'Configuration Test',
-    desc: 'Service config validation',
-    tooltip: 'Validate service at step loads (25%, 50%, 75%, 100% of CIR) with quick pass/fail.',
-  },
-  {
-    id: 'y1564_perf',
-    name: 'Performance Test',
-    desc: 'Sustained 15+ min test',
-    tooltip: 'Extended duration test at full CIR to verify SLA compliance over time.',
-  },
-  {
-    id: 'y1564_full',
-    name: 'Full Test',
-    desc: 'Both config and perf',
-    tooltip:
-      'Complete Service Activation Test combining both configuration and performance phases.',
-  },
-];
+/** Test ID to translation key mapping */
+const TEST_KEYS = {
+  y1564_config: 'config',
+  y1564_perf: 'performance',
+  y1564_full: 'full',
+} as const;
+
+const TEST_IDS = Object.keys(TEST_KEYS) as Array<keyof typeof TEST_KEYS>;
 
 export function Y1564Section({
   selectedTests,
@@ -48,7 +35,21 @@ export function Y1564Section({
   config,
   onConfigChange,
 }: Y1564SectionProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('settings');
+
+  const tests: TestDefinition[] = useMemo(
+    () =>
+      TEST_IDS.map((id) => {
+        const key = TEST_KEYS[id];
+        return {
+          id,
+          name: t(`tests.y1564.${key}.name`),
+          desc: t(`tests.y1564.${key}.desc`),
+          tooltip: t(`tests.y1564.${key}.tooltip`),
+        };
+      }),
+    [t],
+  );
 
   const selectedCount = useMemo(
     () => selectedTests.filter((test) => test.startsWith('y1564')).length,
@@ -70,7 +71,7 @@ export function Y1564Section({
       <div className="space-y-4">
         {/* Test Selection */}
         <div className="space-y-2">
-          {Y1564_TESTS.map((test) => (
+          {tests.map((test) => (
             <TestCheckbox
               key={test.id}
               test={test}
