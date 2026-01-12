@@ -37,7 +37,7 @@ endif
 # Main Targets
 # ============================================================================
 
-.PHONY: all ui ui-deps go clean test dev install help lint lint-go lint-c format format-go format-c fix verify build-linux-docker deploy smoke-test-remote logs logs-100 remote-status update update-go update-npm version-check tools tools-go tools-frontend security security-backend security-frontend security-secrets license-check license-check-go license-check-npm license-report
+.PHONY: all ui ui-deps go clean test dev install help lint lint-go lint-c format format-go format-c fix verify build-linux-docker deploy smoke-test-remote logs logs-100 remote-status update update-go update-npm version-check tools tools-go tools-frontend security security-backend security-frontend security-secrets license-check license-check-go license-check-npm license-report deb rpm packages
 
 # Default: build everything
 all: ui go
@@ -334,37 +334,54 @@ test-all: test c-test
 	@echo "All tests complete"
 
 # ============================================================================
-# Packaging
+# Package Generation
 # ============================================================================
+# Build distributable packages for Linux systems
 
-# Build RPM package (Fedora/RHEL/CentOS)
-rpm: build
+.PHONY: deb rpm packages
+
+# Build Debian package
+deb: build ## Build Debian package (.deb)
+	@echo "Building Debian package..."
+	@mkdir -p pkg/deb/DEBIAN
+	@mkdir -p pkg/deb/usr/local/bin
+	@mkdir -p pkg/deb/etc/systemd/system
+	@cp bin/stem-linux pkg/deb/usr/local/bin/stem
+	@chmod 755 pkg/deb/usr/local/bin/stem
+	@echo "Package: stem" > pkg/deb/DEBIAN/control
+	@echo "Version: $(VERSION)" >> pkg/deb/DEBIAN/control
+	@echo "Section: net" >> pkg/deb/DEBIAN/control
+	@echo "Priority: optional" >> pkg/deb/DEBIAN/control
+	@echo "Architecture: amd64" >> pkg/deb/DEBIAN/control
+	@echo "Maintainer: Mustard Seed Networks" >> pkg/deb/DEBIAN/control
+	@echo "Description: Network Performance Testing Tool" >> pkg/deb/DEBIAN/control
+	@dpkg-deb --build pkg/deb stem-$(VERSION)-amd64.deb
+	@rm -rf pkg/deb
+	$(call success,Debian package built: stem-$(VERSION)-amd64.deb)
+
+# Build RPM package (requires rpmbuild)
+rpm: build ## Build RPM package (.rpm)
 	@echo "Building RPM package..."
-	@if ! command -v rpmbuild >/dev/null 2>&1; then \
-		echo "Error: rpmbuild not found. Install rpm-build package."; \
-		exit 1; \
-	fi
+	@echo "Note: Requires rpmbuild to be installed"
 	@mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-	@cd .. && tar czf ~/rpmbuild/SOURCES/stem-$(VERSION).tar.gz \
-		--transform 's,^stem,stem-$(VERSION),' \
-		--exclude='stem/.git' --exclude='stem/node_modules' --exclude='stem/bin' \
-		--exclude='stem/ui/node_modules' --exclude='stem/build' \
-		stem
-	@sed 's/Version:.*/Version:        $(VERSION)/' packaging/rpm/stem.spec > ~/rpmbuild/SPECS/stem.spec
-	@rpmbuild -bb ~/rpmbuild/SPECS/stem.spec
-	@echo "RPM built: ~/rpmbuild/RPMS/x86_64/stem-$(VERSION)*.rpm"
+	@cp bin/stem-linux ~/rpmbuild/SOURCES/stem
+	@echo "Name: stem" > ~/rpmbuild/SPECS/stem.spec
+	@echo "Version: $(VERSION)" >> ~/rpmbuild/SPECS/stem.spec
+	@echo "Release: 1" >> ~/rpmbuild/SPECS/stem.spec
+	@echo "Summary: Network Performance Testing Tool" >> ~/rpmbuild/SPECS/stem.spec
+	@echo "License: Proprietary" >> ~/rpmbuild/SPECS/stem.spec
+	@echo "%description" >> ~/rpmbuild/SPECS/stem.spec
+	@echo "The Stem - Network Performance Testing Tool" >> ~/rpmbuild/SPECS/stem.spec
+	@echo "%install" >> ~/rpmbuild/SPECS/stem.spec
+	@echo "mkdir -p %{buildroot}/usr/local/bin" >> ~/rpmbuild/SPECS/stem.spec
+	@echo "cp %{SOURCE0} %{buildroot}/usr/local/bin/stem" >> ~/rpmbuild/SPECS/stem.spec
+	@echo "%files" >> ~/rpmbuild/SPECS/stem.spec
+	@echo "/usr/local/bin/stem" >> ~/rpmbuild/SPECS/stem.spec
+	rpmbuild -bb ~/rpmbuild/SPECS/stem.spec
+	$(call success,RPM package built)
 
-# Build DEB package (Debian/Ubuntu)
-deb: build
-	@echo "Building DEB package..."
-	@if ! command -v dpkg-buildpackage >/dev/null 2>&1; then \
-		echo "Error: dpkg-buildpackage not found. Install devscripts package."; \
-		exit 1; \
-	fi
-	@mkdir -p debian
-	@cp -r packaging/debian/* debian/
-	@dpkg-buildpackage -us -uc -b
-	@echo "DEB built: ../stem_$(VERSION)*.deb"
+# Build all packages
+packages: deb rpm ## Build all packages (deb + rpm)
 
 # Install systemd service (requires root)
 install-service: build
