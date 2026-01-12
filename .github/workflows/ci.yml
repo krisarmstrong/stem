@@ -225,6 +225,33 @@ jobs:
             echo "Note: TODOs found in Go code (info only)"
           fi
 
+      - name: Check for unsafe logging patterns
+        run: |
+          echo "Checking for dangerous logging patterns..."
+          DANGEROUS_PATTERNS=(
+            'log\.Print.*password'
+            'log\.Print.*token'
+            'log\.Print.*Authorization'
+            'log\.Print.*apikey'
+            'log\.Print.*secret'
+            'fmt\.Printf.*password'
+            'fmt\.Printf.*token'
+          )
+          VIOLATIONS=0
+          for pattern in "${DANGEROUS_PATTERNS[@]}"; do
+            if grep -rn -E "$pattern" --include="*.go" --exclude="*_test.go" internal/ cmd/ 2>/dev/null; then
+              echo "❌ Found dangerous logging pattern: $pattern"
+              VIOLATIONS=$((VIOLATIONS + 1))
+            fi
+          done
+          if [ $VIOLATIONS -gt 0 ]; then
+            echo ""
+            echo "ERROR: Found $VIOLATIONS unsafe logging pattern(s)"
+            echo "Avoid logging sensitive data like passwords, tokens, or secrets"
+            exit 1
+          fi
+          echo "✅ No unsafe logging patterns detected"
+
   # ============================================================================
   # Build
   # ============================================================================
