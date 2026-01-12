@@ -37,7 +37,7 @@ endif
 # Main Targets
 # ============================================================================
 
-.PHONY: all ui ui-deps go clean test dev install help lint lint-go lint-c format format-go format-c fix verify build-linux-docker update update-go update-npm version-check tools tools-go tools-frontend security security-backend security-frontend security-secrets license-check license-check-go license-check-npm license-report deb rpm packages c-build c-build-docker dataplane
+.PHONY: all ui ui-deps go clean test dev help lint lint-go lint-c format format-go format-c fix verify build-linux-docker update update-go update-npm version-check tools tools-go tools-frontend security security-backend security-frontend security-secrets license-check license-check-go license-check-npm license-report deb rpm packages c-build c-build-docker dataplane
 
 # Default: build everything
 all: ui go
@@ -230,21 +230,6 @@ test-coverage:
 test-coverage-html: test-coverage
 	$(GO) tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
-
-# ============================================================================
-# Installation
-# ============================================================================
-
-# Install to /usr/local/bin
-install: all
-	@echo "Installing $(BINARY) to /usr/local/bin..."
-	install -m 755 $(BINARY_NAME) /usr/local/bin/$(BINARY)
-	@echo "Installed: /usr/local/bin/$(BINARY)"
-
-# Uninstall
-uninstall:
-	rm -f /usr/local/bin/$(BINARY)
-	@echo "Uninstalled: /usr/local/bin/$(BINARY)"
 
 # ============================================================================
 # C/Dataplane Build Configuration
@@ -691,12 +676,8 @@ help: ## Show this help
 	@printf "  update-npm       Update npm packages\n"
 	@printf "  version-check    Show version info and outdated packages\n"
 	@printf "\n"
-	@printf "$(BOLD)$(CYAN)Installation:$(RESET)\n"
-	@printf "  install          Install to /usr/local/bin\n"
-	@printf "  uninstall        Remove from /usr/local/bin\n"
-	@printf "  install-service  Install as systemd service (Linux, root)\n"
-	@printf "\n"
 	@printf "$(BOLD)$(CYAN)Packaging:$(RESET)\n"
+	@printf "  install-service  Install as systemd service (Linux, root)\n"
 	@printf "  rpm              Build RPM package (Fedora/RHEL)\n"
 	@printf "  deb              Build DEB package (Debian/Ubuntu)\n"
 	@printf "\n"
