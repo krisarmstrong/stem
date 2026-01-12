@@ -428,7 +428,7 @@ jobs:
           cache: true
 
       - name: Download frontend build
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: frontend-dist
           path: ui/dist/
@@ -494,7 +494,7 @@ jobs:
           cache-dependency-path: ui/package-lock.json
 
       - name: Download frontend build
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: frontend-dist
           path: ui/dist/
