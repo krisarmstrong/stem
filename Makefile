@@ -26,6 +26,14 @@ GOFLAGS := -trimpath -buildvcs=false -ldflags "$(LDFLAGS)"
 # Binary name
 BINARY := stem
 
+# Terminal colors (ANSI escape codes)
+BOLD := \033[1m
+RED := \033[31m
+GREEN := \033[32m
+YELLOW := \033[33m
+CYAN := \033[36m
+RESET := \033[0m
+
 # Platform detection
 UNAME := $(shell uname -s)
 ifeq ($(UNAME),Darwin)
@@ -40,7 +48,7 @@ endif
 # Main Targets
 # ============================================================================
 
-.PHONY: all ui ui-deps go clean test dev install help lint lint-go lint-c format format-go format-c fix verify
+.PHONY: all ui ui-deps go clean test dev install help lint lint-go lint-c format format-go format-c fix verify build-linux-docker deploy smoke-test-remote logs logs-100 remote-status
 
 # Default: build everything
 all: ui go
@@ -371,6 +379,129 @@ install-service: build
 	install -d -m 0750 -o stem -g stem /var/log/stem
 	systemctl daemon-reload
 	@echo "Service installed. Run: systemctl enable --now stem"
+
+# ============================================================================
+# Remote Deployment
+# ============================================================================
+
+# Deployment configuration (override with environment variables)
+DEPLOY_HOST ?= 192.168.64.7
+DEPLOY_USER ?= krisarmstrong
+DEPLOY_PATH ?= /home/$(DEPLOY_USER)/stem
+DEPLOY_PORT ?= 8443
+
+# Build Linux binary via Docker (for cross-compilation from macOS)
+build-linux-docker:
+	@printf "$(BOLD)$(CYAN)Building Linux binary via Docker...$(RESET)\n"
+	docker run --rm \
+		-v $(PWD):/workspace \
+		-w /workspace \
+		-e GOOS=linux \
+		-e GOARCH=amd64 \
+		-e CGO_ENABLED=0 \
+		golang:1.25 \
+		go build -trimpath -buildvcs=false \
+			-ldflags "-s -w \
+				-X $(VERSION_PKG).Version=$(VERSION) \
+				-X $(VERSION_PKG).Commit=$(COMMIT) \
+				-X $(VERSION_PKG).BuildTime=$(BUILD_TIME)" \
+			-o bin/stem-linux-amd64 \
+			./cmd/stem/
+	@printf "$(GREEN)✓ Linux binary built: bin/stem-linux-amd64$(RESET)\n"
+
+# Full deployment pipeline
+deploy: ## Deploy to remote Ubuntu server
+	@printf "\n$(BOLD)$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)\n"
+	@printf "$(BOLD)$(CYAN)  DEPLOYING TO $(DEPLOY_HOST)$(RESET)\n"
+	@printf "$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)\n\n"
+	$(call timer-start,deploy)
+	@printf "$(BOLD)[1/5]$(RESET) Building Linux binary...\n"
+ifeq ($(UNAME),Darwin)
+	@$(MAKE) build-linux-docker
+else
+	@$(MAKE) go BINARY_NAME=bin/stem-linux-amd64
+endif
+	@printf "$(BOLD)[2/5]$(RESET) Syncing to remote server...\n"
+	rsync -avz --progress bin/stem-linux-amd64 $(DEPLOY_USER)@$(DEPLOY_HOST):$(DEPLOY_PATH)/stem-new
+	@printf "$(BOLD)[3/5]$(RESET) Installing on remote server...\n"
+	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) "\
+		cd $(DEPLOY_PATH) && \
+		sudo systemctl stop stem 2>/dev/null || true && \
+		mv stem-new stem && \
+		sudo setcap cap_net_raw=+ep ./stem 2>/dev/null || true && \
+		sudo systemctl start stem"
+	@printf "$(BOLD)[4/5]$(RESET) Waiting for service startup...\n"
+	@sleep 3
+	@printf "$(BOLD)[5/5]$(RESET) Running smoke tests...\n"
+	@$(MAKE) smoke-test-remote
+	$(call timer-end,deploy,Deployment)
+	@printf "\n$(GREEN)✓ DEPLOYMENT SUCCESSFUL$(RESET)\n"
+	@printf "  URL: https://$(DEPLOY_HOST):$(DEPLOY_PORT)\n\n"
+
+# Remote smoke tests - verify deployment
+smoke-test-remote: ## Run smoke tests against deployed server
+	@printf "$(BOLD)$(CYAN)Running remote smoke tests...$(RESET)\n"
+	@ERRORS=0; \
+	\
+	printf "  [1/4] Checking process...\n"; \
+	if ssh $(DEPLOY_USER)@$(DEPLOY_HOST) "pgrep -f 'stem' > /dev/null"; then \
+		printf "$(GREEN)    ✓ Process running$(RESET)\n"; \
+	else \
+		printf "$(RED)    ✗ Process not running$(RESET)\n"; \
+		ERRORS=$$((ERRORS + 1)); \
+	fi; \
+	\
+	printf "  [2/4] Checking API health...\n"; \
+	if curl -sf -k "https://$(DEPLOY_HOST):$(DEPLOY_PORT)/api/health" > /dev/null 2>&1; then \
+		printf "$(GREEN)    ✓ API responding$(RESET)\n"; \
+	else \
+		printf "$(RED)    ✗ API not responding$(RESET)\n"; \
+		ERRORS=$$((ERRORS + 1)); \
+	fi; \
+	\
+	printf "  [3/4] Checking version endpoint...\n"; \
+	VERSION_RESP=$$(curl -sf -k "https://$(DEPLOY_HOST):$(DEPLOY_PORT)/api/version" 2>/dev/null); \
+	if [ -n "$$VERSION_RESP" ]; then \
+		printf "$(GREEN)    ✓ Version: $$VERSION_RESP$(RESET)\n"; \
+	else \
+		printf "$(YELLOW)    ⚠ Version endpoint not available$(RESET)\n"; \
+	fi; \
+	\
+	printf "  [4/4] Checking WebUI...\n"; \
+	if curl -sf -k "https://$(DEPLOY_HOST):$(DEPLOY_PORT)/" 2>/dev/null | grep -q "<!DOCTYPE"; then \
+		printf "$(GREEN)    ✓ WebUI loading$(RESET)\n"; \
+	else \
+		printf "$(RED)    ✗ WebUI not loading$(RESET)\n"; \
+		ERRORS=$$((ERRORS + 1)); \
+	fi; \
+	\
+	if [ $$ERRORS -gt 0 ]; then \
+		printf "\n$(RED)✗ Smoke tests failed ($$ERRORS errors)$(RESET)\n"; \
+		exit 1; \
+	fi; \
+	printf "\n$(GREEN)✓ All smoke tests passed$(RESET)\n"
+
+# Remote log access
+logs: ## Stream live logs from remote server
+	@printf "$(BOLD)$(CYAN)Streaming logs from $(DEPLOY_HOST)...$(RESET)\n"
+	@printf "$(YELLOW)Press Ctrl+C to stop$(RESET)\n\n"
+	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) "sudo journalctl -u stem -f"
+
+logs-100: ## Show last 100 log lines from remote server
+	@printf "$(BOLD)$(CYAN)Last 100 log lines from $(DEPLOY_HOST):$(RESET)\n\n"
+	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) "sudo journalctl -u stem -n 100 --no-pager"
+
+remote-status: ## Check service status on remote server
+	@printf "$(BOLD)$(CYAN)Service status on $(DEPLOY_HOST):$(RESET)\n\n"
+	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) "\
+		echo '=== Systemd Status ===' && \
+		sudo systemctl status stem --no-pager && \
+		echo '' && \
+		echo '=== Process Info ===' && \
+		ps aux | grep -E 'PID|stem' | grep -v grep && \
+		echo '' && \
+		echo '=== Listening Ports ===' && \
+		sudo ss -tlnp | grep -E 'State|stem' || true"
 
 # ============================================================================
 # Help
