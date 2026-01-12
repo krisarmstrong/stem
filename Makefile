@@ -261,9 +261,9 @@ test-coverage-html: test-coverage
 #   - Good performance for most use cases
 # ============================================================================
 
-# C compiler settings
+# C compiler settings - C23 standard
 CC := gcc
-CFLAGS := -Wall -Wextra -O3 -march=native -pthread -Iinclude
+CFLAGS := -std=c23 -Wall -Wextra -Wpedantic -O3 -march=native -pthread -Iinclude
 C_LDFLAGS := -pthread -lm
 
 # C sources - both dataplane and reflector (excluding main.c)

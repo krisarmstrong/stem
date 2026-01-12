@@ -1,85 +1,131 @@
 ---
-Language: Cpp
+# clang-format configuration for C23 (NOT C++)
+# This project uses pure C with C23 standard features.
+# Reference: https://clang.llvm.org/docs/ClangFormatStyleOptions.html
+
+Language: C
 BasedOnStyle: LLVM
+Standard: c23
+
+# Basic formatting
 IndentWidth: 4
 TabWidth: 4
 UseTab: Never
 ColumnLimit: 100
-AccessModifierOffset: -4
+
+# Alignment
 AlignAfterOpenBracket: Align
-AlignConsecutiveAssignments: true
-AlignConsecutiveDeclarations: true
-AlignConsecutiveMacros: true
+AlignConsecutiveAssignments:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+AlignConsecutiveDeclarations:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+AlignConsecutiveMacros:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
 AlignEscapedNewlines: Left
-AlignOperands: true
-AlignTrailingComments: true
+AlignOperands: Align
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 1
+
+# Line breaking
 AllowAllArgumentsOnNextLine: true
 AllowAllParametersOfDeclarationOnNextLine: true
 AllowShortBlocksOnASingleLine: Empty
 AllowShortCaseLabelsOnASingleLine: false
-AllowShortFunctionsOnASingleLine: Inline
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
 AllowShortIfStatementsOnASingleLine: Never
-AllowShortLambdasOnASingleLine: All
 AllowShortLoopsOnASingleLine: false
 AlwaysBreakAfterReturnType: None
 AlwaysBreakBeforeMultilineStrings: false
-AlwaysBreakTemplateDeclarations: Yes
+
+# Braces and spacing
 BinPackArguments: true
 BinPackParameters: true
 BreakBeforeBinaryOperators: None
-BreakBeforeBraces: Attach
+BreakBeforeBraces: Linux
 BreakBeforeTernaryOperators: true
-BreakConstructorInitializers: BeforeColon
-BreakInheritanceList: BeforeColon
 BreakStringLiterals: true
-CompactNamespaces: false
-ConstructorInitializerIndentWidth: 4
+
+# Indentation
 ContinuationIndentWidth: 4
-Cpp11BracedListStyle: true
-DeriveLineEnding: true
-DerivePointerAlignment: false
-EmptyLineBeforeAccessModifier: LogicalBlock
-FixNamespaceComments: true
-IncludeBlocks: Regroup
-IncludeCategories:
-  - Regex: '^<.*\.h>'
-    Priority: 1
-  - Regex: '^<.*>'
-    Priority: 2
-  - Regex: '.*'
-    Priority: 3
 IndentCaseBlocks: false
 IndentCaseLabels: false
 IndentGotoLabels: true
 IndentPPDirectives: None
 IndentWrappedFunctionNames: false
-InsertTrailingCommas: None
+
+# Include ordering (C-specific)
+IncludeBlocks: Regroup
+IncludeCategories:
+  # C23 standard library headers
+  - Regex: '^<(assert|complex|ctype|errno|fenv|float|inttypes|iso646|limits|locale|math|setjmp|signal|stdalign|stdarg|stdatomic|stdbool|stdbit|stdckdint|stddef|stdint|stdio|stdlib|stdnoreturn|string|tgmath|threads|time|uchar|wchar|wctype)\.h>$'
+    Priority: 1
+    SortPriority: 1
+  # POSIX/system headers
+  - Regex: '^<(sys|netinet|arpa|linux)/.*\.h>$'
+    Priority: 2
+    SortPriority: 2
+  # Other system headers
+  - Regex: '^<.*\.h>$'
+    Priority: 3
+    SortPriority: 3
+  # Project headers
+  - Regex: '^".*\.h"$'
+    Priority: 4
+    SortPriority: 4
+
+# Empty lines
 KeepEmptyLinesAtTheStartOfBlocks: false
 MaxEmptyLinesToKeep: 1
-NamespaceIndentation: None
-PointerAlignment: Left
+
+# Pointer and reference alignment (C-specific)
+PointerAlignment: Right
+QualifierAlignment: Leave
+
+# Comments
 ReflowComments: true
+
+# Sorting
 SortIncludes: CaseSensitive
-SortUsingDeclarations: true
+
+# Spacing
 SpaceAfterCStyleCast: false
 SpaceAfterLogicalNot: false
-SpaceAfterTemplateKeyword: true
 SpaceBeforeAssignmentOperators: true
-SpaceBeforeCpp11BracedList: false
-SpaceBeforeCtorInitializerColon: true
-SpaceBeforeInheritanceColon: true
-SpaceBeforeParens: ControlStatements
-SpaceBeforeRangeBasedForLoopColon: true
+SpaceBeforeParens:
+  AfterControlStatements: true
+  AfterForeachMacros: true
+  AfterFunctionDeclarationName: false
+  AfterFunctionDefinitionName: false
+  AfterIfMacros: true
+  BeforeNonEmptyParentheses: false
 SpaceBeforeSquareBrackets: false
 SpaceInEmptyBlock: false
 SpaceInEmptyParentheses: false
 SpacesBeforeTrailingComments: 2
-SpacesInAngles: false
 SpacesInCStyleCastParentheses: false
 SpacesInConditionalStatement: false
-SpacesInContainerLiterals: false
 SpacesInParentheses: false
 SpacesInSquareBrackets: false
-Standard: Latest
+
+# Line endings
 UseCRLF: false
+InsertNewlineAtEOF: true
+
+# Penalties (to guide line breaking decisions)
+PenaltyBreakAssignment: 2
+PenaltyBreakBeforeFirstCallParameter: 19
+PenaltyBreakComment: 300
+PenaltyBreakFirstLessLess: 120
+PenaltyBreakString: 1000
+PenaltyExcessCharacter: 1000000
+PenaltyReturnTypeOnItsOwnLine: 60
 ...
+
