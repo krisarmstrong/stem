@@ -34,6 +34,56 @@ YELLOW := \033[33m
 CYAN := \033[36m
 RESET := \033[0m
 
+# Step display helper
+# Usage: $(call step,current,total,description)
+define step
+	@printf "\n$(BOLD)$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)\n"
+	@printf "$(BOLD)$(CYAN)[$(1)/$(2)]$(RESET) $(BOLD)$(3)$(RESET)\n"
+	@printf "$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)\n"
+endef
+
+# Success message helper
+# Usage: $(call success,message)
+define success
+	@printf "$(GREEN)✓ $(1)$(RESET)\n"
+endef
+
+# Warning message helper
+# Usage: $(call warn,message)
+define warn
+	@printf "$(YELLOW)⚠ $(1)$(RESET)\n"
+endef
+
+# Error message helper
+# Usage: $(call error,message)
+define error
+	@printf "$(RED)✗ $(1)$(RESET)\n"
+endef
+
+# Timer: Start a named timer
+# Usage: $(call timer-start,name)
+define timer-start
+	@date +%s > /tmp/make-timer-$(1)
+endef
+
+# Timer: Show elapsed time for a named timer
+# Usage: $(call timer-end,name,description)
+define timer-end
+	@if [ -f /tmp/make-timer-$(1) ]; then \
+		START=$$(cat /tmp/make-timer-$(1)); \
+		END=$$(date +%s); \
+		ELAPSED=$$((END - START)); \
+		MINS=$$((ELAPSED / 60)); \
+		SECS=$$((ELAPSED % 60)); \
+		if [ $$MINS -gt 0 ]; then \
+			printf "$(GREEN)✓ $(2) $(YELLOW)($$MINS min $$SECS sec)$(RESET)\n"; \
+		else \
+			printf "$(GREEN)✓ $(2) $(YELLOW)($$SECS sec)$(RESET)\n"; \
+		fi; \
+		rm -f /tmp/make-timer-$(1); \
+	fi
+endef
+
 # Platform detection
 UNAME := $(shell uname -s)
 ifeq ($(UNAME),Darwin)
@@ -48,7 +98,7 @@ endif
 # Main Targets
 # ============================================================================
 
-.PHONY: all ui ui-deps go clean test dev install help lint lint-go lint-c format format-go format-c fix verify build-linux-docker deploy smoke-test-remote logs logs-100 remote-status
+.PHONY: all ui ui-deps go clean test dev install help lint lint-go lint-c format format-go format-c fix verify build-linux-docker deploy smoke-test-remote logs logs-100 remote-status update update-go update-npm version-check tools tools-go tools-frontend security security-backend security-frontend security-secrets
 
 # Default: build everything
 all: ui go
@@ -502,6 +552,147 @@ remote-status: ## Check service status on remote server
 		echo '' && \
 		echo '=== Listening Ports ===' && \
 		sudo ss -tlnp | grep -E 'State|stem' || true"
+
+# ============================================================================
+# Dependency Management
+# ============================================================================
+
+# Update all dependencies
+update: update-go update-npm ## Update all dependencies
+	@printf "\n$(GREEN)✓ All dependencies updated$(RESET)\n"
+	@printf "$(YELLOW)Remember to test before committing!$(RESET)\n"
+
+# Update Go dependencies
+update-go: ## Update Go modules
+	@printf "$(BOLD)$(CYAN)Updating Go dependencies...$(RESET)\n"
+	$(call timer-start,update-go)
+	go get -u ./...
+	go mod tidy
+	$(call timer-end,update-go,Go dependencies update)
+
+# Update npm dependencies
+update-npm: ## Update npm packages
+	@printf "$(BOLD)$(CYAN)Updating npm dependencies...$(RESET)\n"
+	$(call timer-start,update-npm)
+	cd ui && npm update
+	cd ui && npm audit fix || true
+	$(call timer-end,update-npm,npm dependencies update)
+
+# Show version information
+version-check: ## Show version info and outdated packages
+	@printf "$(BOLD)$(CYAN)Version Information$(RESET)\n"
+	@printf "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+	@printf "$(BOLD)Runtime:$(RESET)\n"
+	@printf "  Go:              $$(go version | awk '{print $$3}')\n"
+	@printf "  Node.js:         $$(node --version)\n"
+	@printf "  npm:             $$(npm --version)\n"
+	@printf "\n$(BOLD)Go Tools:$(RESET)\n"
+	@printf "  golangci-lint:   $$(golangci-lint --version 2>/dev/null | head -1 || echo 'not installed')\n"
+	@printf "  govulncheck:     $$(govulncheck -version 2>/dev/null || echo 'not installed')\n"
+	@printf "  staticcheck:     $$(staticcheck -version 2>/dev/null || echo 'not installed')\n"
+	@printf "\n$(BOLD)Dependencies:$(RESET)\n"
+	@printf "  Go modules:      $$(go list -m all 2>/dev/null | wc -l | tr -d ' ') packages\n"
+	@printf "  npm packages:    $$(cd ui && npm ls --depth=0 2>/dev/null | wc -l | tr -d ' ') packages\n"
+	@printf "\n$(BOLD)Outdated:$(RESET)\n"
+	@GO_OUTDATED=$$(go list -u -m all 2>/dev/null | grep '\[' | wc -l | tr -d ' '); \
+	printf "  Go outdated:     $$GO_OUTDATED packages\n"
+	@cd ui && npm outdated 2>/dev/null | tail -n +2 | wc -l | xargs -I {} printf "  npm outdated:    {} packages\n"
+
+# ============================================================================
+# Developer Tools
+# ============================================================================
+
+# Install all Go development tools
+tools-go: ## Install Go development tools
+	@printf "$(BOLD)$(CYAN)Installing Go development tools...$(RESET)\n"
+	$(call timer-start,tools-go)
+	@printf "  Installing golangci-lint v2...\n"
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+	@printf "  Installing govulncheck...\n"
+	go install golang.org/x/vuln/cmd/govulncheck@latest
+	@printf "  Installing gosec...\n"
+	go install github.com/securego/gosec/v2/cmd/gosec@latest
+	@printf "  Installing gofumpt...\n"
+	go install mvdan.cc/gofumpt@latest
+	@printf "  Installing goimports...\n"
+	go install golang.org/x/tools/cmd/goimports@latest
+	@printf "  Installing staticcheck...\n"
+	go install honnef.co/go/tools/cmd/staticcheck@latest
+	@printf "  Installing gitleaks...\n"
+	go install github.com/zricethezav/gitleaks/v8@latest
+	@printf "  Installing gotestsum...\n"
+	go install gotest.tools/gotestsum@latest
+	$(call timer-end,tools-go,Tool installation)
+	@printf "\n$(GREEN)✓ All Go tools installed to $$(go env GOPATH)/bin$(RESET)\n"
+	@printf "\nInstalled tools:\n"
+	@printf "  • golangci-lint  - Comprehensive Go linter\n"
+	@printf "  • govulncheck    - Go vulnerability checker\n"
+	@printf "  • gosec          - Go security scanner\n"
+	@printf "  • gofumpt        - Stricter gofmt\n"
+	@printf "  • goimports      - Import management\n"
+	@printf "  • staticcheck    - Static analysis\n"
+	@printf "  • gitleaks       - Secret detection\n"
+	@printf "  • gotestsum      - Better test output\n"
+
+# Install frontend tools
+tools-frontend: ## Install frontend development tools
+	@printf "$(BOLD)$(CYAN)Installing frontend tools...$(RESET)\n"
+	cd ui && npm install
+	@printf "$(GREEN)✓ Frontend tools installed$(RESET)\n"
+
+# Install all tools
+tools: tools-go tools-frontend ## Install all development tools
+	@printf "\n$(GREEN)✓ All development tools installed$(RESET)\n"
+
+# ============================================================================
+# Security Scanning
+# ============================================================================
+
+# Run all security checks
+security: security-backend security-frontend security-secrets ## Run all security scans
+	@printf "\n$(GREEN)✓ All security scans complete$(RESET)\n"
+
+# Backend security (Go)
+security-backend: ## Run Go security scans
+	@printf "$(BOLD)$(CYAN)Running Go security scans...$(RESET)\n"
+	$(call timer-start,security-backend)
+	@printf "  [1/3] Running govulncheck...\n"
+	@if command -v govulncheck >/dev/null 2>&1; then \
+		govulncheck ./... || true; \
+	else \
+		printf "$(YELLOW)    ⚠ govulncheck not installed (run: make tools-go)$(RESET)\n"; \
+	fi
+	@printf "  [2/3] Running gosec...\n"
+	@if command -v gosec >/dev/null 2>&1; then \
+		gosec -quiet ./... || true; \
+	else \
+		printf "$(YELLOW)    ⚠ gosec not installed (run: make tools-go)$(RESET)\n"; \
+	fi
+	@printf "  [3/3] Running staticcheck...\n"
+	@if command -v staticcheck >/dev/null 2>&1; then \
+		staticcheck ./... || true; \
+	else \
+		printf "$(YELLOW)    ⚠ staticcheck not installed (run: make tools-go)$(RESET)\n"; \
+	fi
+	$(call timer-end,security-backend,Go security scan)
+
+# Frontend security (npm)
+security-frontend: ## Run npm security audit
+	@printf "$(BOLD)$(CYAN)Running npm security audit...$(RESET)\n"
+	$(call timer-start,security-frontend)
+	cd ui && npm audit --audit-level=high || true
+	$(call timer-end,security-frontend,npm security audit)
+
+# Secret scanning
+security-secrets: ## Scan for secrets in codebase
+	@printf "$(BOLD)$(CYAN)Scanning for secrets...$(RESET)\n"
+	$(call timer-start,security-secrets)
+	@if command -v gitleaks >/dev/null 2>&1; then \
+		gitleaks detect --source . --verbose || true; \
+	else \
+		printf "$(YELLOW)⚠ gitleaks not installed (run: make tools-go)$(RESET)\n"; \
+	fi
+	$(call timer-end,security-secrets,Secret scan)
 
 # ============================================================================
 # Help
