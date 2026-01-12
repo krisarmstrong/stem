@@ -9,10 +9,8 @@
 #   make dev       - Run development servers
 #   make test      - Run all tests
 
-# Version (injected via ldflags at build time)
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-BUILD_TIME ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+# Include shared infrastructure (version, colors, timers)
+include Makefile.common
 
 # Go settings
 GO := go
@@ -26,69 +24,10 @@ GOFLAGS := -trimpath -buildvcs=false -ldflags "$(LDFLAGS)"
 # Binary name
 BINARY := stem
 
-# Terminal colors (ANSI escape codes)
-BOLD := \033[1m
-RED := \033[31m
-GREEN := \033[32m
-YELLOW := \033[33m
-CYAN := \033[36m
-RESET := \033[0m
-
-# Step display helper
-# Usage: $(call step,current,total,description)
-define step
-	@printf "\n$(BOLD)$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)\n"
-	@printf "$(BOLD)$(CYAN)[$(1)/$(2)]$(RESET) $(BOLD)$(3)$(RESET)\n"
-	@printf "$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)\n"
-endef
-
-# Success message helper
-# Usage: $(call success,message)
-define success
-	@printf "$(GREEN)✓ $(1)$(RESET)\n"
-endef
-
-# Warning message helper
-# Usage: $(call warn,message)
-define warn
-	@printf "$(YELLOW)⚠ $(1)$(RESET)\n"
-endef
-
-# Error message helper
-# Usage: $(call error,message)
-define error
-	@printf "$(RED)✗ $(1)$(RESET)\n"
-endef
-
-# Timer: Start a named timer
-# Usage: $(call timer-start,name)
-define timer-start
-	@date +%s > /tmp/make-timer-$(1)
-endef
-
-# Timer: Show elapsed time for a named timer
-# Usage: $(call timer-end,name,description)
-define timer-end
-	@if [ -f /tmp/make-timer-$(1) ]; then \
-		START=$$(cat /tmp/make-timer-$(1)); \
-		END=$$(date +%s); \
-		ELAPSED=$$((END - START)); \
-		MINS=$$((ELAPSED / 60)); \
-		SECS=$$((ELAPSED % 60)); \
-		if [ $$MINS -gt 0 ]; then \
-			printf "$(GREEN)✓ $(2) $(YELLOW)($$MINS min $$SECS sec)$(RESET)\n"; \
-		else \
-			printf "$(GREEN)✓ $(2) $(YELLOW)($$SECS sec)$(RESET)\n"; \
-		fi; \
-		rm -f /tmp/make-timer-$(1); \
-	fi
-endef
-
-# Platform detection
-UNAME := $(shell uname -s)
-ifeq ($(UNAME),Darwin)
+# Platform-specific binary name (uses PLATFORM from Makefile.common)
+ifeq ($(PLATFORM),darwin)
     BINARY_NAME := bin/$(BINARY)-darwin
-else ifeq ($(UNAME),Linux)
+else ifeq ($(PLATFORM),linux)
     BINARY_NAME := bin/$(BINARY)-linux
 else
     BINARY_NAME := bin/$(BINARY)
