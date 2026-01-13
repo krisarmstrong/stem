@@ -1,16 +1,14 @@
 // Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
 
-// Package help tests provide comprehensive coverage for the help system.
-//
-//nolint:testpackage,reassign // Tests internal functions; reassigns os.Stdout/Stderr for output capture.
-package help
+// Package help_test provides comprehensive coverage for the help system.
+package help_test
 
 import (
 	"bytes"
-	"io"
-	"os"
 	"strings"
 	"testing"
+
+	"github.com/krisarmstrong/stem/internal/help"
 )
 
 // assertNotEmpty is a test helper that checks a field is not empty.
@@ -21,12 +19,22 @@ func assertNotEmpty(t *testing.T, name, value string) {
 	}
 }
 
+func assertNoPanic(t *testing.T, fn func()) {
+	t.Helper()
+	defer func() {
+		if rec := recover(); rec != nil {
+			t.Fatalf("unexpected panic: %v", rec)
+		}
+	}()
+	fn()
+}
+
 // ============================================================================
 // System Tests
 // ============================================================================
 
 func TestNewSystem(t *testing.T) {
-	hs := NewSystem()
+	hs := help.NewSystem()
 
 	if hs == nil {
 		t.Fatal("NewSystem returned nil")
@@ -53,7 +61,7 @@ func TestNewSystem(t *testing.T) {
 }
 
 func TestGetTest(t *testing.T) {
-	hs := NewSystem()
+	hs := help.NewSystem()
 
 	tests := []struct {
 		id       string
@@ -80,7 +88,7 @@ func TestGetTest(t *testing.T) {
 }
 
 func TestGetCommand(t *testing.T) {
-	hs := NewSystem()
+	hs := help.NewSystem()
 
 	tests := []struct {
 		name     string
@@ -107,7 +115,7 @@ func TestGetCommand(t *testing.T) {
 }
 
 func TestGetGlossaryTerm(t *testing.T) {
-	hs := NewSystem()
+	hs := help.NewSystem()
 
 	tests := []struct {
 		term     string
@@ -134,7 +142,7 @@ func TestGetGlossaryTerm(t *testing.T) {
 }
 
 func TestGetTutorial(t *testing.T) {
-	hs := NewSystem()
+	hs := help.NewSystem()
 
 	tests := []struct {
 		id     string
@@ -160,7 +168,7 @@ func TestGetTutorial(t *testing.T) {
 }
 
 func TestGetError(t *testing.T) {
-	hs := NewSystem()
+	hs := help.NewSystem()
 
 	tests := []struct {
 		code   string
@@ -182,7 +190,7 @@ func TestGetError(t *testing.T) {
 }
 
 func TestGetCategory(t *testing.T) {
-	hs := NewSystem()
+	hs := help.NewSystem()
 
 	tests := []struct {
 		id     string
@@ -209,7 +217,7 @@ func TestGetCategory(t *testing.T) {
 }
 
 func TestGetTestsByCategory(t *testing.T) {
-	hs := NewSystem()
+	hs := help.NewSystem()
 
 	tests := []struct {
 		categoryID string
@@ -236,7 +244,7 @@ func TestGetTestsByCategory(t *testing.T) {
 }
 
 func TestSearchTests(t *testing.T) {
-	hs := NewSystem()
+	hs := help.NewSystem()
 
 	tests := []struct {
 		keyword  string
@@ -261,7 +269,7 @@ func TestSearchTests(t *testing.T) {
 }
 
 func TestSearchGlossary(t *testing.T) {
-	hs := NewSystem()
+	hs := help.NewSystem()
 
 	tests := []struct {
 		keyword  string
@@ -289,16 +297,16 @@ func TestSearchGlossary(t *testing.T) {
 // ============================================================================
 
 func TestAllTestsCount(t *testing.T) {
-	tests := GetAllTests()
+	tests := help.GetAllTests()
 	expectedCount := 27
 
 	if len(tests) != expectedCount {
-		t.Errorf("GetAllTests() returned %d tests, want %d", len(tests), expectedCount)
+		t.Errorf("help.GetAllTests() returned %d tests, want %d", len(tests), expectedCount)
 	}
 }
 
 func TestAllTestsHaveRequiredFields(t *testing.T) {
-	tests := GetAllTests()
+	tests := help.GetAllTests()
 
 	for id, test := range tests {
 		t.Run(id, func(t *testing.T) {
@@ -318,7 +326,7 @@ func TestAllTestsHaveRequiredFields(t *testing.T) {
 }
 
 func TestAllTestsHaveExamples(t *testing.T) {
-	tests := GetAllTests()
+	tests := help.GetAllTests()
 
 	for id, test := range tests {
 		t.Run(id, func(t *testing.T) {
@@ -334,16 +342,16 @@ func TestAllTestsHaveExamples(t *testing.T) {
 // ============================================================================
 
 func TestAllCategoriesCount(t *testing.T) {
-	categories := GetAllCategories()
+	categories := help.GetAllCategories()
 	expectedCount := 7
 
 	if len(categories) != expectedCount {
-		t.Errorf("GetAllCategories() returned %d categories, want %d", len(categories), expectedCount)
+		t.Errorf("help.GetAllCategories() returned %d categories, want %d", len(categories), expectedCount)
 	}
 }
 
 func TestAllCategoriesHaveRequiredFields(t *testing.T) {
-	categories := GetAllCategories()
+	categories := help.GetAllCategories()
 
 	for id, cat := range categories {
 		t.Run(id, func(t *testing.T) {
@@ -365,8 +373,8 @@ func TestAllCategoriesHaveRequiredFields(t *testing.T) {
 }
 
 func TestCategoryTestsExist(t *testing.T) {
-	categories := GetAllCategories()
-	tests := GetAllTests()
+	categories := help.GetAllCategories()
+	tests := help.GetAllTests()
 
 	for catID, cat := range categories {
 		for _, testID := range cat.Tests {
@@ -384,16 +392,16 @@ func TestCategoryTestsExist(t *testing.T) {
 // ============================================================================
 
 func TestGlossarySize(t *testing.T) {
-	glossary := GetGlossary()
+	glossary := help.GetGlossary()
 	minExpected := 40
 
 	if len(glossary) < minExpected {
-		t.Errorf("GetGlossary() returned %d terms, want at least %d", len(glossary), minExpected)
+		t.Errorf("help.GetGlossary() returned %d terms, want at least %d", len(glossary), minExpected)
 	}
 }
 
 func TestGlossaryEntriesHaveRequiredFields(t *testing.T) {
-	glossary := GetGlossary()
+	glossary := help.GetGlossary()
 
 	for term, entry := range glossary {
 		t.Run(term, func(t *testing.T) {
@@ -414,8 +422,8 @@ func TestGlossaryEntriesHaveRequiredFields(t *testing.T) {
 }
 
 func TestGlossaryTermsByCategory(t *testing.T) {
-	categories := GetGlossaryTermsByCategory()
-	glossary := GetGlossary()
+	categories := help.GetGlossaryTermsByCategory()
+	glossary := help.GetGlossary()
 
 	if len(categories) == 0 {
 		t.Fatal("GetGlossaryTermsByCategory() returned empty map")
@@ -438,16 +446,16 @@ func TestGlossaryTermsByCategory(t *testing.T) {
 // ============================================================================
 
 func TestTutorialsCount(t *testing.T) {
-	tutorials := GetAllTutorials()
+	tutorials := help.GetAllTutorials()
 	expectedCount := 6
 
 	if len(tutorials) != expectedCount {
-		t.Errorf("GetAllTutorials() returned %d tutorials, want %d", len(tutorials), expectedCount)
+		t.Errorf("help.GetAllTutorials() returned %d tutorials, want %d", len(tutorials), expectedCount)
 	}
 }
 
 func TestTutorialsHaveRequiredFields(t *testing.T) {
-	tutorials := GetAllTutorials()
+	tutorials := help.GetAllTutorials()
 
 	for id, tutorial := range tutorials {
 		t.Run(id, func(t *testing.T) {
@@ -467,7 +475,7 @@ func TestTutorialsHaveRequiredFields(t *testing.T) {
 }
 
 func TestTutorialStepsHaveContent(t *testing.T) {
-	tutorials := GetAllTutorials()
+	tutorials := help.GetAllTutorials()
 
 	for id, tutorial := range tutorials {
 		for i, step := range tutorial.Steps {
@@ -488,16 +496,16 @@ func TestTutorialStepsHaveContent(t *testing.T) {
 // ============================================================================
 
 func TestCommandsCount(t *testing.T) {
-	commands := GetAllCommands()
+	commands := help.GetAllCommands()
 	expectedCount := 8
 
 	if len(commands) != expectedCount {
-		t.Errorf("GetAllCommands() returned %d commands, want %d", len(commands), expectedCount)
+		t.Errorf("help.GetAllCommands() returned %d commands, want %d", len(commands), expectedCount)
 	}
 }
 
 func TestCommandsHaveRequiredFields(t *testing.T) {
-	commands := GetAllCommands()
+	commands := help.GetAllCommands()
 
 	for name, cmd := range commands {
 		t.Run(name, func(t *testing.T) {
@@ -522,7 +530,7 @@ func TestCommandsHaveRequiredFields(t *testing.T) {
 }
 
 func TestCommandsHaveExamples(t *testing.T) {
-	commands := GetAllCommands()
+	commands := help.GetAllCommands()
 
 	for name, cmd := range commands {
 		t.Run(name, func(t *testing.T) {
@@ -538,16 +546,16 @@ func TestCommandsHaveExamples(t *testing.T) {
 // ============================================================================
 
 func TestErrorsCount(t *testing.T) {
-	errors := GetAllErrors()
+	errors := help.GetAllErrors()
 	minExpected := 10
 
 	if len(errors) < minExpected {
-		t.Errorf("GetAllErrors() returned %d errors, want at least %d", len(errors), minExpected)
+		t.Errorf("help.GetAllErrors() returned %d errors, want at least %d", len(errors), minExpected)
 	}
 }
 
 func TestErrorsHaveRequiredFields(t *testing.T) {
-	errors := GetAllErrors()
+	errors := help.GetAllErrors()
 
 	for code, errHelp := range errors {
 		t.Run(code, func(t *testing.T) {
@@ -572,51 +580,33 @@ func TestErrorsHaveRequiredFields(t *testing.T) {
 }
 
 func TestPrintErrorDoesNotPanic(t *testing.T) {
-	// Capture stderr
-	old := os.Stderr
-	r, w, _ := os.Pipe()
-	os.Stderr = w
-
 	defer func() {
 		if rec := recover(); rec != nil {
 			t.Errorf("PrintError panicked: %v", rec)
 		}
-		_ = w.Close()
-		os.Stderr = old
 	}()
+	var buf bytes.Buffer
 
 	// Test with valid error code
-	PrintError("ERR_INTERFACE_REQUIRED")
+	help.PrintErrorTo(&buf, "ERR_INTERFACE_REQUIRED")
 
 	// Test with invalid error code
-	PrintError("ERR_NONEXISTENT")
-
-	_ = w.Close()
-	_, _ = io.Copy(io.Discard, r)
+	help.PrintErrorTo(&buf, "ERR_NONEXISTENT")
 }
 
 func TestPrintErrorWithDetailsDoesNotPanic(t *testing.T) {
-	// Capture stderr
-	old := os.Stderr
-	r, w, _ := os.Pipe()
-	os.Stderr = w
-
 	defer func() {
 		if rec := recover(); rec != nil {
 			t.Errorf("PrintErrorWithDetails panicked: %v", rec)
 		}
-		_ = w.Close()
-		os.Stderr = old
 	}()
+	var buf bytes.Buffer
 
 	// Test with valid error code
-	PrintErrorWithDetails("ERR_INTERFACE_REQUIRED", "eth0 not found")
+	help.PrintErrorWithDetailsTo(&buf, "ERR_INTERFACE_REQUIRED", "eth0 not found")
 
 	// Test with invalid error code
-	PrintErrorWithDetails("ERR_NONEXISTENT", "some details")
-
-	_ = w.Close()
-	_, _ = io.Copy(io.Discard, r)
+	help.PrintErrorWithDetailsTo(&buf, "ERR_NONEXISTENT", "some details")
 }
 
 // ============================================================================
@@ -624,7 +614,7 @@ func TestPrintErrorWithDetailsDoesNotPanic(t *testing.T) {
 // ============================================================================
 
 func TestDisplayTestDoesNotPanic(t *testing.T) {
-	tests := GetAllTests()
+	tests := help.GetAllTests()
 
 	// Test a subset to avoid output buffer overflow
 	count := 0
@@ -635,28 +625,17 @@ func TestDisplayTestDoesNotPanic(t *testing.T) {
 		count++
 
 		t.Run(id, func(t *testing.T) {
-			// Capture stdout
-			old := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-
-			defer func() {
-				if rec := recover(); rec != nil {
-					t.Errorf("DisplayTest panicked: %v", rec)
-				}
-				_ = w.Close()
-				os.Stdout = old
-				_, _ = io.Copy(io.Discard, r)
-			}()
-
-			DisplayTest(test, false)
-			DisplayTest(test, true)
+			assertNoPanic(t, func() {
+				var buf bytes.Buffer
+				help.DisplayTestTo(&buf, test, false)
+				help.DisplayTestTo(&buf, test, true)
+			})
 		})
 	}
 }
 
 func TestDisplayCommandDoesNotPanic(t *testing.T) {
-	commands := GetAllCommands()
+	commands := help.GetAllCommands()
 
 	// Test a subset to avoid output buffer overflow
 	count := 0
@@ -667,26 +646,16 @@ func TestDisplayCommandDoesNotPanic(t *testing.T) {
 		count++
 
 		t.Run(name, func(t *testing.T) {
-			old := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-
-			defer func() {
-				if rec := recover(); rec != nil {
-					t.Errorf("DisplayCommand panicked: %v", rec)
-				}
-				_ = w.Close()
-				os.Stdout = old
-				_, _ = io.Copy(io.Discard, r)
-			}()
-
-			DisplayCommand(cmd)
+			assertNoPanic(t, func() {
+				var buf bytes.Buffer
+				help.DisplayCommandTo(&buf, cmd)
+			})
 		})
 	}
 }
 
 func TestDisplayCategoryDoesNotPanic(t *testing.T) {
-	categories := GetAllCategories()
+	categories := help.GetAllCategories()
 
 	// Test a subset to avoid output buffer overflow
 	count := 0
@@ -697,26 +666,16 @@ func TestDisplayCategoryDoesNotPanic(t *testing.T) {
 		count++
 
 		t.Run(id, func(t *testing.T) {
-			old := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-
-			defer func() {
-				if rec := recover(); rec != nil {
-					t.Errorf("DisplayCategory panicked: %v", rec)
-				}
-				_ = w.Close()
-				os.Stdout = old
-				_, _ = io.Copy(io.Discard, r)
-			}()
-
-			DisplayCategory(cat)
+			assertNoPanic(t, func() {
+				var buf bytes.Buffer
+				help.DisplayCategoryTo(&buf, cat)
+			})
 		})
 	}
 }
 
 func TestDisplayGlossaryTermDoesNotPanic(t *testing.T) {
-	glossary := GetGlossary()
+	glossary := help.GetGlossary()
 
 	// Test a subset to avoid output buffer overflow
 	count := 0
@@ -727,44 +686,24 @@ func TestDisplayGlossaryTermDoesNotPanic(t *testing.T) {
 		count++
 
 		t.Run(term, func(t *testing.T) {
-			old := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-
-			defer func() {
-				if rec := recover(); rec != nil {
-					t.Errorf("DisplayGlossaryTerm panicked: %v", rec)
-				}
-				_ = w.Close()
-				os.Stdout = old
-				_, _ = io.Copy(io.Discard, r)
-			}()
-
-			DisplayGlossaryTerm(entry, false)
-			DisplayGlossaryTerm(entry, true)
+			assertNoPanic(t, func() {
+				var buf bytes.Buffer
+				help.DisplayGlossaryTermTo(&buf, entry, false)
+				help.DisplayGlossaryTermTo(&buf, entry, true)
+			})
 		})
 	}
 }
 
 func TestDisplayGlossaryListDoesNotPanic(t *testing.T) {
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	defer func() {
-		if rec := recover(); rec != nil {
-			t.Errorf("DisplayGlossaryList panicked: %v", rec)
-		}
-		_ = w.Close()
-		os.Stdout = old
-		_, _ = io.Copy(io.Discard, r)
-	}()
-
-	DisplayGlossaryList()
+	assertNoPanic(t, func() {
+		var buf bytes.Buffer
+		help.DisplayGlossaryListTo(&buf)
+	})
 }
 
 func TestDisplayTutorialDoesNotPanic(t *testing.T) {
-	tutorials := GetAllTutorials()
+	tutorials := help.GetAllTutorials()
 
 	// Test a subset to avoid output buffer overflow
 	count := 0
@@ -775,56 +714,26 @@ func TestDisplayTutorialDoesNotPanic(t *testing.T) {
 		count++
 
 		t.Run(id, func(t *testing.T) {
-			old := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-
-			defer func() {
-				if rec := recover(); rec != nil {
-					t.Errorf("DisplayTutorial panicked: %v", rec)
-				}
-				_ = w.Close()
-				os.Stdout = old
-				_, _ = io.Copy(io.Discard, r)
-			}()
-
-			DisplayTutorial(tutorial)
+			assertNoPanic(t, func() {
+				var buf bytes.Buffer
+				help.DisplayTutorialTo(&buf, tutorial)
+			})
 		})
 	}
 }
 
 func TestDisplayTutorialListDoesNotPanic(t *testing.T) {
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	defer func() {
-		if rec := recover(); rec != nil {
-			t.Errorf("DisplayTutorialList panicked: %v", rec)
-		}
-		_ = w.Close()
-		os.Stdout = old
-		_, _ = io.Copy(io.Discard, r)
-	}()
-
-	DisplayTutorialList()
+	assertNoPanic(t, func() {
+		var buf bytes.Buffer
+		help.DisplayTutorialListTo(&buf)
+	})
 }
 
 func TestDisplayTestListDoesNotPanic(t *testing.T) {
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	defer func() {
-		if rec := recover(); rec != nil {
-			t.Errorf("DisplayTestList panicked: %v", rec)
-		}
-		_ = w.Close()
-		os.Stdout = old
-		_, _ = io.Copy(io.Discard, r)
-	}()
-
-	DisplayTestList()
+	assertNoPanic(t, func() {
+		var buf bytes.Buffer
+		help.DisplayTestListTo(&buf)
+	})
 }
 
 // ============================================================================
@@ -848,19 +757,10 @@ func TestShowHelp(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.topic, func(t *testing.T) {
-			old := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-
-			defer func() {
-				_ = w.Close()
-				os.Stdout = old
-				_, _ = io.Copy(io.Discard, r)
-			}()
-
-			got := ShowHelp(tt.topic, tt.simple)
+			var buf bytes.Buffer
+			got := help.ShowHelpTo(&buf, tt.topic, tt.simple)
 			if got != tt.want {
-				t.Errorf("ShowHelp(%q, %v) = %v, want %v", tt.topic, tt.simple, got, tt.want)
+				t.Errorf("help.ShowHelp(%q, %v) = %v, want %v", tt.topic, tt.simple, got, tt.want)
 			}
 		})
 	}
@@ -882,19 +782,10 @@ func TestShowGlossary(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.term, func(t *testing.T) {
-			old := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-
-			defer func() {
-				_ = w.Close()
-				os.Stdout = old
-				_, _ = io.Copy(io.Discard, r)
-			}()
-
-			got := ShowGlossary(tt.term, tt.simple)
+			var buf bytes.Buffer
+			got := help.ShowGlossaryTo(&buf, tt.term, tt.simple)
 			if got != tt.want {
-				t.Errorf("ShowGlossary(%q, %v) = %v, want %v", tt.term, tt.simple, got, tt.want)
+				t.Errorf("help.ShowGlossary(%q, %v) = %v, want %v", tt.term, tt.simple, got, tt.want)
 			}
 		})
 	}
@@ -913,19 +804,10 @@ func TestShowTutorial(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.id, func(t *testing.T) {
-			old := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-
-			defer func() {
-				_ = w.Close()
-				os.Stdout = old
-				_, _ = io.Copy(io.Discard, r)
-			}()
-
-			got := ShowTutorial(tt.id)
+			var buf bytes.Buffer
+			got := help.ShowTutorialTo(&buf, tt.id)
 			if got != tt.want {
-				t.Errorf("ShowTutorial(%q) = %v, want %v", tt.id, got, tt.want)
+				t.Errorf("help.ShowTutorial(%q) = %v, want %v", tt.id, got, tt.want)
 			}
 		})
 	}
@@ -936,7 +818,7 @@ func TestShowTutorial(t *testing.T) {
 // ============================================================================
 
 func TestSearchIsCaseInsensitive(t *testing.T) {
-	hs := NewSystem()
+	hs := help.NewSystem()
 
 	// Test case insensitive search
 	tests := []struct {
@@ -979,8 +861,8 @@ func TestSearchIsCaseInsensitive(t *testing.T) {
 // ============================================================================
 
 func TestTestCategoryMatchesActualCategory(t *testing.T) {
-	tests := GetAllTests()
-	categories := GetAllCategories()
+	tests := help.GetAllTests()
+	categories := help.GetAllCategories()
 
 	// Build a map of test ID to expected category
 	testToCategory := make(map[string]string)
@@ -1007,7 +889,7 @@ func TestGlossaryRelatedTermsExist(t *testing.T) {
 	// that could be added later. The test validates this is not an oversight.
 	t.Skip("Skipping: Some glossary related terms are planned for future addition")
 
-	glossary := GetGlossary()
+	glossary := help.GetGlossary()
 
 	for term, entry := range glossary {
 		for _, related := range entry.Related {
@@ -1021,7 +903,7 @@ func TestGlossaryRelatedTermsExist(t *testing.T) {
 }
 
 func TestTestSeeAlsoReferencesExist(t *testing.T) {
-	tests := GetAllTests()
+	tests := help.GetAllTests()
 
 	for id, test := range tests {
 		for _, related := range test.SeeAlso {
@@ -1039,14 +921,14 @@ func TestTestSeeAlsoReferencesExist(t *testing.T) {
 // ============================================================================
 
 func TestDisplayTestOutputContainsName(t *testing.T) {
-	test := rfc2544Throughput
+	tests := help.GetAllTests()
+	test, ok := tests["throughput"]
+	if !ok {
+		t.Fatal("missing throughput test")
+	}
 
-	// Use SetOutput to properly capture display function output
 	var buf bytes.Buffer
-	SetOutput(&buf)
-	defer SetOutput(os.Stdout)
-
-	DisplayTest(test, false)
+	help.DisplayTestTo(&buf, test, false)
 
 	output := buf.String()
 
@@ -1056,14 +938,14 @@ func TestDisplayTestOutputContainsName(t *testing.T) {
 }
 
 func TestDisplayCommandOutputContainsUsage(t *testing.T) {
-	cmd := ReflectCommand
+	commands := help.GetAllCommands()
+	cmd, ok := commands["reflect"]
+	if !ok {
+		t.Fatal("missing reflect command")
+	}
 
-	// Use SetOutput to properly capture display function output
 	var buf bytes.Buffer
-	SetOutput(&buf)
-	defer SetOutput(os.Stdout)
-
-	DisplayCommand(cmd)
+	help.DisplayCommandTo(&buf, cmd)
 
 	output := buf.String()
 
@@ -1077,7 +959,7 @@ func TestDisplayCommandOutputContainsUsage(t *testing.T) {
 // ============================================================================
 
 func TestEmptySearchReturnsEmpty(t *testing.T) {
-	hs := NewSystem()
+	hs := help.NewSystem()
 
 	// Empty search should not panic and return empty
 	testsResults := hs.SearchTests("")
@@ -1090,7 +972,7 @@ func TestEmptySearchReturnsEmpty(t *testing.T) {
 }
 
 func TestSpecialCharactersInSearch(t *testing.T) {
-	hs := NewSystem()
+	hs := help.NewSystem()
 
 	// Special characters should not panic
 	specialSearches := []string{
@@ -1132,29 +1014,19 @@ func TestSpecialCharactersInSearch(t *testing.T) {
 // ============================================================================
 
 func TestDisplayTestListByModuleDoesNotPanic(t *testing.T) {
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
 	defer func() {
 		if rec := recover(); rec != nil {
 			t.Errorf("DisplayTestListByModule panicked: %v", rec)
 		}
-		_ = w.Close()
-		os.Stdout = old
-		_, _ = io.Copy(io.Discard, r)
 	}()
 
-	DisplayTestListByModule()
+	var buf bytes.Buffer
+	help.DisplayTestListByModuleTo(&buf)
 }
 
 func TestDisplayTestListByModuleOutputContainsModules(t *testing.T) {
-	// Use SetOutput to properly capture display function output
 	var buf bytes.Buffer
-	SetOutput(&buf)
-	defer SetOutput(os.Stdout)
-
-	DisplayTestListByModule()
+	help.DisplayTestListByModuleTo(&buf)
 
 	output := buf.String()
 
@@ -1189,14 +1061,10 @@ func TestShowHelpModuleTopics(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.topic, func(t *testing.T) {
-			// Redirect output using SetOutput to capture display output
 			var buf bytes.Buffer
-			SetOutput(&buf)
-			defer SetOutput(os.Stdout)
-
-			got := ShowHelp(tt.topic, false)
+			got := help.ShowHelpTo(&buf, tt.topic, false)
 			if got != tt.want {
-				t.Errorf("ShowHelp(%q, false) = %v, want %v", tt.topic, got, tt.want)
+				t.Errorf("help.ShowHelp(%q, false) = %v, want %v", tt.topic, got, tt.want)
 			}
 		})
 	}
@@ -1217,13 +1085,13 @@ func TestModuleColorToANSI(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.hexColor, func(t *testing.T) {
-			result := moduleColorToANSI(tt.hexColor)
+			result := help.ModuleColorToANSI(tt.hexColor)
 			if tt.expectNotNil && result == "" {
-				t.Errorf("moduleColorToANSI(%q) returned empty string", tt.hexColor)
+				t.Errorf("ModuleColorToANSI(%q) returned empty string", tt.hexColor)
 			}
 			// Verify it contains ANSI escape sequence
 			if !strings.HasPrefix(result, "\033[") {
-				t.Errorf("moduleColorToANSI(%q) = %q, expected ANSI escape sequence", tt.hexColor, result)
+				t.Errorf("ModuleColorToANSI(%q) = %q, expected ANSI escape sequence", tt.hexColor, result)
 			}
 		})
 	}

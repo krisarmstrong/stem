@@ -40,19 +40,13 @@ const (
 	headerPadding = 2
 )
 
-// defaultWriter is the default output destination.
-//
-//nolint:gochecknoglobals // Required for default output destination
-var defaultWriter io.Writer = os.Stdout
-
-// SetOutput sets the output writer for all display functions.
-func SetOutput(w io.Writer) {
-	defaultWriter = w
-}
-
 // DisplayTest shows detailed help for a test.
 func DisplayTest(test TestHelp, simple bool) {
-	w := defaultWriter
+	DisplayTestTo(os.Stdout, test, simple)
+}
+
+// DisplayTestTo shows detailed help for a test using the provided writer.
+func DisplayTestTo(w io.Writer, test TestHelp, simple bool) {
 	_, _ = fmt.Fprintln(w)
 	printHeader(w, test.Name)
 	_, _ = fmt.Fprintf(w, "%s%s%s\n", colorDim, test.Standard, colorReset)
@@ -178,7 +172,11 @@ func displayTestSeeAlso(w io.Writer, test TestHelp) {
 
 // DisplayCommand shows detailed help for a command.
 func DisplayCommand(cmd CommandHelp) {
-	w := defaultWriter
+	DisplayCommandTo(os.Stdout, cmd)
+}
+
+// DisplayCommandTo shows detailed help for a command using the provided writer.
+func DisplayCommandTo(w io.Writer, cmd CommandHelp) {
 	_, _ = fmt.Fprintln(w)
 	printHeader(w, "stem "+cmd.Name)
 	_, _ = fmt.Fprintln(w)
@@ -231,7 +229,11 @@ func DisplayCommand(cmd CommandHelp) {
 
 // DisplayCategory shows a test category overview.
 func DisplayCategory(cat Category) {
-	w := defaultWriter
+	DisplayCategoryTo(os.Stdout, cat)
+}
+
+// DisplayCategoryTo shows a test category overview using the provided writer.
+func DisplayCategoryTo(w io.Writer, cat Category) {
 	_, _ = fmt.Fprintln(w)
 	printHeader(w, cat.Name)
 	_, _ = fmt.Fprintf(w, "%s%s%s\n", colorDim, cat.FullName, colorReset)
@@ -267,7 +269,11 @@ func DisplayCategory(cat Category) {
 
 // DisplayGlossaryTerm shows a glossary entry.
 func DisplayGlossaryTerm(entry GlossaryEntry, simple bool) {
-	w := defaultWriter
+	DisplayGlossaryTermTo(os.Stdout, entry, simple)
+}
+
+// DisplayGlossaryTermTo shows a glossary entry using the provided writer.
+func DisplayGlossaryTermTo(w io.Writer, entry GlossaryEntry, simple bool) {
 	_, _ = fmt.Fprintln(w)
 	printHeader(w, entry.Term)
 	_, _ = fmt.Fprintf(w, "%s%s%s\n", colorDim, entry.FullName, colorReset)
@@ -298,7 +304,11 @@ func DisplayGlossaryTerm(entry GlossaryEntry, simple bool) {
 
 // DisplayGlossaryList shows all glossary terms by category.
 func DisplayGlossaryList() {
-	w := defaultWriter
+	DisplayGlossaryListTo(os.Stdout)
+}
+
+// DisplayGlossaryListTo shows all glossary terms by category using the provided writer.
+func DisplayGlossaryListTo(w io.Writer) {
 	_, _ = fmt.Fprintln(w)
 	printHeader(w, "Network Glossary")
 	_, _ = fmt.Fprintln(w)
@@ -327,7 +337,11 @@ func DisplayGlossaryList() {
 
 // DisplayTutorial shows a tutorial.
 func DisplayTutorial(tutorial Tutorial) {
-	w := defaultWriter
+	DisplayTutorialTo(os.Stdout, tutorial)
+}
+
+// DisplayTutorialTo shows a tutorial using the provided writer.
+func DisplayTutorialTo(w io.Writer, tutorial Tutorial) {
 	_, _ = fmt.Fprintln(w)
 	printHeader(w, tutorial.Title)
 	_, _ = fmt.Fprintf(
@@ -361,7 +375,11 @@ func DisplayTutorial(tutorial Tutorial) {
 
 // DisplayTutorialList shows available tutorials.
 func DisplayTutorialList() {
-	w := defaultWriter
+	DisplayTutorialListTo(os.Stdout)
+}
+
+// DisplayTutorialListTo shows available tutorials using the provided writer.
+func DisplayTutorialListTo(w io.Writer) {
 	_, _ = fmt.Fprintln(w)
 	printHeader(w, "Available Tutorials")
 	_, _ = fmt.Fprintln(w)
@@ -393,7 +411,11 @@ func DisplayTutorialList() {
 
 // DisplayTestList shows all available tests.
 func DisplayTestList() {
-	w := defaultWriter
+	DisplayTestListTo(os.Stdout)
+}
+
+// DisplayTestListTo shows all available tests using the provided writer.
+func DisplayTestListTo(w io.Writer) {
 	_, _ = fmt.Fprintln(w)
 	printHeader(w, "Available Tests")
 	_, _ = fmt.Fprintln(w)
@@ -428,7 +450,11 @@ func DisplayTestList() {
 
 // DisplayTestListByModule shows all available tests grouped by module.
 func DisplayTestListByModule() {
-	w := defaultWriter
+	DisplayTestListByModuleTo(os.Stdout)
+}
+
+// DisplayTestListByModuleTo shows all available tests grouped by module using the provided writer.
+func DisplayTestListByModuleTo(w io.Writer) {
 	_, _ = fmt.Fprintln(w)
 	printHeader(w, "Available Tests by Module")
 	_, _ = fmt.Fprintln(w)
@@ -454,7 +480,7 @@ func DisplayTestListByModule() {
 			continue
 		}
 
-		modColor := moduleColorToANSI(mod.Color())
+		modColor := ModuleColorToANSI(mod.Color())
 		_, _ = fmt.Fprintf(w, "%s%s%s%s - %s\n", modColor, colorBold, mod.DisplayName(), colorReset, mod.Description())
 		_, _ = fmt.Fprintf(w, "%sStandard: %s%s\n", colorDim, mod.Standard(), colorReset)
 		_, _ = fmt.Fprintln(w, strings.Repeat("─", wideColumnWidth))
@@ -479,8 +505,8 @@ func DisplayTestListByModule() {
 	_, _ = fmt.Fprintln(w)
 }
 
-// moduleColorToANSI converts a hex color code to ANSI escape code.
-func moduleColorToANSI(hexColor string) string {
+// ModuleColorToANSI converts a hex color code to ANSI escape code.
+func ModuleColorToANSI(hexColor string) string {
 	// Map module colors to ANSI codes
 	switch hexColor {
 	case "#0891b2": // Reflector - Cyan
@@ -518,51 +544,58 @@ func printSection(w io.Writer, title, content string) {
 
 // ShowHelp is the main entry point for the help system.
 func ShowHelp(topic string, simple bool) bool {
-	w := defaultWriter
+	return ShowHelpTo(os.Stdout, topic, simple)
+}
+
+// ShowHelpTo is the main entry point for the help system using the provided writer.
+func ShowHelpTo(w io.Writer, topic string, simple bool) bool {
 	hs := NewSystem()
 
 	// Check if topic is a test
 	if test, ok := hs.GetTest(topic); ok {
-		DisplayTest(test, simple)
+		DisplayTestTo(w, test, simple)
 		return true
 	}
 
 	// Check if topic is a command
 	if cmd, ok := hs.GetCommand(topic); ok {
-		DisplayCommand(cmd)
+		DisplayCommandTo(w, cmd)
 		return true
 	}
 
 	// Check if topic is a category
 	if cat, ok := hs.GetCategory(topic); ok {
-		DisplayCategory(cat)
+		DisplayCategoryTo(w, cat)
 		return true
 	}
 
 	// Check if topic is "tests"
 	if topic == "tests" || topic == "list" {
-		DisplayTestList()
+		DisplayTestListTo(w)
 		return true
 	}
 
 	// Check if topic is module-related
 	if topic == "modules" || topic == "by-module" || topic == "tests-by-module" {
-		DisplayTestListByModule()
+		DisplayTestListByModuleTo(w)
 		return true
 	}
 
 	// Not found
-	_ = w // Silence unused variable warning
 	return false
 }
 
 // ShowGlossary handles glossary lookups.
 func ShowGlossary(term string, simple bool) bool {
-	w := defaultWriter
+	return ShowGlossaryTo(os.Stdout, term, simple)
+}
+
+// ShowGlossaryTo handles glossary lookups using the provided writer.
+func ShowGlossaryTo(w io.Writer, term string, simple bool) bool {
 	hs := NewSystem()
 
 	if term == "" {
-		DisplayGlossaryList()
+		DisplayGlossaryListTo(w)
 		return true
 	}
 
@@ -570,7 +603,7 @@ func ShowGlossary(term string, simple bool) bool {
 	term = strings.ToLower(strings.TrimSpace(term))
 
 	if entry, ok := hs.GetGlossaryTerm(term); ok {
-		DisplayGlossaryTerm(entry, simple)
+		DisplayGlossaryTermTo(w, entry, simple)
 		return true
 	}
 
@@ -590,15 +623,20 @@ func ShowGlossary(term string, simple bool) bool {
 
 // ShowTutorial handles tutorial display.
 func ShowTutorial(id string) bool {
+	return ShowTutorialTo(os.Stdout, id)
+}
+
+// ShowTutorialTo handles tutorial display using the provided writer.
+func ShowTutorialTo(w io.Writer, id string) bool {
 	hs := NewSystem()
 
 	if id == "" {
-		DisplayTutorialList()
+		DisplayTutorialListTo(w)
 		return true
 	}
 
 	if tutorial, ok := hs.GetTutorial(id); ok {
-		DisplayTutorial(tutorial)
+		DisplayTutorialTo(w, tutorial)
 		return true
 	}
 

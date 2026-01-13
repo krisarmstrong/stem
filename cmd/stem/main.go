@@ -86,9 +86,8 @@ const (
 )
 
 // All supported test types.
-//
-//nolint:gochecknoglobals // Package-level registry of test types is intentional.
-var allTestTypes = map[string]string{
+func allTestTypes() map[string]string {
+	return map[string]string{
 	// RFC 2544 (6 tests).
 	"throughput":      "RFC 2544 Section 26.1 - Maximum throughput with zero loss",
 	"latency":         "RFC 2544 Section 26.2 - Round-trip latency at various loads",
@@ -129,28 +128,31 @@ var allTestTypes = map[string]string{
 	"tsn_isolation": "IEEE 802.1Qbv Traffic class isolation",
 	"tsn_latency":   "IEEE 802.1Qbv Scheduled latency",
 	"tsn":           "IEEE 802.1Qbv Full TSN test suite",
+	}
+}
+
+type testCategory struct {
+	name  string
+	tests []string
 }
 
 // Test categories for help display.
-//
-//nolint:gochecknoglobals // Package-level registry of test categories is intentional.
-var testCategories = []struct {
-	name  string
-	tests []string
-}{
-	{
-		"RFC 2544",
-		[]string{"throughput", "latency", "frame_loss", "back_to_back", "system_recovery", "reset"},
-	},
-	{"Y.1564 EtherSAM", []string{"y1564_config", "y1564_perf", "y1564"}},
-	{"RFC 2889 LAN Switch", []string{
-		"rfc2889_forwarding", "rfc2889_caching", "rfc2889_learning",
-		"rfc2889_broadcast", "rfc2889_congestion",
-	}},
-	{"RFC 6349 TCP", []string{"rfc6349_throughput", "rfc6349_path"}},
-	{"Y.1731 OAM", []string{"y1731_delay", "y1731_loss", "y1731_slm", "y1731_loopback"}},
-	{"MEF Service", []string{"mef_config", "mef_perf", "mef"}},
-	{"TSN 802.1Qbv", []string{"tsn_timing", "tsn_isolation", "tsn_latency", "tsn"}},
+func testCategories() []testCategory {
+	return []testCategory{
+		{
+			"RFC 2544",
+			[]string{"throughput", "latency", "frame_loss", "back_to_back", "system_recovery", "reset"},
+		},
+		{"Y.1564 EtherSAM", []string{"y1564_config", "y1564_perf", "y1564"}},
+		{"RFC 2889 LAN Switch", []string{
+			"rfc2889_forwarding", "rfc2889_caching", "rfc2889_learning",
+			"rfc2889_broadcast", "rfc2889_congestion",
+		}},
+		{"RFC 6349 TCP", []string{"rfc6349_throughput", "rfc6349_path"}},
+		{"Y.1731 OAM", []string{"y1731_delay", "y1731_loss", "y1731_slm", "y1731_loopback"}},
+		{"MEF Service", []string{"mef_config", "mef_perf", "mef"}},
+		{"TSN 802.1Qbv", []string{"tsn_timing", "tsn_isolation", "tsn_latency", "tsn"}},
+	}
 }
 
 func main() {
@@ -186,13 +188,19 @@ func main() {
 
 	switch os.Args[1] {
 	case "reflect":
-		reflectCmd(os.Args[2:])
+		if err := reflectCmd(os.Args[2:]); err != nil {
+			os.Exit(1)
+		}
 	case "test":
-		testCmd(os.Args[2:])
+		if err := testCmd(os.Args[2:]); err != nil {
+			os.Exit(1)
+		}
 	case "web":
 		webCmd(os.Args[2:])
 	case "tui":
-		tuiCmd(os.Args[2:])
+		if err := tuiCmd(os.Args[2:]); err != nil {
+			os.Exit(1)
+		}
 	case "license":
 		licenseCmd(os.Args[2:])
 	case "list-tests":
@@ -325,6 +333,7 @@ func listTestsCmd(args []string) {
 
 	_, _ = fmt.Fprintf(os.Stdout, "%s - Available Test Types\n", ProductName)
 	_, _ = fmt.Fprintln(os.Stdout, strings.Repeat("=", bannerWidth))
+	testTypes := allTestTypes()
 
 	if *byModule {
 		// Group by module (new module-oriented view).
@@ -342,7 +351,7 @@ func listTestsCmd(args []string) {
 			_, _ = fmt.Fprintf(os.Stdout, "  %s\n", mod.Description())
 			_, _ = fmt.Fprintln(os.Stdout)
 			for _, t := range mod.TestTypes() {
-				desc := allTestTypes[t]
+				desc := testTypes[t]
 				_, _ = fmt.Fprintf(os.Stdout, "    %-20s %s\n", t, desc)
 				totalTests++
 			}
@@ -355,18 +364,19 @@ func listTestsCmd(args []string) {
 		)
 	} else {
 		// Legacy category-based view (preserved for backward compatibility).
-		for _, cat := range testCategories {
+		categories := testCategories()
+		for _, cat := range categories {
 			_, _ = fmt.Fprintf(os.Stdout, "\n%s:\n", cat.name)
 			for _, t := range cat.tests {
-				desc := allTestTypes[t]
+				desc := testTypes[t]
 				_, _ = fmt.Fprintf(os.Stdout, "  %-20s %s\n", t, desc)
 			}
 		}
 		_, _ = fmt.Fprintf(
 			os.Stdout,
 			"\nTotal: %d test types across %d categories\n",
-			len(allTestTypes),
-			len(testCategories),
+			len(testTypes),
+			len(categories),
 		)
 		_, _ = fmt.Fprintln(os.Stdout, "\nTip: Use --by-module to see tests grouped by module")
 	}
@@ -423,7 +433,7 @@ func reflectorStatsLoop(dp *reflectorDP.Dataplane) {
 	}
 }
 
-func reflectCmd(args []string) {
+func reflectCmd(args []string) error {
 	fs := flag.NewFlagSet("reflect", flag.ExitOnError)
 	iface := fs.String("interface", "", "Network interface")
 	fs.StringVar(iface, "i", "", "Network interface (shorthand)")
@@ -435,13 +445,13 @@ func reflectCmd(args []string) {
 	err := fs.Parse(args)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	if *iface == "" {
 		_, _ = fmt.Fprintln(os.Stdout, "Error: --interface is required")
 		fs.Usage()
-		os.Exit(1)
+		return fmt.Errorf("missing interface")
 	}
 
 	// Check license (Tier 1 minimum).
@@ -453,7 +463,7 @@ func reflectCmd(args []string) {
 		result := mgr.StartTrial()
 		if !result.Success {
 			_, _ = fmt.Fprintf(os.Stdout, "Error: %s\n", result.Message)
-			os.Exit(1)
+			return fmt.Errorf("license trial failed: %s", result.Message)
 		}
 		_, _ = fmt.Fprintf(os.Stdout, "%s\n", result.Message)
 	}
@@ -468,7 +478,7 @@ func reflectCmd(args []string) {
 			*port,
 			math.MaxUint16,
 		)
-		os.Exit(1)
+		return fmt.Errorf("invalid port")
 	}
 
 	// Build reflector config with defaults.
@@ -500,7 +510,7 @@ func reflectCmd(args []string) {
 	dp, err := reflectorDP.New(cfg)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stdout, "Error: Failed to create reflector: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 	defer dp.Close()
 
@@ -509,7 +519,7 @@ func reflectCmd(args []string) {
 	if startErr != nil {
 		dp.Close() // Cleanup before exit.
 		_, _ = fmt.Fprintf(os.Stdout, "Error: Failed to start reflector: %v\n", startErr)
-		os.Exit(1) //nolint:gocritic // Explicit dp.Close() above ensures cleanup.
+		return startErr
 	}
 
 	_, _ = fmt.Fprintf(os.Stdout, "%s %s - Reflector\n", ProductName, version.Version)
@@ -532,13 +542,16 @@ func reflectCmd(args []string) {
 	} else {
 		reflectorStatsLoop(dp)
 	}
+
+	return nil
 }
 
 // validateTestTypesList validates a list of test types.
 func validateTestTypesList(tests []string) bool {
+	testTypes := allTestTypes()
 	for _, t := range tests {
 		// Check legacy map first for backward compatibility.
-		if _, ok := allTestTypes[t]; !ok {
+		if _, ok := testTypes[t]; !ok {
 			// Also check module registry.
 			if mod := modules.GetModuleForTest(t); mod == nil {
 				_, _ = fmt.Fprintf(os.Stdout, "Error: Unknown test type '%s'\n", t)
@@ -761,16 +774,16 @@ func runTestSuite(
 	return allResults
 }
 
-func testCmd(args []string) {
+func testCmd(args []string) error {
 	flags, err := parseTestFlags(args)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	if flags.iface == "" {
 		_, _ = fmt.Fprintln(os.Stdout, "Error: --interface is required")
-		os.Exit(1)
+		return fmt.Errorf("missing interface")
 	}
 
 	// Validate test types.
@@ -779,19 +792,19 @@ func testCmd(args []string) {
 		tests[i] = strings.TrimSpace(t)
 	}
 	if !validateTestTypesList(tests) {
-		os.Exit(1)
+		return fmt.Errorf("invalid test types")
 	}
 
 	// Check license.
 	if !checkTestLicense() {
-		os.Exit(1)
+		return fmt.Errorf("license check failed")
 	}
 
 	// Parse frame sizes.
 	frameSizeList := parseFrameSizes(flags.frameSizes)
 	if len(frameSizeList) == 0 {
 		_, _ = fmt.Fprintln(os.Stdout, "Error: No valid frame sizes specified")
-		os.Exit(1)
+		return fmt.Errorf("no valid frame sizes")
 	}
 
 	printTestConfiguration(
@@ -803,7 +816,7 @@ func testCmd(args []string) {
 	ctx, ctxErr := testmasterDP.NewContext(flags.iface)
 	if ctxErr != nil {
 		_, _ = fmt.Fprintf(os.Stdout, "Error: Failed to initialize dataplane: %v\n", ctxErr)
-		os.Exit(1)
+		return ctxErr
 	}
 	defer ctx.Close()
 
@@ -812,7 +825,7 @@ func testCmd(args []string) {
 	if cfgErr != nil {
 		ctx.Close()
 		_, _ = fmt.Fprintf(os.Stdout, "Error: Failed to configure: %v\n", cfgErr)
-		os.Exit(1) //nolint:gocritic // Explicit ctx.Close() above ensures cleanup.
+		return cfgErr
 	}
 
 	// Setup signal handler.
@@ -846,6 +859,8 @@ func testCmd(args []string) {
 	}
 
 	_, _ = fmt.Fprintln(os.Stdout, "\nTest suite complete.")
+
+	return nil
 }
 
 // parseFrameSizes parses comma-separated frame sizes with validation warnings.
@@ -1179,11 +1194,11 @@ func webCmd(args []string) {
 }
 
 // tuiReflectMode runs the reflector TUI mode.
-func tuiReflectMode(iface string) {
+func tuiReflectMode(iface string) error {
 	if iface == "" {
 		_, _ = fmt.Fprintln(os.Stdout, "Error: --interface is required for reflect mode")
 		_, _ = fmt.Fprintln(os.Stdout, "Usage: stem tui --mode reflect -i eth0")
-		os.Exit(1)
+		return fmt.Errorf("missing interface")
 	}
 
 	// Check license (Tier 1 minimum).
@@ -1195,7 +1210,7 @@ func tuiReflectMode(iface string) {
 		result := mgr.StartTrial()
 		if !result.Success {
 			_, _ = fmt.Fprintf(os.Stdout, "Error: %s\n", result.Message)
-			os.Exit(1)
+			return fmt.Errorf("license trial failed: %s", result.Message)
 		}
 	}
 
@@ -1223,7 +1238,7 @@ func tuiReflectMode(iface string) {
 	dp, dpErr := reflectorDP.New(cfg)
 	if dpErr != nil {
 		_, _ = fmt.Fprintf(os.Stdout, "Error: Failed to create reflector: %v\n", dpErr)
-		os.Exit(1)
+		return dpErr
 	}
 	defer dp.Close()
 
@@ -1231,7 +1246,7 @@ func tuiReflectMode(iface string) {
 	if tuiStartErr != nil {
 		dp.Close() // Cleanup before exit.
 		_, _ = fmt.Fprintf(os.Stdout, "Error: Failed to start reflector: %v\n", tuiStartErr)
-		os.Exit(1) //nolint:gocritic // Explicit dp.Close() above ensures cleanup.
+		return tuiStartErr
 	}
 
 	// Launch reflector TUI.
@@ -1239,12 +1254,14 @@ func tuiReflectMode(iface string) {
 	tuiRunErr := tuiApp.Run()
 	if tuiRunErr != nil {
 		_, _ = fmt.Fprintf(os.Stdout, "TUI error: %v\n", tuiRunErr)
-		os.Exit(1)
+		return tuiRunErr
 	}
+
+	return nil
 }
 
 // tuiTestMode runs the testmaster TUI mode.
-func tuiTestMode() {
+func tuiTestMode() error {
 	// Check license (Tier 2 required).
 	mgr, mgrErr := license.NewManager()
 	if mgrErr != nil {
@@ -1256,11 +1273,11 @@ func tuiTestMode() {
 			result := mgr.StartTrial()
 			if !result.Success {
 				_, _ = fmt.Fprintf(os.Stdout, "Error: %s\n", result.Message)
-				os.Exit(1)
+				return fmt.Errorf("license trial failed: %s", result.Message)
 			}
 		} else if state.Tier < license.TierTestSuite && !state.IsTrialMode {
 			_, _ = fmt.Fprintln(os.Stdout, "Error: Test Suite TUI requires Tier 2 license")
-			os.Exit(1)
+			return fmt.Errorf("license tier too low")
 		}
 	}
 
@@ -1278,11 +1295,13 @@ func tuiTestMode() {
 	tuiRunErr := tuiApp.Run()
 	if tuiRunErr != nil {
 		_, _ = fmt.Fprintf(os.Stdout, "TUI error: %v\n", tuiRunErr)
-		os.Exit(1)
+		return tuiRunErr
 	}
+
+	return nil
 }
 
-func tuiCmd(args []string) {
+func tuiCmd(args []string) error {
 	fs := flag.NewFlagSet("tui", flag.ExitOnError)
 	mode := fs.String("mode", "test", "TUI mode: test or reflect")
 	iface := fs.String("interface", "", "Network interface (required for reflect mode)")
@@ -1291,21 +1310,27 @@ func tuiCmd(args []string) {
 	err := fs.Parse(args)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	_, _ = fmt.Fprintf(os.Stdout, "%s %s - Terminal UI\n", ProductName, version.Version)
 
 	switch *mode {
 	case "reflect", "reflector":
-		tuiReflectMode(*iface)
+		if err := tuiReflectMode(*iface); err != nil {
+			return err
+		}
 	case "test", "testmaster", "":
-		tuiTestMode()
+		if err := tuiTestMode(); err != nil {
+			return err
+		}
 	default:
 		_, _ = fmt.Fprintf(os.Stdout, "Error: Unknown TUI mode '%s'\n", *mode)
 		_, _ = fmt.Fprintln(os.Stdout, "Valid modes: test, reflect")
-		os.Exit(1)
+		return fmt.Errorf("invalid TUI mode: %s", *mode)
 	}
+
+	return nil
 }
 
 func helpCmd(args []string) {
