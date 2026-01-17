@@ -23,10 +23,10 @@ const (
 	defaultOverloadSec    = 60
 )
 
-// Default load levels for latency tests.
-//
-//nolint:gochecknoglobals // Static default configuration.
-var defaultLoadLevels = []float64{10, 25, 50, 75, 90, 100}
+// defaultLoadLevels returns default load levels for latency tests.
+func defaultLoadLevels() []float64 {
+	return []float64{10, 25, 50, 75, 90, 100}
+}
 
 // Executor wraps the Benchmark module with test execution capability.
 type Executor struct {
@@ -184,7 +184,7 @@ func (e *Executor) getLoadLevels(cfg *modtypes.TestConfig) []float64 {
 			return levels
 		}
 	}
-	return defaultLoadLevels
+	return defaultLoadLevels()
 }
 
 // getFrameLossParams extracts frame loss parameters from config using type-safe helpers.

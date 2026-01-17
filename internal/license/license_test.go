@@ -127,8 +127,8 @@ func TestValidateLicenseKey(t *testing.T) {
 		key     string
 		wantErr string
 	}{
-		{"", "License key must be 16 characters"},
-		{"SHORT", "License key must be 16 characters"},
+		{"", license.ErrLicenseKeyLength},
+		{"SHORT", license.ErrLicenseKeyLength},
 		{"INVALID-CHARS-@@", "License key must contain only letters and numbers"},
 	}
 

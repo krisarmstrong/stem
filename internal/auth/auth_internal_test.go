@@ -580,7 +580,7 @@ func TestCleanup_RangeCallback(t *testing.T) {
 // Error Injection Tests (using SetRandReader and GenerateJWTSecretFrom)
 // -----------------------------------------------------------------------------
 
-// errorReader is a mock io.Reader that always returns an error.
+// errorReader is a mock [io.Reader] that always returns an error.
 type errorReader struct {
 	err error
 }
@@ -705,7 +705,7 @@ func TestGenerateRefreshToken_TokenIDError(t *testing.T) {
 	}
 }
 
-// readerFunc adapts a function to the io.Reader interface.
+// readerFunc adapts a function to the [io.Reader] interface.
 type readerFunc func(p []byte) (int, error)
 
 func (f readerFunc) Read(p []byte) (int, error) {

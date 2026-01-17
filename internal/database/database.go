@@ -71,6 +71,9 @@ type DB struct {
 	sessions    *SessionRepository
 }
 
+// Database is an alias for DB for backwards compatibility.
+type Database = DB
+
 // Config holds database configuration options.
 type Config struct {
 	// Path to the SQLite database file
@@ -468,22 +471,32 @@ func (db *DB) Exec(ctx context.Context, query string, args ...any) (sql.Result, 
 	return result, nil
 }
 
-// Query executes a query that returns rows.
-// Caller is responsible for closing the returned rows.
-func (db *DB) Query(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+// Query executes a query that returns rows and passes them to the provided handler.
+// The handler receives the rows and is responsible for reading them; this method
+// ensures the rows are closed before returning.
+func (db *DB) Query(ctx context.Context, query string, handler func(*sql.Rows) error, args ...any) error {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
 	if db.closed {
-		return nil, errors.New("database is closed")
+		return errors.New("database is closed")
 	}
 
-	//nolint:sqlclosecheck // Caller is responsible for closing rows
 	rows, err := db.conn.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("querying database: %w", err)
+		return fmt.Errorf("querying database: %w", err)
 	}
-	return rows, nil
+	defer rows.Close()
+
+	if handlerErr := handler(rows); handlerErr != nil {
+		return handlerErr
+	}
+
+	if rowsErr := rows.Err(); rowsErr != nil {
+		return rowsErr
+	}
+
+	return nil
 }
 
 // QueryRow executes a query that returns at most one row.

@@ -20,18 +20,16 @@ const (
 	StandardRef = "Loopback/Echo"
 )
 
-// testTypes lists all operation types owned by the Reflector module.
-//
-//nolint:gochecknoglobals // Static module definition.
-var testTypes = []string{
-	"reflect",
+func testTypes() []string {
+	return []string{
+		"reflect",
+	}
 }
 
-// testDescriptions provides descriptions for each operation type.
-//
-//nolint:gochecknoglobals // Static module definition.
-var testDescriptions = map[string]string{
-	"reflect": "Packet reflector mode - echoes received packets for remote device testing",
+func testDescriptions() map[string]string {
+	return map[string]string{
+		"reflect": "Packet reflector mode - echoes received packets for remote device testing",
+	}
 }
 
 // Module implements the modules.Module interface for packet reflection.
@@ -69,15 +67,15 @@ func (m *Module) Standard() string {
 
 // TestTypes returns the list of operation types this module can execute.
 func (m *Module) TestTypes() []string {
-	return testTypes
+	return testTypes()
 }
 
 // CanRun returns true if this module can execute the given operation type.
 func (m *Module) CanRun(testType string) bool {
-	return slices.Contains(testTypes, testType)
+	return slices.Contains(testTypes(), testType)
 }
 
 // TestDescription returns the description for a given operation type.
 func (m *Module) TestDescription(testType string) string {
-	return testDescriptions[testType]
+	return testDescriptions()[testType]
 }

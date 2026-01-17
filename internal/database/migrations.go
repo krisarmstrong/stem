@@ -23,26 +23,44 @@ type migrationDef struct {
 	Up          string
 }
 
+// migrationCount is the number of migrations defined in getMigrationDefs.
+// Update this constant when adding new migrations.
+const migrationCount = 9
+
 // getMigrationDefs returns migration definitions without versions.
 // IMPORTANT: Never modify existing migrations, only add new ones.
 // The version is computed as index + 1.
-//
-//nolint:funlen // Migration definitions are intentionally in one place
 func getMigrationDefs() []migrationDef {
-	return []migrationDef{
-		{
-			Description: "Create schema version table",
-			Up: `
+	defs := make([]migrationDef, 0, migrationCount)
+	defs = append(defs, migrationSchemaMigrations())
+	defs = append(defs, migrationUsers())
+	defs = append(defs, migrationSettings())
+	defs = append(defs, migrationTestRuns())
+	defs = append(defs, migrationTestResults())
+	defs = append(defs, migrationAuditLog())
+	defs = append(defs, migrationTestSummaries())
+	defs = append(defs, migrationProfiles())
+	defs = append(defs, migrationSessions())
+	return defs
+}
+
+func migrationSchemaMigrations() migrationDef {
+	return migrationDef{
+		Description: "Create schema version table",
+		Up: `
 			CREATE TABLE IF NOT EXISTS schema_migrations (
 				version INTEGER PRIMARY KEY,
 				applied_at TEXT NOT NULL,
 				description TEXT
 			);
 		`,
-		},
-		{
-			Description: "Create users table for authentication",
-			Up: `
+	}
+}
+
+func migrationUsers() migrationDef {
+	return migrationDef{
+		Description: "Create users table for authentication",
+		Up: `
 			CREATE TABLE IF NOT EXISTS users (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				username TEXT NOT NULL UNIQUE,
@@ -60,20 +78,26 @@ func getMigrationDefs() []migrationDef {
 			CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 			CREATE INDEX IF NOT EXISTS idx_users_active ON users(is_active);
 		`,
-		},
-		{
-			Description: "Create settings table for key-value settings",
-			Up: `
+	}
+}
+
+func migrationSettings() migrationDef {
+	return migrationDef{
+		Description: "Create settings table for key-value settings",
+		Up: `
 			CREATE TABLE IF NOT EXISTS settings (
 				key TEXT PRIMARY KEY,
 				value TEXT NOT NULL,
 				updated_at TEXT NOT NULL
 			);
 		`,
-		},
-		{
-			Description: "Create test_runs table for test execution tracking",
-			Up: `
+	}
+}
+
+func migrationTestRuns() migrationDef {
+	return migrationDef{
+		Description: "Create test_runs table for test execution tracking",
+		Up: `
 			CREATE TABLE IF NOT EXISTS test_runs (
 				id TEXT PRIMARY KEY,
 				module TEXT NOT NULL,
@@ -94,10 +118,13 @@ func getMigrationDefs() []migrationDef {
 			CREATE INDEX IF NOT EXISTS idx_test_runs_status ON test_runs(status);
 			CREATE INDEX IF NOT EXISTS idx_test_runs_started ON test_runs(started_at);
 		`,
-		},
-		{
-			Description: "Create test_results table for individual test metrics",
-			Up: `
+	}
+}
+
+func migrationTestResults() migrationDef {
+	return migrationDef{
+		Description: "Create test_results table for individual test metrics",
+		Up: `
 			CREATE TABLE IF NOT EXISTS test_results (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				run_id TEXT NOT NULL,
@@ -115,10 +142,13 @@ func getMigrationDefs() []migrationDef {
 			CREATE INDEX IF NOT EXISTS idx_test_results_timestamp ON test_results(timestamp);
 			CREATE INDEX IF NOT EXISTS idx_test_results_frame_size ON test_results(frame_size);
 		`,
-		},
-		{
-			Description: "Create audit_log table for activity tracking",
-			Up: `
+	}
+}
+
+func migrationAuditLog() migrationDef {
+	return migrationDef{
+		Description: "Create audit_log table for activity tracking",
+		Up: `
 			CREATE TABLE IF NOT EXISTS audit_log (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				action TEXT NOT NULL,
@@ -137,10 +167,13 @@ func getMigrationDefs() []migrationDef {
 			CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp);
 			CREATE INDEX IF NOT EXISTS idx_audit_resource ON audit_log(resource_type, resource_id);
 		`,
-		},
-		{
-			Description: "Create test_summaries table for aggregated results",
-			Up: `
+	}
+}
+
+func migrationTestSummaries() migrationDef {
+	return migrationDef{
+		Description: "Create test_summaries table for aggregated results",
+		Up: `
 			CREATE TABLE IF NOT EXISTS test_summaries (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				run_id TEXT NOT NULL UNIQUE,
@@ -163,10 +196,13 @@ func getMigrationDefs() []migrationDef {
 			CREATE INDEX IF NOT EXISTS idx_test_summaries_module ON test_summaries(module);
 			CREATE INDEX IF NOT EXISTS idx_test_summaries_pass ON test_summaries(pass);
 		`,
-		},
-		{
-			Description: "Create profiles table for test configurations",
-			Up: `
+	}
+}
+
+func migrationProfiles() migrationDef {
+	return migrationDef{
+		Description: "Create profiles table for test configurations",
+		Up: `
 			CREATE TABLE IF NOT EXISTS profiles (
 				id TEXT PRIMARY KEY,
 				name TEXT NOT NULL UNIQUE,
@@ -182,10 +218,13 @@ func getMigrationDefs() []migrationDef {
 			CREATE INDEX IF NOT EXISTS idx_profiles_module ON profiles(module);
 			CREATE INDEX IF NOT EXISTS idx_profiles_default ON profiles(is_default);
 		`,
-		},
-		{
-			Description: "Create sessions table for token blacklisting",
-			Up: `
+	}
+}
+
+func migrationSessions() migrationDef {
+	return migrationDef{
+		Description: "Create sessions table for token blacklisting",
+		Up: `
 			CREATE TABLE IF NOT EXISTS sessions (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				token_id TEXT NOT NULL UNIQUE,
@@ -199,7 +238,6 @@ func getMigrationDefs() []migrationDef {
 			CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(username);
 			CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 		`,
-		},
 	}
 }
 

@@ -15,4 +15,4 @@ export {
   useSettingsCategory,
   useTestsSettings,
   useThresholdsSettings,
-} from './profileStore';
+} from './profile-store';

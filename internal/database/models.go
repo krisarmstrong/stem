@@ -127,15 +127,14 @@ type AuditLogEntry struct {
 	Timestamp    time.Time `json:"timestamp"`
 }
 
-
 // Session represents a blacklisted/invalidated token session.
 type Session struct {
-	ID           int64     `json:"id"`
-	TokenID      string    `json:"tokenId"`      // JWT ID (jti claim)
-	Username     string    `json:"username"`
-	Reason       string    `json:"reason"`       // logout, password_change, forced_logout
+	ID            int64     `json:"id"`
+	TokenID       string    `json:"tokenId"` // JWT ID (jti claim)
+	Username      string    `json:"username"`
+	Reason        string    `json:"reason"` // logout, password_change, forced_logout
 	BlacklistedAt time.Time `json:"blacklistedAt"`
-	ExpiresAt    time.Time `json:"expiresAt"`    // When the token would have expired
+	ExpiresAt     time.Time `json:"expiresAt"` // When the token would have expired
 }
 
 // SessionReason constants.

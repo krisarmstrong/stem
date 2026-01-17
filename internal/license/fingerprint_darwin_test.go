@@ -2,58 +2,30 @@
 
 //go:build darwin
 
-package license
+package license_test
 
 import (
 	"testing"
+
+	"github.com/krisarmstrong/stem/internal/license"
 )
 
-// TestGetDarwinCPUSerialReturnsNonEmpty tests that getDarwinCPUSerial returns a value.
-func TestGetDarwinCPUSerialReturnsNonEmpty(t *testing.T) {
-	serial := getDarwinCPUSerial()
-
-	// Should not be empty.
-	if serial == "" {
-		t.Error("getDarwinCPUSerial should not return empty string")
-	}
-}
-
-// TestGetDarwinDiskSerialReturnsNonEmpty tests that getDarwinDiskSerial returns a value.
-func TestGetDarwinDiskSerialReturnsNonEmpty(t *testing.T) {
-	serial := getDarwinDiskSerial()
-
-	// Should not be empty.
-	if serial == "" {
-		t.Error("getDarwinDiskSerial should not return empty string")
-	}
-}
-
-// TestGetCPUSerialOnDarwin tests getCPUSerial returns Darwin-specific result.
-func TestGetCPUSerialOnDarwin(t *testing.T) {
-	serial := getCPUSerial()
-
-	// Should not be empty.
-	if serial == "" {
-		t.Error("getCPUSerial should not return empty on Darwin")
+func TestGenerateFingerprintDarwin(t *testing.T) {
+	fp, err := license.GenerateFingerprint()
+	if err != nil {
+		t.Fatalf("GenerateFingerprint() error: %v", err)
 	}
 
-	// Should not be the Linux default.
-	if serial == defaultLinuxCPU {
-		t.Error("getCPUSerial should not return Linux default on Darwin")
+	if fp.CPUSerial == "" {
+		t.Error("Expected Darwin CPU serial to be populated")
 	}
-}
-
-// TestGetDiskSerialOnDarwin tests getDiskSerial returns Darwin-specific result.
-func TestGetDiskSerialOnDarwin(t *testing.T) {
-	serial := getDiskSerial()
-
-	// Should not be empty.
-	if serial == "" {
-		t.Error("getDiskSerial should not return empty on Darwin")
+	if fp.DiskSerial == "" {
+		t.Error("Expected Darwin disk serial to be populated")
 	}
-
-	// Should not be the Linux default.
-	if serial == defaultLinuxDisk {
-		t.Error("getDiskSerial should not return Linux default on Darwin")
+	if fp.Platform != "darwin" {
+		t.Errorf("Expected platform 'darwin', got %q", fp.Platform)
+	}
+	if fp.MACAddress == "" {
+		t.Error("Expected MAC address to be populated")
 	}
 }

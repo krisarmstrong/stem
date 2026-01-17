@@ -20,18 +20,16 @@ const (
 	StandardRef = "Custom Traffic"
 )
 
-// testTypes lists all test types owned by the TrafficGen module.
-//
-//nolint:gochecknoglobals // Static module definition.
-var testTypes = []string{
-	"custom_stream",
+func testTypes() []string {
+	return []string{
+		"custom_stream",
+	}
 }
 
-// testDescriptions provides descriptions for each test type.
-//
-//nolint:gochecknoglobals // Static module definition.
-var testDescriptions = map[string]string{
-	"custom_stream": "Custom traffic stream generation with configurable patterns",
+func testDescriptions() map[string]string {
+	return map[string]string{
+		"custom_stream": "Custom traffic stream generation with configurable patterns",
+	}
 }
 
 // Module implements the modules.Module interface for traffic generation.
@@ -69,15 +67,15 @@ func (m *Module) Standard() string {
 
 // TestTypes returns the list of test types this module can execute.
 func (m *Module) TestTypes() []string {
-	return testTypes
+	return testTypes()
 }
 
 // CanRun returns true if this module can execute the given test type.
 func (m *Module) CanRun(testType string) bool {
-	return slices.Contains(testTypes, testType)
+	return slices.Contains(testTypes(), testType)
 }
 
 // TestDescription returns the description for a given test type.
 func (m *Module) TestDescription(testType string) string {
-	return testDescriptions[testType]
+	return testDescriptions()[testType]
 }

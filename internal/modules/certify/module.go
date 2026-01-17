@@ -20,44 +20,42 @@ const (
 	StandardRef = "RFC 2889/6349/TSN"
 )
 
-// testTypes lists all test types owned by the Certify module.
-//
-//nolint:gochecknoglobals // Static module definition.
-var testTypes = []string{
-	// RFC 2889 LAN Switch
-	"rfc2889_forwarding",
-	"rfc2889_caching",
-	"rfc2889_learning",
-	"rfc2889_broadcast",
-	"rfc2889_congestion",
-	// RFC 6349 TCP
-	"rfc6349_throughput",
-	"rfc6349_path",
-	// TSN 802.1Qbv
-	"tsn_timing",
-	"tsn_isolation",
-	"tsn_latency",
-	"tsn",
+func testTypes() []string {
+	return []string{
+		// RFC 2889 LAN Switch
+		"rfc2889_forwarding",
+		"rfc2889_caching",
+		"rfc2889_learning",
+		"rfc2889_broadcast",
+		"rfc2889_congestion",
+		// RFC 6349 TCP
+		"rfc6349_throughput",
+		"rfc6349_path",
+		// TSN 802.1Qbv
+		"tsn_timing",
+		"tsn_isolation",
+		"tsn_latency",
+		"tsn",
+	}
 }
 
-// testDescriptions provides descriptions for each test type.
-//
-//nolint:gochecknoglobals // Static module definition.
-var testDescriptions = map[string]string{
-	// RFC 2889
-	"rfc2889_forwarding": "RFC 2889 Forwarding rate test",
-	"rfc2889_caching":    "RFC 2889 Address caching capacity",
-	"rfc2889_learning":   "RFC 2889 Address learning rate",
-	"rfc2889_broadcast":  "RFC 2889 Broadcast forwarding",
-	"rfc2889_congestion": "RFC 2889 Congestion control",
-	// RFC 6349
-	"rfc6349_throughput": "RFC 6349 TCP throughput (BDP analysis)",
-	"rfc6349_path":       "RFC 6349 Path analysis (RTT/bandwidth)",
-	// TSN
-	"tsn_timing":    "IEEE 802.1Qbv Gate timing accuracy",
-	"tsn_isolation": "IEEE 802.1Qbv Traffic class isolation",
-	"tsn_latency":   "IEEE 802.1Qbv Scheduled latency",
-	"tsn":           "IEEE 802.1Qbv Full TSN test suite",
+func testDescriptions() map[string]string {
+	return map[string]string{
+		// RFC 2889
+		"rfc2889_forwarding": "RFC 2889 Forwarding rate test",
+		"rfc2889_caching":    "RFC 2889 Address caching capacity",
+		"rfc2889_learning":   "RFC 2889 Address learning rate",
+		"rfc2889_broadcast":  "RFC 2889 Broadcast forwarding",
+		"rfc2889_congestion": "RFC 2889 Congestion control",
+		// RFC 6349
+		"rfc6349_throughput": "RFC 6349 TCP throughput (BDP analysis)",
+		"rfc6349_path":       "RFC 6349 Path analysis (RTT/bandwidth)",
+		// TSN
+		"tsn_timing":    "IEEE 802.1Qbv Gate timing accuracy",
+		"tsn_isolation": "IEEE 802.1Qbv Traffic class isolation",
+		"tsn_latency":   "IEEE 802.1Qbv Scheduled latency",
+		"tsn":           "IEEE 802.1Qbv Full TSN test suite",
+	}
 }
 
 // Module implements the modules.Module interface for compliance certification.
@@ -95,15 +93,15 @@ func (m *Module) Standard() string {
 
 // TestTypes returns the list of test types this module can execute.
 func (m *Module) TestTypes() []string {
-	return testTypes
+	return testTypes()
 }
 
 // CanRun returns true if this module can execute the given test type.
 func (m *Module) CanRun(testType string) bool {
-	return slices.Contains(testTypes, testType)
+	return slices.Contains(testTypes(), testType)
 }
 
 // TestDescription returns the description for a given test type.
 func (m *Module) TestDescription(testType string) string {
-	return testDescriptions[testType]
+	return testDescriptions()[testType]
 }

@@ -106,22 +106,20 @@ func TestGetBestInterface(t *testing.T) {
 
 func TestInterfaceInfoStruct(t *testing.T) {
 	// Test that InterfaceInfo struct can be created and accessed.
-	//nolint:govet // Test data setup - intentionally initializing all fields for struct validation
-	info := netif.InterfaceInfo{
-		Name:        "eth0",
-		MAC:         "00:11:22:33:44:55",
-		Speed:       1000,
-		Duplex:      "full",
-		State:       "up",
-		Driver:      "e1000e",
-		Physical:    true,
-		XDPSupport:  false,
-		DPDKSupport: true,
-		Score:       150,
-		MTU:         1500,
-		IPv4:        "192.168.1.100",
-		IPv6:        "fe80::1",
-	}
+	info := netif.InterfaceInfo{}
+	info.Name = "eth0"
+	info.MAC = "00:11:22:33:44:55"
+	info.Speed = 1000
+	info.Duplex = "full"
+	info.State = "up"
+	info.Driver = "e1000e"
+	info.Physical = true
+	info.XDPSupport = false
+	info.DPDKSupport = true
+	info.Score = 150
+	info.MTU = 1500
+	info.IPv4 = "192.168.1.100"
+	info.IPv6 = "fe80::1"
 
 	if info.Name != "eth0" {
 		t.Errorf("Expected name 'eth0', got '%s'", info.Name)
@@ -134,6 +132,33 @@ func TestInterfaceInfoStruct(t *testing.T) {
 	}
 	if info.XDPSupport {
 		t.Error("Expected XDPSupport to be false")
+	}
+	if info.MAC != "00:11:22:33:44:55" {
+		t.Errorf("Expected MAC to be '00:11:22:33:44:55', got '%s'", info.MAC)
+	}
+	if info.Duplex != "full" {
+		t.Errorf("Expected Duplex to be 'full', got '%s'", info.Duplex)
+	}
+	if info.State != "up" {
+		t.Errorf("Expected State to be 'up', got '%s'", info.State)
+	}
+	if info.Driver != "e1000e" {
+		t.Errorf("Expected Driver to be 'e1000e', got '%s'", info.Driver)
+	}
+	if !info.DPDKSupport {
+		t.Error("Expected DPDKSupport to be true")
+	}
+	if info.Score != 150 {
+		t.Errorf("Expected Score to be 150, got %d", info.Score)
+	}
+	if info.MTU != 1500 {
+		t.Errorf("Expected MTU to be 1500, got %d", info.MTU)
+	}
+	if info.IPv4 != "192.168.1.100" {
+		t.Errorf("Expected IPv4 to be '192.168.1.100', got '%s'", info.IPv4)
+	}
+	if info.IPv6 != "fe80::1" {
+		t.Errorf("Expected IPv6 to be 'fe80::1', got '%s'", info.IPv6)
 	}
 }
 

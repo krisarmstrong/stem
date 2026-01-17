@@ -114,9 +114,9 @@ type InterfaceInfo struct {
 }
 
 // extractIPAddresses extracts IPv4 and IPv6 addresses from interface addresses.
-//
-//nolint:nonamedreturns // Named returns improve readability for multiple return values.
-func extractIPAddresses(addrs []net.Addr) (ipv4Addr, ipv6Addr string) {
+func extractIPAddresses(addrs []net.Addr) (string, string) {
+	var ipv4Addr string
+	var ipv6Addr string
 	for _, addr := range addrs {
 		ip, _, err := net.ParseCIDR(addr.String())
 		if err != nil || ip == nil {

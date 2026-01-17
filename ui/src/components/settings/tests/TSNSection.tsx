@@ -11,7 +11,7 @@ import { Cpu } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CollapsibleSection } from '../../CollapsibleSection';
-import { type TSNConfig, TSNConfigForm } from '../../TSNConfigForm';
+import { type TSNConfig, TSNConfigForm } from '../../TsnConfigForm';
 import { TestCheckbox } from '../TestCheckbox';
 import type { TestDefinition, TestSectionProps } from '../types';
 

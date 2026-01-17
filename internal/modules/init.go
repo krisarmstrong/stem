@@ -11,43 +11,43 @@ import (
 	"github.com/krisarmstrong/stem/internal/modules/trafficgen"
 )
 
-// DefaultRegistry is the global module registry with all modules pre-registered.
-//
-//nolint:gochecknoglobals // Singleton registry pattern for module system.
-var DefaultRegistry *Registry
+func DefaultRegistry() *Registry {
+	return buildDefaultRegistry()
+}
 
-//nolint:gochecknoinits // Required for module registration at package load.
-func init() {
-	DefaultRegistry = NewRegistry()
+func buildDefaultRegistry() *Registry {
+	reg := NewRegistry()
 
 	// Register all modules.
 	// Order: Reflector (Tier 1), then active testing modules (Tier 2).
-	DefaultRegistry.Register(reflector.New())
-	DefaultRegistry.Register(benchmark.New())
-	DefaultRegistry.Register(servicetest.New())
-	DefaultRegistry.Register(trafficgen.New())
-	DefaultRegistry.Register(measure.New())
-	DefaultRegistry.Register(certify.New())
+	reg.Register(reflector.New())
+	reg.Register(benchmark.New())
+	reg.Register(servicetest.New())
+	reg.Register(trafficgen.New())
+	reg.Register(measure.New())
+	reg.Register(certify.New())
+
+	return reg
 }
 
 // GetModule returns a module by name from the default registry.
 func GetModule(name string) Module {
-	return DefaultRegistry.Get(name)
+	return buildDefaultRegistry().Get(name)
 }
 
 // GetModuleForTest returns the module that handles a given test type.
 func GetModuleForTest(testType string) Module {
-	return DefaultRegistry.ModuleForTest(testType)
+	return buildDefaultRegistry().ModuleForTest(testType)
 }
 
 // GetAllModules returns all registered modules.
 func GetAllModules() []Module {
-	return DefaultRegistry.AllModules()
+	return buildDefaultRegistry().AllModules()
 }
 
 // GetAllModuleInfos returns all modules as API-friendly ModuleInfo structs.
 func GetAllModuleInfos() []ModuleInfo {
-	mods := DefaultRegistry.AllModules()
+	mods := buildDefaultRegistry().AllModules()
 	infos := make([]ModuleInfo, len(mods))
 	for i, m := range mods {
 		infos[i] = ToInfo(m)

@@ -1,6 +1,6 @@
 // Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
 
-package auth
+package auth_test
 
 import (
 	"os"

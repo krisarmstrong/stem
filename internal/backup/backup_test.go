@@ -50,7 +50,7 @@ func seedTestData(t *testing.T, db *database.DB) {
 	}
 
 	// Add test results
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		result := &database.TestResult{
 			RunID:      runID,
 			MetricType: database.MetricTypeThroughput,
@@ -64,7 +64,7 @@ func seedTestData(t *testing.T, db *database.DB) {
 	}
 
 	// Add audit logs
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		entry := &database.AuditLogEntry{
 			Action:    database.AuditActionLogin,
 			User:      "admin",

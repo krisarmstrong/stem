@@ -1,8 +1,11 @@
-# =============================================================================
-# The Stem - .gitignore
-# =============================================================================
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║ Stem - .gitignore                                                         ║
+# ╠═══════════════════════════════════════════════════════════════════════════╣
+# ║ Network performance testing and orchestration platform                    ║
+# ║ Stack: Go, C (DPDK), TypeScript/React (UI), Playwright                   ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
 
-# Binaries
+# ─── Application Binaries ────────────────────────────────────────────────────
 /stem
 /stem-*
 seedtest
@@ -12,42 +15,58 @@ rfc2544-linux
 *.dll
 *.so
 *.dylib
-/dist/
 
-# C build artifacts
+# ─── C/DPDK Build Artifacts ──────────────────────────────────────────────────
 *.o
 *.a
 *.obj
 *.lib
 
-# Test binaries
-*.test
+# DPDK-specific
+*.cmd
+core.*
 
-# Output of go coverage
+# Generated headers
+include/version_generated.h
+
+# ─── Build Directories ───────────────────────────────────────────────────────
+/dist/
+/build/
+/bin/
+
+# ─── Go Testing & Coverage ───────────────────────────────────────────────────
+*.test
 *.out
 coverage.html
 coverage.txt
 
-# Go workspace
+# ─── Go Workspace & Dependencies ─────────────────────────────────────────────
 go.work
 go.work.sum
-
-# Dependency directories
 vendor/
 
-# IDE
-.idea/
-.vscode/
-.claude/settings.local.json
-*.swp
-*.swo
-*~
+# ─── Frontend (UI) ───────────────────────────────────────────────────────────
+# Dependencies
+ui/node_modules/
+node_modules/
 
-# OS
-.DS_Store
-Thumbs.db
+# Build outputs
+ui/dist/
+ui/.vite/
+ui/coverage/
 
-# Environment
+# Playwright test results
+ui/playwright-report/
+ui/test-results/
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+npm-debug.log*
+yarn-error.log*
+
+# ─── Environment & Secrets ───────────────────────────────────────────────────
 .env
 .env.local
 .env.*.local
@@ -55,74 +74,52 @@ Thumbs.db
 *.key
 *.crt
 
-# Frontend
-ui/node_modules/
-ui/dist/
-ui/.vite/
-ui/coverage/
-*.log
-npm-debug.log*
+# Certificates (generated at runtime)
+certs/
+!certs/.gitkeep
 
-# Build artifacts
-*.tar.gz
-*.zip
-*.deb
-*.rpm
-/build/
-/bin/
+# ─── Configuration Overrides ─────────────────────────────────────────────────
+# Local overrides (defaults should be version controlled)
+configs/*.local.yaml
+configs/*.local.json
+config.yaml
 
-# Generated headers
-include/version_generated.h
-
-# Database
+# ─── Database & Runtime Data ─────────────────────────────────────────────────
 *.db
 *.sqlite
 *.sqlite3
 
-# Config overrides (keep defaults)
-configs/*.local.yaml
-configs/*.local.json
+# Auto-generated/runtime data
+data/
 
-# Temporary files
+# ─── Logs ────────────────────────────────────────────────────────────────────
+logs/
+*.log
+
+# ─── Test Results ────────────────────────────────────────────────────────────
+tests/results/
+results/
+reports/
+
+# ─── Temporary Files ─────────────────────────────────────────────────────────
 tmp/
 temp/
 *.tmp
 .tmp_*
+*~
 
-# Certificates (generated)
-certs/
-!certs/.gitkeep
+# ─── Build & Package Artifacts ───────────────────────────────────────────────
+*.tar.gz
+*.zip
+*.deb
+*.rpm
 
-# Local files
-config.yaml
-CLAUDE.md
-
-# Playwright reports
-ui/playwright-report/
-ui/test-results/
-
-# TypeScript build info
-*.tsbuildinfo
-
-# Root dependencies
-node_modules/
-
-# Logs
-logs/
-*.log
-
-# Data (auto-generated)
-data/
-
-# Debug artifacts
+# ─── Debug & Development ─────────────────────────────────────────────────────
+# Debug output
 DebugImages/
 
-# Agent artifacts
+# ─── AI/Agent Artifacts ──────────────────────────────────────────────────────
+# AI tool session data
+.claude/settings.local.json
 .gemini/
-
-# Test results
-tests/results/
-
-# DPDK artifacts
-*.cmd
-core.*
+CLAUDE.md

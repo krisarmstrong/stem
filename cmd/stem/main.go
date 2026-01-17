@@ -16,6 +16,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -118,17 +119,17 @@ func main() {
 
 	switch os.Args[1] {
 	case "reflect":
-		if err := reflectCmd(os.Args[2:]); err != nil {
+		if cmdErr := reflectCmd(os.Args[2:]); cmdErr != nil {
 			os.Exit(1)
 		}
 	case "test":
-		if err := testCmd(os.Args[2:]); err != nil {
+		if cmdErr := testCmd(os.Args[2:]); cmdErr != nil {
 			os.Exit(1)
 		}
 	case "web":
 		webCmd(os.Args[2:])
 	case "tui":
-		if err := tuiCmd(os.Args[2:]); err != nil {
+		if cmdErr := tuiCmd(os.Args[2:]); cmdErr != nil {
 			os.Exit(1)
 		}
 	case "license":
@@ -151,16 +152,16 @@ func main() {
 }
 
 func printVersion(w io.Writer) {
-	_, _ = fmt.Fprintf(w, "%s %s\n", ProductName, version.Version)
-	_, _ = fmt.Fprintf(w, "Commit: %s\n", version.Commit)
-	_, _ = fmt.Fprintf(w, "Built:  %s\n", version.BuildTime)
+	_, _ = fmt.Fprintf(w, "%s %s\n", ProductName, version.Version())
+	_, _ = fmt.Fprintf(w, "Commit: %s\n", version.Commit())
+	_, _ = fmt.Fprintf(w, "Built:  %s\n", version.BuildTime())
 	_, _ = fmt.Fprintf(w, "Copyright (c) 2025 %s\n", Company)
 	_, _ = fmt.Fprintln(w, "Network Performance Testing")
 }
 
 func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintf(w, `%s %s
-%s - Network Performance Testing`, ProductName, version.Version, Company)
+%s - Network Performance Testing`, ProductName, version.Version(), Company)
 	_, _ = fmt.Fprint(w, `
 
 USAGE:
@@ -348,77 +349,23 @@ func reflectorStatsLoop(dp *reflectorDP.Dataplane) {
 }
 
 func reflectCmd(args []string) error {
-	fs := flag.NewFlagSet("reflect", flag.ExitOnError)
-	iface := fs.String("interface", "", "Network interface")
-	fs.StringVar(iface, "i", "", "Network interface (shorthand)")
-	profile := fs.String("profile", DefaultProfile, "Preset profile")
-	port := fs.Int("port", 0, "UDP port filter")
-	oui := fs.String("oui", "", "OUI filter")
-	useTUI := fs.Bool("tui", false, "Launch TUI dashboard")
+	parsed, fs, parseErr := parseReflectFlags(args)
+	if parseErr != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "Error: %v\n", parseErr)
+		return parseErr
+	}
 
-	err := fs.Parse(args)
-	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+	if err := requireReflectInterface(parsed.iface, fs); err != nil {
 		return err
 	}
 
-	if *iface == "" {
-		_, _ = fmt.Fprintln(os.Stdout, "Error: --interface is required")
-		fs.Usage()
-		return fmt.Errorf("missing interface")
+	if err := checkReflectorLicense(); err != nil {
+		return err
 	}
 
-	// Check license (Tier 1 minimum).
-	mgr, err := license.NewManager()
-	if err != nil {
-		_, _ = fmt.Fprintf(os.Stdout, "Warning: License check failed: %v\n", err)
-	} else if !mgr.IsActivated() {
-		_, _ = fmt.Fprintln(os.Stdout, "No active license. Starting 14-day trial...")
-		result := mgr.StartTrial()
-		if !result.Success {
-			_, _ = fmt.Fprintf(os.Stdout, "Error: %s\n", result.Message)
-			return fmt.Errorf("license trial failed: %s", result.Message)
-		}
-		_, _ = fmt.Fprintf(os.Stdout, "%s\n", result.Message)
-	}
+	sigFilter := getSignatureFilter(parsed.profile)
 
-	sigFilter := getSignatureFilter(*profile)
-
-	// Validate port range before conversion.
-	if *port < 0 || *port > math.MaxUint16 {
-		_, _ = fmt.Fprintf(
-			os.Stdout,
-			"Error: port %d out of valid range (0-%d)\n",
-			*port,
-			math.MaxUint16,
-		)
-		return fmt.Errorf("invalid port")
-	}
-
-	// Build reflector config with defaults.
-	cfg := &reflectorConfig.Config{
-		Interface:       *iface,
-		Verbose:         false,
-		SignatureFilter: sigFilter,
-		WebUI:           reflectorConfig.WebUIConfig{Enabled: false, Port: 0},
-		TUI:             reflectorConfig.TUIConfig{Enabled: *useTUI},
-		Filtering: reflectorConfig.FilterConfig{
-			Port:      uint16(*port), // Safe: validated above.
-			FilterOUI: false,
-			OUI:       "00:c0:17", // Default NetAlly OUI.
-			FilterMAC: false,
-		},
-		Reflection: reflectorConfig.ReflectConfig{
-			Mode: DefaultReflectionMode,
-		},
-		Platform: reflectorConfig.PlatformConfig{UseDPDK: false, UseAFXDP: false, DPDKArgs: ""},
-		Stats:    reflectorConfig.StatsConfig{Format: "text", Interval: 0},
-	}
-
-	if *oui != "" {
-		cfg.Filtering.FilterOUI = true
-		cfg.Filtering.OUI = *oui
-	}
+	cfg := buildReflectorConfig(parsed, sigFilter)
 
 	// Create reflector dataplane.
 	dp, err := reflectorDP.New(cfg)
@@ -436,18 +383,10 @@ func reflectCmd(args []string) error {
 		return startErr
 	}
 
-	_, _ = fmt.Fprintf(os.Stdout, "%s %s - Reflector\n", ProductName, version.Version)
-	_, _ = fmt.Fprintf(os.Stdout, "Interface:  %s\n", *iface)
-	_, _ = fmt.Fprintf(os.Stdout, "Profile:    %s\n", *profile)
-	if *port > 0 {
-		_, _ = fmt.Fprintf(os.Stdout, "Port:       %d\n", *port)
-	}
-	if *oui != "" {
-		_, _ = fmt.Fprintf(os.Stdout, "OUI:        %s\n", *oui)
-	}
+	printReflectorStartup(parsed)
 	_, _ = fmt.Fprintln(os.Stdout, "\nReflector started. Press Ctrl+C to stop.")
 
-	if *useTUI {
+	if parsed.useTUI {
 		tuiApp := reflectorTUI.New(dp)
 		tuiErr := tuiApp.Run()
 		if tuiErr != nil {
@@ -458,6 +397,110 @@ func reflectCmd(args []string) error {
 	}
 
 	return nil
+}
+
+type reflectCmdArgs struct {
+	iface   string
+	profile string
+	oui     string
+	port    uint16
+	useTUI  bool
+}
+
+func parseReflectFlags(args []string) (*reflectCmdArgs, *flag.FlagSet, error) {
+	fs := flag.NewFlagSet("reflect", flag.ExitOnError)
+	iface := fs.String("interface", "", "Network interface")
+	fs.StringVar(iface, "i", "", "Network interface (shorthand)")
+	profile := fs.String("profile", DefaultProfile, "Preset profile")
+	port := fs.Uint("port", 0, "UDP port filter")
+	oui := fs.String("oui", "", "OUI filter")
+	useTUI := fs.Bool("tui", false, "Launch TUI dashboard")
+
+	if err := fs.Parse(args); err != nil {
+		return nil, fs, err
+	}
+
+	if *port > math.MaxUint16 {
+		return nil, fs, fmt.Errorf("port %d out of valid range (0-%d)", *port, math.MaxUint16)
+	}
+
+	return &reflectCmdArgs{
+		iface:   *iface,
+		profile: *profile,
+		port:    uint16(*port),
+		oui:     *oui,
+		useTUI:  *useTUI,
+	}, fs, nil
+}
+
+func requireReflectInterface(iface string, fs *flag.FlagSet) error {
+	if iface == "" {
+		_, _ = fmt.Fprintln(os.Stdout, "Error: --interface is required")
+		fs.Usage()
+		return errors.New("missing interface")
+	}
+	return nil
+}
+
+func checkReflectorLicense() error {
+	// Check license (Tier 1 minimum).
+	mgr, err := license.NewManager()
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stdout, "Warning: License check failed: %v\n", err)
+		return nil
+	}
+	if mgr.IsActivated() {
+		return nil
+	}
+
+	_, _ = fmt.Fprintln(os.Stdout, "No active license. Starting 14-day trial...")
+	result := mgr.StartTrial()
+	if !result.Success {
+		_, _ = fmt.Fprintf(os.Stdout, "Error: %s\n", result.Message)
+		return fmt.Errorf("license trial failed: %s", result.Message)
+	}
+	_, _ = fmt.Fprintf(os.Stdout, "%s\n", result.Message)
+	return nil
+}
+
+func buildReflectorConfig(parsed *reflectCmdArgs, sigFilter string) *reflectorConfig.Config {
+	cfg := &reflectorConfig.Config{
+		Interface:       parsed.iface,
+		Verbose:         false,
+		SignatureFilter: sigFilter,
+		WebUI:           reflectorConfig.WebUIConfig{Enabled: false, Port: 0},
+		TUI:             reflectorConfig.TUIConfig{Enabled: parsed.useTUI},
+		Filtering: reflectorConfig.FilterConfig{
+			Port:      parsed.port,
+			FilterOUI: false,
+			OUI:       "00:c0:17", // Default NetAlly OUI.
+			FilterMAC: false,
+		},
+		Reflection: reflectorConfig.ReflectConfig{
+			Mode: DefaultReflectionMode,
+		},
+		Platform: reflectorConfig.PlatformConfig{UseDPDK: false, UseAFXDP: false, DPDKArgs: ""},
+		Stats:    reflectorConfig.StatsConfig{Format: "text", Interval: 0},
+	}
+
+	if parsed.oui != "" {
+		cfg.Filtering.FilterOUI = true
+		cfg.Filtering.OUI = parsed.oui
+	}
+
+	return cfg
+}
+
+func printReflectorStartup(parsed *reflectCmdArgs) {
+	_, _ = fmt.Fprintf(os.Stdout, "%s %s - Reflector\n", ProductName, version.Version())
+	_, _ = fmt.Fprintf(os.Stdout, "Interface:  %s\n", parsed.iface)
+	_, _ = fmt.Fprintf(os.Stdout, "Profile:    %s\n", parsed.profile)
+	if parsed.port > 0 {
+		_, _ = fmt.Fprintf(os.Stdout, "Port:       %d\n", parsed.port)
+	}
+	if parsed.oui != "" {
+		_, _ = fmt.Fprintf(os.Stdout, "OUI:        %s\n", parsed.oui)
+	}
 }
 
 // validateTestTypesList validates a list of test types.
@@ -509,7 +552,7 @@ func printTestConfiguration(
 	resolution, maxLoss float64,
 	warmup int,
 ) {
-	_, _ = fmt.Fprintf(os.Stdout, "%s %s - Network Testing\n", ProductName, version.Version)
+	_, _ = fmt.Fprintf(os.Stdout, "%s %s - Network Testing\n", ProductName, version.Version())
 	_, _ = fmt.Fprintln(os.Stdout, strings.Repeat("=", bannerWidth))
 	_, _ = fmt.Fprintf(os.Stdout, "Interface:    %s\n", iface)
 	_, _ = fmt.Fprintf(os.Stdout, "Tests:        %s\n", testTypes)
@@ -692,7 +735,7 @@ func testCmd(args []string) error {
 
 	if flags.iface == "" {
 		_, _ = fmt.Fprintln(os.Stdout, "Error: --interface is required")
-		return fmt.Errorf("missing interface")
+		return errors.New("missing interface")
 	}
 
 	// Validate test types.
@@ -701,19 +744,19 @@ func testCmd(args []string) error {
 		tests[i] = strings.TrimSpace(t)
 	}
 	if !validateTestTypesList(tests) {
-		return fmt.Errorf("invalid test types")
+		return errors.New("invalid test types")
 	}
 
 	// Check license.
 	if !checkTestLicense() {
-		return fmt.Errorf("license check failed")
+		return errors.New("license check failed")
 	}
 
 	// Parse frame sizes.
 	frameSizeList := parseFrameSizes(flags.frameSizes)
 	if len(frameSizeList) == 0 {
 		_, _ = fmt.Fprintln(os.Stdout, "Error: No valid frame sizes specified")
-		return fmt.Errorf("no valid frame sizes")
+		return errors.New("no valid frame sizes")
 	}
 
 	printTestConfiguration(
@@ -1083,7 +1126,7 @@ func webCmd(args []string) {
 		os.Exit(1)
 	}
 
-	_, _ = fmt.Fprintf(os.Stdout, "%s %s - WebUI Server\n", ProductName, version.Version)
+	_, _ = fmt.Fprintf(os.Stdout, "%s %s - WebUI Server\n", ProductName, version.Version())
 	_, _ = fmt.Fprintf(os.Stdout, "Starting on http://%s:%d\n", *host, *port)
 
 	srv, err := server.NewServer(*port)
@@ -1107,7 +1150,7 @@ func tuiReflectMode(iface string) error {
 	if iface == "" {
 		_, _ = fmt.Fprintln(os.Stdout, "Error: --interface is required for reflect mode")
 		_, _ = fmt.Fprintln(os.Stdout, "Usage: stem tui --mode reflect -i eth0")
-		return fmt.Errorf("missing interface")
+		return errors.New("missing interface")
 	}
 
 	// Check license (Tier 1 minimum).
@@ -1186,7 +1229,7 @@ func tuiTestMode() error {
 			}
 		} else if state.Tier < license.TierTestSuite && !state.IsTrialMode {
 			_, _ = fmt.Fprintln(os.Stdout, "Error: Test Suite TUI requires Tier 2 license")
-			return fmt.Errorf("license tier too low")
+			return errors.New("license tier too low")
 		}
 	}
 
@@ -1222,16 +1265,16 @@ func tuiCmd(args []string) error {
 		return err
 	}
 
-	_, _ = fmt.Fprintf(os.Stdout, "%s %s - Terminal UI\n", ProductName, version.Version)
+	_, _ = fmt.Fprintf(os.Stdout, "%s %s - Terminal UI\n", ProductName, version.Version())
 
 	switch *mode {
 	case "reflect", "reflector":
-		if err := tuiReflectMode(*iface); err != nil {
-			return err
+		if modeErr := tuiReflectMode(*iface); modeErr != nil {
+			return modeErr
 		}
 	case "test", "testmaster", "":
-		if err := tuiTestMode(); err != nil {
-			return err
+		if modeErr := tuiTestMode(); modeErr != nil {
+			return modeErr
 		}
 	default:
 		_, _ = fmt.Fprintf(os.Stdout, "Error: Unknown TUI mode '%s'\n", *mode)

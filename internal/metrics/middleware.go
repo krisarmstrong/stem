@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// responseWriter wraps http.ResponseWriter to capture status code.
+// responseWriter wraps [http.ResponseWriter] to capture status code.
 type responseWriter struct {
 	http.ResponseWriter
 

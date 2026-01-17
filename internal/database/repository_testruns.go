@@ -130,6 +130,26 @@ func (r *TestRunRepository) Complete(ctx context.Context, id string, status stri
 
 // List retrieves test runs based on query options.
 func (r *TestRunRepository) List(ctx context.Context, opts TestRunQueryOptions) ([]TestRun, error) {
+	query, args := buildTestRunListQuery(opts)
+
+	var runs []TestRun
+	err := r.db.Query(ctx, query, func(rows *sql.Rows) error {
+		for rows.Next() {
+			run, scanErr := scanTestRunRow(rows)
+			if scanErr != nil {
+				return scanErr
+			}
+			runs = append(runs, run)
+		}
+		return rows.Err()
+	}, args...)
+	if err != nil {
+		return nil, fmt.Errorf("querying test runs: %w", err)
+	}
+	return runs, nil
+}
+
+func buildTestRunListQuery(opts TestRunQueryOptions) (string, []any) {
 	query := `
 		SELECT id, module, test_type, status, config_json, interface_name,
 		       target_address, started_at, completed_at, duration_ms, 
@@ -163,52 +183,50 @@ func (r *TestRunRepository) List(ctx context.Context, opts TestRunQueryOptions) 
 	query += " ORDER BY started_at DESC"
 
 	if opts.Limit > 0 {
-		query += " LIMIT ?"
+		query += limitClause
 		args = append(args, opts.Limit)
 	}
 	if opts.Offset > 0 {
-		query += " OFFSET ?"
+		query += offsetClause
 		args = append(args, opts.Offset)
 	}
 
-	rows, err := r.db.Query(ctx, query, args...)
+	return query, args
+}
+
+func scanTestRunRow(rows *sql.Rows) (TestRun, error) {
+	var run TestRun
+	var startedAt, completedAt sql.NullString
+
+	if err := rows.Scan(
+		&run.ID, &run.Module, &run.TestType, &run.Status, &run.ConfigJSON,
+		&run.InterfaceName, &run.TargetAddress, &startedAt, &completedAt,
+		&run.DurationMs, &run.ErrorMessage, &run.Metadata,
+	); err != nil {
+		return TestRun{}, fmt.Errorf("scanning test run row: %w", err)
+	}
+
+	if parsed, ok := parseNullableTime(startedAt); ok {
+		run.StartedAt = parsed
+	}
+	if parsed, ok := parseNullableTime(completedAt); ok {
+		run.CompletedAt = &parsed
+	}
+
+	return run, nil
+}
+
+func parseNullableTime(value sql.NullString) (time.Time, bool) {
+	if !value.Valid || value.String == "" {
+		return time.Time{}, false
+	}
+
+	parsed, err := time.Parse(time.RFC3339, value.String)
 	if err != nil {
-		return nil, fmt.Errorf("querying test runs: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var runs []TestRun
-	for rows.Next() {
-		var run TestRun
-		var startedAt, completedAt sql.NullString
-
-		if scanErr := rows.Scan(
-			&run.ID, &run.Module, &run.TestType, &run.Status, &run.ConfigJSON,
-			&run.InterfaceName, &run.TargetAddress, &startedAt, &completedAt,
-			&run.DurationMs, &run.ErrorMessage, &run.Metadata,
-		); scanErr != nil {
-			return nil, fmt.Errorf("scanning test run row: %w", scanErr)
-		}
-
-		if startedAt.Valid {
-			if t, parseErr := time.Parse(time.RFC3339, startedAt.String); parseErr == nil {
-				run.StartedAt = t
-			}
-		}
-		if completedAt.Valid {
-			if t, parseErr := time.Parse(time.RFC3339, completedAt.String); parseErr == nil {
-				run.CompletedAt = &t
-			}
-		}
-
-		runs = append(runs, run)
+		return time.Time{}, false
 	}
 
-	if rowsErr := rows.Err(); rowsErr != nil {
-		return nil, fmt.Errorf("iterating test run rows: %w", rowsErr)
-	}
-
-	return runs, nil
+	return parsed, true
 }
 
 // Delete removes a test run and its associated results.

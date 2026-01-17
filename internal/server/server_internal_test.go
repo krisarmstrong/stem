@@ -627,7 +627,7 @@ func TestDecodeJSONStrict_Success(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(body))
 	w := httptest.NewRecorder()
 
-	ok := decodeJSONStrict(w, req, &data, maxRequestBodySize)
+	ok := decodeJSONStrict(w, req, &data)
 	if !ok {
 		t.Error("decodeJSONStrict() returned false for valid JSON")
 	}
@@ -650,7 +650,7 @@ func TestDecodeJSONStrict_InvalidJSON(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(body))
 	w := httptest.NewRecorder()
 
-	ok := decodeJSONStrict(w, req, &data, maxRequestBodySize)
+	ok := decodeJSONStrict(w, req, &data)
 	if ok {
 		t.Error("decodeJSONStrict() should return false for invalid JSON")
 	}
@@ -673,7 +673,7 @@ func TestDecodeJSONStrict_UnknownFields(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(body))
 	w := httptest.NewRecorder()
 
-	ok := decodeJSONStrict(w, req, &data, maxRequestBodySize)
+	ok := decodeJSONStrict(w, req, &data)
 	if ok {
 		t.Error("decodeJSONStrict() should return false for unknown fields")
 	}
@@ -695,7 +695,7 @@ func TestDecodeJSONStrict_EmptyBody(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/test", nil)
 	w := httptest.NewRecorder()
 
-	ok := decodeJSONStrict(w, req, &data, maxRequestBodySize)
+	ok := decodeJSONStrict(w, req, &data)
 	if ok {
 		t.Error("decodeJSONStrict() should return false for empty body")
 	}

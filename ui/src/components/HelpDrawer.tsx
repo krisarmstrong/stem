@@ -34,7 +34,7 @@ import {
   type TestHelp,
   type Tutorial,
   tutorials,
-} from '../data/helpContent';
+} from '../data/help-content';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { cn, icon as iconTokens, layout, modal, radius, spacing } from '../styles/theme';
 import { CollapsibleSection } from './CollapsibleSection';

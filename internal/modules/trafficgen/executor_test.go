@@ -1,31 +1,27 @@
 // Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
 
-//nolint:testpackage // White-box testing requires access to unexported functions.
-package trafficgen
+// Black-box testing of trafficgen executor.
+//
+// Tests verify public API behavior. The export_test.go file in package trafficgen
+// provides NewMockExecutor, NewMockExecutorWithNilModule, and test constants.
+package trafficgen_test
 
 import (
 	"errors"
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/krisarmstrong/stem/internal/modules/modtypes"
+	"github.com/krisarmstrong/stem/internal/modules/trafficgen"
 )
-
-// newMockExecutor creates an executor with mock context for testing.
-// This allows testing Execute logic without requiring actual dataplane.
-func newMockExecutor() *Executor {
-	return &Executor{
-		Module: New(),
-		ctx:    nil, // nil context for testing error paths
-	}
-}
 
 // TestNewExecutor verifies executor creation behavior.
 // On stub builds (non-CGO/non-Linux), this will fail with ErrNotSupported.
 func TestNewExecutor(t *testing.T) {
 	// NewExecutor requires a dataplane context which is stubbed on non-Linux.
 	// We test that it returns an error as expected.
-	executor, err := NewExecutor("eth0")
+	executor, err := trafficgen.NewExecutor("eth0")
 
 	// On stub builds, we expect an error.
 	if err == nil {
@@ -50,7 +46,7 @@ func TestNewExecutor(t *testing.T) {
 
 // TestNewExecutorEmptyInterface tests with empty interface name.
 func TestNewExecutorEmptyInterface(t *testing.T) {
-	executor, err := NewExecutor("")
+	executor, err := trafficgen.NewExecutor("")
 
 	if err == nil {
 		if executor != nil {
@@ -70,7 +66,7 @@ func TestNewExecutorVariousInterfaces(t *testing.T) {
 
 	for _, iface := range interfaces {
 		t.Run(iface, func(t *testing.T) {
-			executor, err := NewExecutor(iface)
+			executor, err := trafficgen.NewExecutor(iface)
 			if err == nil {
 				executor.Close()
 				return // Dataplane available
@@ -276,7 +272,7 @@ func TestModtypesGetUint8Param(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := modtypes.GetUint8Param(tt.params, tt.key, tt.defaultVal)
+			result := modtypes.GetUint8Param(tt.params, "val", tt.defaultVal)
 			if result != tt.expected {
 				t.Errorf("modtypes.GetUint8Param() = %d, want %d",
 					result, tt.expected)
@@ -288,7 +284,7 @@ func TestModtypesGetUint8Param(t *testing.T) {
 // TestExecutorSupportsExecution tests the SupportsExecution method.
 func TestExecutorSupportsExecution(t *testing.T) {
 	// Use mock executor since SupportsExecution doesn't need dataplane.
-	executor := newMockExecutor()
+	executor := trafficgen.NewMockExecutor()
 
 	if !executor.SupportsExecution() {
 		t.Error("SupportsExecution() should return true")
@@ -300,18 +296,15 @@ func TestExecutorSupportsExecutionAlwaysTrue(t *testing.T) {
 	// Test with various executor states.
 	testCases := []struct {
 		name     string
-		executor *Executor
+		executor *trafficgen.Executor
 	}{
 		{
 			name:     "mock executor",
-			executor: newMockExecutor(),
+			executor: trafficgen.NewMockExecutor(),
 		},
 		{
-			name: "executor with nil module",
-			executor: &Executor{
-				Module: nil,
-				ctx:    nil,
-			},
+			name:     "executor with nil module",
+			executor: trafficgen.NewMockExecutorWithNilModule(),
 		},
 	}
 
@@ -328,7 +321,7 @@ func TestExecutorSupportsExecutionAlwaysTrue(t *testing.T) {
 // TestExecutorClose tests the Close method handles nil context gracefully.
 func TestExecutorClose(t *testing.T) {
 	// Test that Close on executor with nil context doesn't panic.
-	executor := newMockExecutor()
+	executor := trafficgen.NewMockExecutor()
 
 	// This should not panic.
 	defer func() {
@@ -343,11 +336,8 @@ func TestExecutorClose(t *testing.T) {
 
 // TestExecutorCloseWithNilContext tests Close with nil context.
 func TestExecutorCloseWithNilContext(t *testing.T) {
-	// Create an executor manually with nil context.
-	executor := &Executor{
-		Module: New(),
-		ctx:    nil,
-	}
+	// Create an executor with nil context via the exported helper.
+	executor := trafficgen.NewMockExecutor()
 
 	// This should not panic.
 	defer func() {
@@ -362,7 +352,7 @@ func TestExecutorCloseWithNilContext(t *testing.T) {
 // TestExecuteInvalidTestType tests Execute with invalid test type.
 func TestExecuteInvalidTestType(t *testing.T) {
 	// Use mock executor to test the validation logic.
-	executor := newMockExecutor()
+	executor := trafficgen.NewMockExecutor()
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -381,7 +371,7 @@ func TestExecuteInvalidTestType(t *testing.T) {
 	}
 
 	// Error should mention the invalid test type.
-	if err != nil && !containsSubstring(err.Error(), "cannot run") {
+	if err != nil && !strings.Contains(err.Error(), "cannot run") {
 		t.Errorf("Error should mention 'cannot run', got: %v", err)
 	}
 }
@@ -389,7 +379,7 @@ func TestExecuteInvalidTestType(t *testing.T) {
 // TestExecuteNilConfig tests Execute with nil config.
 func TestExecuteNilConfig(t *testing.T) {
 	// Use mock executor to test the validation logic.
-	executor := newMockExecutor()
+	executor := trafficgen.NewMockExecutor()
 
 	result, err := executor.Execute("custom_stream", nil)
 	if err == nil {
@@ -405,7 +395,7 @@ func TestExecuteNilConfig(t *testing.T) {
 
 // TestExecuteValidationOrder tests that validation happens in correct order.
 func TestExecuteValidationOrder(t *testing.T) {
-	executor := newMockExecutor()
+	executor := trafficgen.NewMockExecutor()
 
 	// Test invalid test type checked before nil config.
 	result, err := executor.Execute("invalid_test", nil)
@@ -413,7 +403,7 @@ func TestExecuteValidationOrder(t *testing.T) {
 		t.Error("Execute() should return error")
 	}
 	// Should fail on test type check first.
-	if containsSubstring(err.Error(), "invalid config") {
+	if strings.Contains(err.Error(), "invalid config") {
 		t.Error("Should fail on test type check before config check")
 	}
 	if result != nil {
@@ -424,7 +414,7 @@ func TestExecuteValidationOrder(t *testing.T) {
 // TestExecuteCustomStream tests Execute with valid custom_stream config.
 // Uses mock executor - dataplane call will fail but we can test the setup logic.
 func TestExecuteCustomStream(t *testing.T) {
-	executor := newMockExecutor()
+	executor := trafficgen.NewMockExecutor()
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -460,8 +450,8 @@ func TestExecuteCustomStream(t *testing.T) {
 	if result.TestType != "custom_stream" {
 		t.Errorf("result.TestType = %s, want custom_stream", result.TestType)
 	}
-	if result.ModuleName != ModuleName {
-		t.Errorf("result.ModuleName = %s, want %s", result.ModuleName, ModuleName)
+	if result.ModuleName != trafficgen.ModuleName {
+		t.Errorf("result.ModuleName = %s, want %s", result.ModuleName, trafficgen.ModuleName)
 	}
 	if result.Error == "" {
 		t.Error("result.Error should be set on failure")
@@ -470,7 +460,7 @@ func TestExecuteCustomStream(t *testing.T) {
 
 // TestExecuteWithDefaultParams tests Execute uses defaults for missing params.
 func TestExecuteWithDefaultParams(t *testing.T) {
-	executor := newMockExecutor()
+	executor := trafficgen.NewMockExecutor()
 
 	// Minimal config with no params - should use defaults.
 	cfg := &modtypes.TestConfig{
@@ -493,7 +483,7 @@ func TestExecuteWithDefaultParams(t *testing.T) {
 
 // TestExecuteWithEmptyParams tests Execute with empty params map.
 func TestExecuteWithEmptyParams(t *testing.T) {
-	executor := newMockExecutor()
+	executor := trafficgen.NewMockExecutor()
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -515,7 +505,7 @@ func TestExecuteWithEmptyParams(t *testing.T) {
 
 // TestExecuteWithBurstMode tests Execute with burst mode enabled.
 func TestExecuteWithBurstMode(t *testing.T) {
-	executor := newMockExecutor()
+	executor := trafficgen.NewMockExecutor()
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -541,7 +531,7 @@ func TestExecuteWithBurstMode(t *testing.T) {
 
 // TestExecuteWithVLAN tests Execute with VLAN configuration.
 func TestExecuteWithVLAN(t *testing.T) {
-	executor := newMockExecutor()
+	executor := trafficgen.NewMockExecutor()
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -566,7 +556,7 @@ func TestExecuteWithVLAN(t *testing.T) {
 
 // TestExecuteWithOverflowVLAN tests VLAN ID overflow handling.
 func TestExecuteWithOverflowVLAN(t *testing.T) {
-	executor := newMockExecutor()
+	executor := trafficgen.NewMockExecutor()
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -591,7 +581,7 @@ func TestExecuteWithOverflowVLAN(t *testing.T) {
 
 // TestExecuteNonCustomStreamTestType tests that non-custom_stream types fail.
 func TestExecuteNonCustomStreamTestType(t *testing.T) {
-	executor := newMockExecutor()
+	executor := trafficgen.NewMockExecutor()
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -624,7 +614,7 @@ func TestExecuteNonCustomStreamTestType(t *testing.T) {
 
 // TestExecuteUnsupportedTestType tests that CanRun check happens before config parsing.
 func TestExecuteUnsupportedTestType(t *testing.T) {
-	executor := newMockExecutor()
+	executor := trafficgen.NewMockExecutor()
 
 	// Should fail on CanRun check even with valid config.
 	cfg := &modtypes.TestConfig{
@@ -642,7 +632,7 @@ func TestExecuteUnsupportedTestType(t *testing.T) {
 		t.Error("Execute() should return nil result for unsupported test type")
 	}
 	// Error message should indicate the test type can't run.
-	if !containsSubstring(err.Error(), "cannot run") {
+	if !strings.Contains(err.Error(), "cannot run") {
 		t.Errorf("Error should mention 'cannot run', got: %v", err)
 	}
 }
@@ -651,7 +641,7 @@ func TestExecuteUnsupportedTestType(t *testing.T) {
 // return ErrTestNotImplemented - but since trafficgen only has custom_stream,
 // any other test type should fail the CanRun check first.
 func TestExecuteNonImplementedTestType(t *testing.T) {
-	executor := newMockExecutor()
+	executor := trafficgen.NewMockExecutor()
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -672,32 +662,29 @@ func TestExecuteNonImplementedTestType(t *testing.T) {
 
 // TestModuleEmbeddingInExecutor verifies that Executor embeds Module correctly.
 func TestModuleEmbeddingInExecutor(t *testing.T) {
-	executor, err := NewExecutor("eth0")
+	executor, err := trafficgen.NewExecutor("eth0")
 	if err != nil {
 		// Create a mock executor to test embedding.
-		executor = &Executor{
-			Module: New(),
-			ctx:    nil,
-		}
+		executor = trafficgen.NewMockExecutor()
 	} else {
 		defer executor.Close()
 	}
 
 	// Test that embedded Module methods work.
-	if executor.Name() != ModuleName {
-		t.Errorf("executor.Name() = %s, want %s", executor.Name(), ModuleName)
+	if executor.Name() != trafficgen.ModuleName {
+		t.Errorf("executor.Name() = %s, want %s", executor.Name(), trafficgen.ModuleName)
 	}
 
-	if executor.DisplayName() != DisplayName {
-		t.Errorf("executor.DisplayName() = %s, want %s", executor.DisplayName(), DisplayName)
+	if executor.DisplayName() != trafficgen.DisplayName {
+		t.Errorf("executor.DisplayName() = %s, want %s", executor.DisplayName(), trafficgen.DisplayName)
 	}
 
-	if executor.Color() != ColorHex {
-		t.Errorf("executor.Color() = %s, want %s", executor.Color(), ColorHex)
+	if executor.Color() != trafficgen.ColorHex {
+		t.Errorf("executor.Color() = %s, want %s", executor.Color(), trafficgen.ColorHex)
 	}
 
-	if executor.Standard() != StandardRef {
-		t.Errorf("executor.Standard() = %s, want %s", executor.Standard(), StandardRef)
+	if executor.Standard() != trafficgen.StandardRef {
+		t.Errorf("executor.Standard() = %s, want %s", executor.Standard(), trafficgen.StandardRef)
 	}
 
 	if !executor.CanRun("custom_stream") {
@@ -726,23 +713,24 @@ func TestDefaultConstants(t *testing.T) {
 		expectedDefaultInterBurstGapUs = 1000
 	)
 
-	if defaultRatePct != expectedDefaultRatePct {
-		t.Errorf("defaultRatePct = %v, want %v", defaultRatePct, expectedDefaultRatePct)
+	if trafficgen.TestDefaultRatePct != expectedDefaultRatePct {
+		t.Errorf("TestDefaultRatePct = %v, want %v", trafficgen.TestDefaultRatePct, expectedDefaultRatePct)
 	}
-	if defaultWarmupSec != expectedDefaultWarmupSec {
-		t.Errorf("defaultWarmupSec = %v, want %v", defaultWarmupSec, expectedDefaultWarmupSec)
+	if trafficgen.TestDefaultWarmupSec != expectedDefaultWarmupSec {
+		t.Errorf("TestDefaultWarmupSec = %v, want %v", trafficgen.TestDefaultWarmupSec, expectedDefaultWarmupSec)
 	}
-	if defaultDurationSec != expectedDefaultDurationSec {
-		t.Errorf("defaultDurationSec = %v, want %v", defaultDurationSec, expectedDefaultDurationSec)
+	if trafficgen.TestDefaultDurationSec != expectedDefaultDurationSec {
+		t.Errorf("TestDefaultDurationSec = %v, want %v", trafficgen.TestDefaultDurationSec, expectedDefaultDurationSec)
 	}
-	if defaultStreamID != expectedDefaultStreamID {
-		t.Errorf("defaultStreamID = %v, want %v", defaultStreamID, expectedDefaultStreamID)
+	if trafficgen.TestDefaultStreamID != expectedDefaultStreamID {
+		t.Errorf("TestDefaultStreamID = %v, want %v", trafficgen.TestDefaultStreamID, expectedDefaultStreamID)
 	}
-	if defaultBurstSize != expectedDefaultBurstSize {
-		t.Errorf("defaultBurstSize = %v, want %v", defaultBurstSize, expectedDefaultBurstSize)
+	if trafficgen.TestDefaultBurstSize != expectedDefaultBurstSize {
+		t.Errorf("TestDefaultBurstSize = %v, want %v", trafficgen.TestDefaultBurstSize, expectedDefaultBurstSize)
 	}
-	if defaultInterBurstGapUs != expectedDefaultInterBurstGapUs {
-		t.Errorf("defaultInterBurstGapUs = %v, want %v", defaultInterBurstGapUs, expectedDefaultInterBurstGapUs)
+	if trafficgen.TestDefaultInterBurstGapUs != expectedDefaultInterBurstGapUs {
+		t.Errorf("TestDefaultInterBurstGapUs = %v, want %v",
+			trafficgen.TestDefaultInterBurstGapUs, expectedDefaultInterBurstGapUs)
 	}
 }
 
@@ -875,14 +863,4 @@ func TestModtypesGetUint8ParamBoundary(t *testing.T) {
 			}
 		})
 	}
-}
-
-// containsSubstring checks if str contains substr.
-func containsSubstring(str, substr string) bool {
-	for i := 0; i <= len(str)-len(substr); i++ {
-		if str[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

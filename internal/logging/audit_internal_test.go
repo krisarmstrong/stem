@@ -81,9 +81,7 @@ func setupTestLogger() *testLogHandler {
 	handler := newTestLogHandler("json")
 	logger := slog.New(handler)
 
-	loggerMu.Lock()
-	globalLogger = logger
-	loggerMu.Unlock()
+	slog.SetDefault(logger)
 
 	return handler
 }

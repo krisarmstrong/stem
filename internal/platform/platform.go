@@ -108,7 +108,7 @@ func (e *Error) Error() string {
 	return sb.String()
 }
 
-// Unwrap returns the underlying error for errors.Is/As support.
+// Unwrap returns the underlying error for [errors.Is]/As support.
 func (e *Error) Unwrap() error {
 	return ErrPlatformNotSupported
 }

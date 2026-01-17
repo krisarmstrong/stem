@@ -14,9 +14,10 @@ import (
 	"github.com/krisarmstrong/stem/internal/auth"
 )
 
-//nolint:exhaustruct // Test helper doesn't need all fields
 func newTestLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	opts := &slog.HandlerOptions{}
+	opts.Level = slog.LevelDebug
+	return slog.New(slog.NewTextHandler(os.Stderr, opts))
 }
 
 func TestNewCSRFManager(t *testing.T) {

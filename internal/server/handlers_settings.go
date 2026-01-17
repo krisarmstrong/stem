@@ -26,7 +26,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 
 	case http.MethodPost:
 		var update SettingsUpdate
-		if !decodeJSONStrict(w, r, &update, maxRequestBodySize) {
+		if !decodeJSONStrict(w, r, &update) {
 			return
 		}
 
@@ -60,7 +60,7 @@ func (s *Server) handleMode(w http.ResponseWriter, r *http.Request) {
 
 	case http.MethodPost:
 		var req ModeRequest
-		if !decodeJSONStrict(w, r, &req, maxRequestBodySize) {
+		if !decodeJSONStrict(w, r, &req) {
 			return
 		}
 

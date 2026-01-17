@@ -179,8 +179,7 @@ func (a *UserStoreAdapter) IsLocked(ctx context.Context, username string) (bool,
 
 	lockTime, err := time.Parse(time.RFC3339, lockedUntil.String)
 	if err != nil {
-		// Invalid timestamp format - treat as not locked
-		return false, nil
+		return false, fmt.Errorf("parsing lock timestamp: %w", err)
 	}
 
 	return time.Now().UTC().Before(lockTime), nil
@@ -194,7 +193,6 @@ func (a *UserStoreAdapter) CreateUser(ctx context.Context, username, passwordHas
 		INSERT INTO users (username, password_hash, role, is_active, token_version, created_at, updated_at)
 		VALUES (?, ?, ?, 1, 1, ?, ?)
 	`, username, passwordHash, role, now, now)
-
 	if err != nil {
 		// Check for unique constraint violation
 		if isUniqueConstraintError(err) {
@@ -241,16 +239,11 @@ func (a *UserStoreAdapter) GetUser(ctx context.Context, username string) (*User,
 		return nil, fmt.Errorf("querying user: %w", err)
 	}
 
-	if lastLogin.Valid {
-		if t, parseErr := time.Parse(time.RFC3339, lastLogin.String); parseErr == nil {
-			user.LastLogin = &t
-		}
+	if parsed, ok := parseNullableTime(lastLogin); ok {
+		user.LastLogin = &parsed
 	}
-
-	if lockedUntil.Valid {
-		if t, parseErr := time.Parse(time.RFC3339, lockedUntil.String); parseErr == nil {
-			user.LockedUntil = &t
-		}
+	if parsed, ok := parseNullableTime(lockedUntil); ok {
+		user.LockedUntil = &parsed
 	}
 
 	return &user, nil
@@ -258,47 +251,42 @@ func (a *UserStoreAdapter) GetUser(ctx context.Context, username string) (*User,
 
 // ListUsers returns all active users.
 func (a *UserStoreAdapter) ListUsers(ctx context.Context) ([]User, error) {
-	rows, err := a.db.Query(ctx, `
+	var users []User
+	err := a.db.Query(ctx, `
 		SELECT id, username, password_hash, role, is_active, last_login,
 		       failed_attempts, locked_until, token_version, created_at, updated_at
 		FROM users WHERE is_active = 1
 		ORDER BY username
-	`)
+	`, func(rows *sql.Rows) error {
+		for rows.Next() {
+			var user User
+			var lastLogin, lockedUntil sql.NullString
+
+			if scanErr := rows.Scan(
+				&user.ID, &user.Username, &user.PasswordHash, &user.Role, &user.IsActive,
+				&lastLogin, &user.FailedAttempts, &lockedUntil, &user.TokenVersion,
+				&user.CreatedAt, &user.UpdatedAt,
+			); scanErr != nil {
+				return fmt.Errorf("scanning user row: %w", scanErr)
+			}
+
+			if parsed, ok := parseNullableTime(lastLogin); ok {
+				user.LastLogin = &parsed
+			}
+			if parsed, ok := parseNullableTime(lockedUntil); ok {
+				user.LockedUntil = &parsed
+			}
+
+			users = append(users, user)
+		}
+
+		if rowsErr := rows.Err(); rowsErr != nil {
+			return rowsErr
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, fmt.Errorf("querying users: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var users []User
-	for rows.Next() {
-		var user User
-		var lastLogin, lockedUntil sql.NullString
-
-		if scanErr := rows.Scan(
-			&user.ID, &user.Username, &user.PasswordHash, &user.Role, &user.IsActive,
-			&lastLogin, &user.FailedAttempts, &lockedUntil, &user.TokenVersion,
-			&user.CreatedAt, &user.UpdatedAt,
-		); scanErr != nil {
-			return nil, fmt.Errorf("scanning user row: %w", scanErr)
-		}
-
-		if lastLogin.Valid {
-			if t, parseErr := time.Parse(time.RFC3339, lastLogin.String); parseErr == nil {
-				user.LastLogin = &t
-			}
-		}
-
-		if lockedUntil.Valid {
-			if t, parseErr := time.Parse(time.RFC3339, lockedUntil.String); parseErr == nil {
-				user.LockedUntil = &t
-			}
-		}
-
-		users = append(users, user)
-	}
-
-	if rowsErr := rows.Err(); rowsErr != nil {
-		return nil, fmt.Errorf("iterating user rows: %w", rowsErr)
 	}
 
 	return users, nil

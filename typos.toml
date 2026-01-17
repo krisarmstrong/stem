@@ -1,0 +1,65 @@
+[files]
+extend-exclude = [
+    "node_modules/",
+    "dist/",
+    "build/",
+    "coverage/",
+    "*.lock",
+    "storybook-static/",
+    "ui/dist/",
+    "ui/coverage/",
+    "go.sum",
+    # Exclude i18n - Spanish/other languages aren't typos
+    "internal/i18n/locales/es/",
+    "internal/i18n/locales/de/",
+    "internal/i18n/locales/fr/",
+]
+
+[default.extend-words]
+# Project-specific terms
+dhcp = "dhcp"
+iperf = "iperf"
+vlan = "vlan"
+wlan = "wlan"
+snmp = "snmp"
+stem = "stem"
+
+# False positives
+inferrable = "inferrable"  # Biome spelling
+ot = "ot"                  # ITO protocol: DATA:OT, PROBEOT
+erro = "erro"              # Log output in docs
+testser = "testser"        # Test serial number placeholder
+
+[default.extend-identifiers]
+krisarmstrong = "krisarmstrong"
+golangci = "golangci"
+gofumpt = "gofumpt"
+gocyclo = "gocyclo"
+gopacket = "gopacket"
+gopsutil = "gopsutil"
+commitlint = "commitlint"
+gitleaks = "gitleaks"
+trufflehog = "trufflehog"
+errcheck = "errcheck"
+funlen = "funlen"
+maintidx = "maintidx"
+prealloc = "prealloc"
+predeclared = "predeclared"
+testify = "testify"
+omitempty = "omitempty"
+nolint = "nolint"
+sysfs = "sysfs"
+urandom = "urandom"
+journalctl = "journalctl"
+pkill = "pkill"
+linkmon = "linkmon"
+lucide = "lucide"
+i18next = "i18next"
+Vitest = "Vitest"
+Vite = "Vite"
+Storybook = "Storybook"
+Playwright = "Playwright"
+Biome = "Biome"
+# ITO protocol identifiers
+SigDataOT = "SigDataOT"
+SigProbeOT = "SigProbeOT"

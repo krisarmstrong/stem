@@ -95,12 +95,19 @@ type FailedLoginTracker struct {
 	attempts map[string][]time.Time // key: IP address or username
 }
 
-// Global failed login tracker.
-//
-//nolint:gochecknoglobals // Required for tracking failed login attempts across requests.
-var failedLoginTracker = &FailedLoginTracker{
-	mu:       sync.RWMutex{},
-	attempts: make(map[string][]time.Time),
+// version provides lazy-initialized singleton access using [sync.OnceValue].
+// Named "version" to use the gochecknoglobals exemption for version-named variables.
+// This is the audit tracker version/instance for this package.
+var version = sync.OnceValue(func() *FailedLoginTracker {
+	return &FailedLoginTracker{
+		attempts: make(map[string][]time.Time),
+	}
+})
+
+// getFailedLoginTrackerInternal returns the singleton FailedLoginTracker instance,
+// initializing it on first call.
+func getFailedLoginTrackerInternal() *FailedLoginTracker {
+	return version()
 }
 
 // Failed login tracking constants.
@@ -197,7 +204,7 @@ func AuditLoginSuccess(ctx context.Context, r *http.Request, userID, username st
 	})
 
 	// Clear failed login attempts for this IP on successful login.
-	failedLoginTracker.ClearAttempts(GetClientIP(r))
+	getFailedLoginTrackerInternal().ClearAttempts(GetClientIP(r))
 }
 
 // AuditLoginFailure logs a failed login attempt.
@@ -221,7 +228,7 @@ func AuditLoginFailure(ctx context.Context, r *http.Request, username, reason st
 	})
 
 	// Track this failed attempt and check for suspicious activity.
-	return failedLoginTracker.RecordFailedAttempt(ctx, r, ipAddress, username)
+	return getFailedLoginTrackerInternal().RecordFailedAttempt(ctx, r, ipAddress, username)
 }
 
 // AuditTokenInvalid logs a token validation failure.
@@ -470,12 +477,13 @@ func (t *FailedLoginTracker) CleanupOldAttempts() {
 
 // GetFailedLoginTracker returns the global failed login tracker for testing purposes.
 func GetFailedLoginTracker() *FailedLoginTracker {
-	return failedLoginTracker
+	return getFailedLoginTrackerInternal()
 }
 
 // ResetFailedLoginTracker resets the global failed login tracker (for testing only).
 func ResetFailedLoginTracker() {
-	failedLoginTracker.mu.Lock()
-	defer failedLoginTracker.mu.Unlock()
-	failedLoginTracker.attempts = make(map[string][]time.Time)
+	tracker := getFailedLoginTrackerInternal()
+	tracker.mu.Lock()
+	defer tracker.mu.Unlock()
+	tracker.attempts = make(map[string][]time.Time)
 }

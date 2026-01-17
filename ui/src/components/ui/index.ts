@@ -14,4 +14,4 @@ export type { StatusType } from './StatusBadge';
 export { StatusBadge } from './StatusBadge';
 
 // Configuration
-export { getSizeConfig, getStatusConfig, statusConfig } from './statusConfig';
+export { getSizeConfig, getStatusConfig, statusConfig } from './StatusConfig';

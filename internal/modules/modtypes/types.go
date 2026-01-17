@@ -274,7 +274,7 @@ func convertToUint16(v any, defaultVal uint16) uint16 {
 }
 
 // SafeIntToUint32 converts an int to uint32 with bounds checking.
-// Returns 0 for negative values, math.MaxUint32 for overflow.
+// Returns 0 for negative values, [math.MaxUint32] for overflow.
 func SafeIntToUint32(n int) uint32 {
 	const maxUint32 = 4294967295
 

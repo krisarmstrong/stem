@@ -10,7 +10,7 @@ import (
 const cleanupInterval = 5 * time.Minute
 
 // TokenBlacklist stores revoked tokens until they expire.
-// Uses sync.Map for concurrent access without locking overhead.
+// Uses [sync.Map] for concurrent access without locking overhead.
 type TokenBlacklist struct {
 	// tokens maps token ID (jti) to expiration time.
 	tokens sync.Map

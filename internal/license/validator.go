@@ -57,7 +57,11 @@ const (
 )
 
 // Error messages.
-const errProductCodeMismatch = "Product code mismatch for tier"
+const (
+	errProductCodeMismatch = "Product code mismatch for tier"
+	// ErrLicenseKeyLength indicates the key length validation error message.
+	ErrLicenseKeyLength = "License key must be 16 characters"
+)
 
 // String returns the tier name.
 func (t Tier) String() string {
@@ -113,7 +117,7 @@ func ValidateLicenseKey(key string) *Info {
 
 	// Check length.
 	if len(key) != keyLength {
-		info.ErrorMsg = "License key must be 16 characters"
+		info.ErrorMsg = ErrLicenseKeyLength
 		return info
 	}
 

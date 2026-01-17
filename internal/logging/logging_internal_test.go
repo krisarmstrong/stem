@@ -1279,7 +1279,7 @@ func TestLogf(t *testing.T) {
 	}
 }
 
-// TestLogfWithHeaders verifies Logf redacts http.Header.
+// TestLogfWithHeaders verifies Logf redacts [http.Header].
 func TestLogfWithHeaders(t *testing.T) {
 	Reset()
 	defer Reset()
@@ -1476,7 +1476,7 @@ func TestRedactAttrWithError(t *testing.T) {
 	}
 }
 
-// TestRedactAttrWithHTTPHeader verifies redaction of http.Header attributes.
+// TestRedactAttrWithHTTPHeader verifies redaction of [http.Header] attributes.
 func TestRedactAttrWithHTTPHeader(t *testing.T) {
 	Reset()
 	defer Reset()

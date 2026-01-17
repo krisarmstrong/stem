@@ -59,7 +59,6 @@ func TestNewExecutorInvalidInterface(t *testing.T) {
 	for _, iface := range interfaces {
 		t.Run("interface_"+iface, func(t *testing.T) {
 			executor, err := measure.NewExecutor(iface)
-
 			// On stub builds, all interfaces will fail with platform error.
 			// On real builds with CGO, some might succeed or fail differently.
 			if err != nil {

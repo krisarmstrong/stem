@@ -212,54 +212,51 @@ func NewServer(port int) (*Server, error) {
 	// Determine if TLS is enabled via environment variable.
 	tlsEnabled := os.Getenv("STEM_TLS_ENABLED") != "false" // Default: enabled
 
-	//nolint:exhaustruct // httpServer is set in Run() after creating the server.
-	s := &Server{
-		port:    port,
-		mux:     http.NewServeMux(),
-		statsMu: sync.RWMutex{},
-		stats: &Stats{
-			PacketsReceived: 0,
-			PacketsSent:     0,
-			BytesReceived:   0,
-			BytesSent:       0,
-			CurrentPPS:      0,
-			CurrentMbps:     0,
-			Uptime:          0,
-			TestStatus:      "",
-			CurrentTest:     nil,
-		},
-		testStatus:    statusIdle,
-		currentTest:   "",
-		testResult:    nil,
-		startTime:     time.Now(),
-		selectedIface: defaultIface,
-		mode:          modeTestMaster,
-		reflectorConfig: ReflectorConfig{
-			Profile:         DefaultProfile,
-			SignatureFilter: nil,
-			OUIFilter:       DefaultOUIFilter,
-			PortFilter:      DefaultPortFilter,
-		},
-		reflectorExec:  nil,
-		licenseManager: licMgr,
-		authManager:    authMgr,
-		currentModule:  "",
-		authLimiter:    NewAuthRateLimiter(),
-		apiLimiter:     NewAPIRateLimiter(),
-		tlsConfig: TLSConfig{
-			Enabled:  tlsEnabled,
-			CertFile: os.Getenv("STEM_TLS_CERT"),
-			KeyFile:  os.Getenv("STEM_TLS_KEY"),
-			CertsDir: os.Getenv("STEM_TLS_CERTS_DIR"),
-		},
-		cookieConfig:         auth.DefaultCookieConfig(tlsEnabled),
-		csrfManager:          auth.NewCSRFManager(logging.Get()),
-		setupTokenManager:    auth.NewSetupTokenManager(),
-		setupComplete:        false,
-		setupModeStartTime:   time.Time{},
-		recoveryTokenManager: auth.NewRecoveryTokenManager(getDataDir()),
-		dataDir:              getDataDir(),
+	s := &Server{}
+	s.port = port
+	s.mux = http.NewServeMux()
+	s.statsMu = sync.RWMutex{}
+	s.stats = &Stats{
+		PacketsReceived: 0,
+		PacketsSent:     0,
+		BytesReceived:   0,
+		BytesSent:       0,
+		CurrentPPS:      0,
+		CurrentMbps:     0,
+		Uptime:          0,
+		TestStatus:      "",
+		CurrentTest:     nil,
 	}
+	s.testStatus = statusIdle
+	s.currentTest = ""
+	s.testResult = nil
+	s.startTime = time.Now()
+	s.selectedIface = defaultIface
+	s.mode = modeTestMaster
+	s.reflectorConfig = ReflectorConfig{
+		Profile:         DefaultProfile,
+		SignatureFilter: nil,
+		OUIFilter:       DefaultOUIFilter,
+		PortFilter:      DefaultPortFilter,
+	}
+	s.licenseManager = licMgr
+	s.authManager = authMgr
+	s.currentModule = ""
+	s.authLimiter = NewAuthRateLimiter()
+	s.apiLimiter = NewAPIRateLimiter()
+	s.tlsConfig = TLSConfig{
+		Enabled:  tlsEnabled,
+		CertFile: os.Getenv("STEM_TLS_CERT"),
+		KeyFile:  os.Getenv("STEM_TLS_KEY"),
+		CertsDir: os.Getenv("STEM_TLS_CERTS_DIR"),
+	}
+	s.cookieConfig = auth.DefaultCookieConfig(tlsEnabled)
+	s.csrfManager = auth.NewCSRFManager(logging.Get())
+	s.setupTokenManager = auth.NewSetupTokenManager()
+	s.setupComplete = false
+	s.setupModeStartTime = time.Time{}
+	s.recoveryTokenManager = auth.NewRecoveryTokenManager(getDataDir())
+	s.dataDir = getDataDir()
 	s.setupRoutes()
 	return s, nil
 }
@@ -656,7 +653,7 @@ func (s *Server) Run() error {
 	}
 	logging.Info("Starting The Stem web server",
 		"address", fmt.Sprintf("%s://localhost%s", protocol, addr),
-		"version", version.Version,
+		"version", version.Version(),
 		"tls_enabled", s.tlsConfig.Enabled,
 	)
 
@@ -762,12 +759,12 @@ func (s *Server) startTLSWithACME() error {
 
 	// Start HTTP-01 challenge handler on port 80
 	// This is required for Let's Encrypt domain validation
-	//nolint:exhaustruct // Only set required http.Server fields
-	s.acmeChallengeServer = &http.Server{
+	challengeServer := &http.Server{
 		Addr:              ":80",
 		Handler:           manager.HTTPHandler(nil),
 		ReadHeaderTimeout: acmeReadHeaderTimeoutSec * time.Second,
 	}
+	s.acmeChallengeServer = challengeServer
 	go func() {
 		if listenErr := s.acmeChallengeServer.ListenAndServe(); listenErr != nil &&
 			!errors.Is(listenErr, http.ErrServerClosed) {
@@ -874,11 +871,9 @@ func writeJSON(w http.ResponseWriter, v any) {
 
 // decodeJSONStrict decodes JSON from the request body with size limits and strict validation.
 // Returns false if decoding fails (error response already written to w).
-//
-//nolint:unparam // maxSize allows future per-endpoint customization
-func decodeJSONStrict(w http.ResponseWriter, r *http.Request, v any, maxSize int64) bool {
+func decodeJSONStrict(w http.ResponseWriter, r *http.Request, v any) bool {
 	// Limit request body size.
-	r.Body = http.MaxBytesReader(w, r.Body, maxSize)
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySize)
 
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
@@ -907,7 +902,7 @@ func safeIntToUint16(v int) (uint16, bool) {
 	return uint16(v), true
 }
 
-// ServeHTTP implements the http.Handler interface for testing purposes.
+// ServeHTTP implements the [http.Handler] interface for testing purposes.
 // Applies the same middleware stack used in production (API versioning, CORS, CSRF).
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Apply middleware stack for consistent behavior in tests.

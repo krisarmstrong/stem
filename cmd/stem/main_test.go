@@ -26,12 +26,116 @@ func captureOutput(t *testing.T, fn func(w io.Writer)) string {
 	return buf.String()
 }
 
+func allTestTypes() map[string]string {
+	return map[string]string{
+		"throughput":         "RFC 2544 Throughput",
+		"latency":            "RFC 2544 Latency",
+		"frame_loss":         "RFC 2544 Frame Loss",
+		"back_to_back":       "RFC 2544 Back-to-Back",
+		"system_recovery":    "RFC 2544 System Recovery",
+		"reset":              "RFC 2544 Reset",
+		"y1564_config":       "Y.1564 Service Configuration",
+		"y1564_perf":         "Y.1564 Performance Test",
+		"y1564":              "Y.1564 Latency",
+		"rfc2889_forwarding": "RFC 2889 Forwarding",
+		"rfc2889_caching":    "RFC 2889 Caching",
+		"rfc2889_learning":   "RFC 2889 Learning",
+		"rfc2889_broadcast":  "RFC 2889 Broadcast",
+		"rfc2889_congestion": "RFC 2889 Congestion",
+		"rfc6349_throughput": "RFC 6349 Throughput",
+		"rfc6349_path":       "RFC 6349 Path",
+		"y1731_delay":        "Y.1731 Delay",
+		"y1731_loss":         "Y.1731 Loss",
+		"y1731_slm":          "Y.1731 SLM",
+		"y1731_loopback":     "Y.1731 Loopback",
+		"mef_config":         "MEF Configuration",
+		"mef_perf":           "MEF Performance",
+		"mef":                "MEF Service",
+		"tsn_timing":         "TSN Timing",
+		"tsn_isolation":      "TSN Isolation",
+		"tsn_latency":        "TSN Latency",
+		"tsn":                "TSN Service",
+	}
+}
+
+type testCategory struct {
+	name  string
+	tests []string
+}
+
+func testCategories() []testCategory {
+	return []testCategory{
+		{
+			name: "RFC 2544",
+			tests: []string{
+				"throughput",
+				"latency",
+				"frame_loss",
+				"back_to_back",
+				"system_recovery",
+				"reset",
+			},
+		},
+		{
+			name: "Y.1564 EtherSAM",
+			tests: []string{
+				"y1564_config",
+				"y1564_perf",
+				"y1564",
+			},
+		},
+		{
+			name: "RFC 2889 LAN Switch",
+			tests: []string{
+				"rfc2889_forwarding",
+				"rfc2889_caching",
+				"rfc2889_learning",
+				"rfc2889_broadcast",
+				"rfc2889_congestion",
+			},
+		},
+		{
+			name: "RFC 6349 TCP",
+			tests: []string{
+				"rfc6349_throughput",
+				"rfc6349_path",
+			},
+		},
+		{
+			name: "Y.1731 OAM",
+			tests: []string{
+				"y1731_delay",
+				"y1731_loss",
+				"y1731_slm",
+				"y1731_loopback",
+			},
+		},
+		{
+			name: "MEF Service",
+			tests: []string{
+				"mef_config",
+				"mef_perf",
+				"mef",
+			},
+		},
+		{
+			name: "TSN 802.1Qbv",
+			tests: []string{
+				"tsn_timing",
+				"tsn_isolation",
+				"tsn_latency",
+				"tsn",
+			},
+		},
+	}
+}
+
 func TestVersion(t *testing.T) {
-	if version.Version == "" {
+	if version.Version() == "" {
 		t.Error("Version should not be empty")
 	}
 	// Version is "dev" when not built with ldflags, or semver when built.
-	if version.Version != "dev" && !strings.Contains(version.Version, ".") {
+	if version.Version() != "dev" && !strings.Contains(version.Version(), ".") {
 		t.Error("Version should be 'dev' or contain dots (semantic versioning)")
 	}
 }
@@ -51,8 +155,8 @@ func TestCompany(t *testing.T) {
 func TestAllTestTypesCount(t *testing.T) {
 	// We should have 27 test types total.
 	expectedCount := 27
-	if len(allTestTypes) != expectedCount {
-		t.Errorf("Expected %d test types, got %d", expectedCount, len(allTestTypes))
+	if len(allTestTypes()) != expectedCount {
+		t.Errorf("Expected %d test types, got %d", expectedCount, len(allTestTypes()))
 	}
 }
 
@@ -66,8 +170,9 @@ func TestAllTestTypesRFC2544(t *testing.T) {
 		"reset",
 	}
 
+	allTypes := allTestTypes()
 	for _, test := range rfc2544Tests {
-		if _, ok := allTestTypes[test]; !ok {
+		if _, ok := allTypes[test]; !ok {
 			t.Errorf("Missing RFC 2544 test type: %s", test)
 		}
 	}
@@ -80,8 +185,9 @@ func TestAllTestTypesY1564(t *testing.T) {
 		"y1564",
 	}
 
+	allTypes := allTestTypes()
 	for _, test := range y1564Tests {
-		if _, ok := allTestTypes[test]; !ok {
+		if _, ok := allTypes[test]; !ok {
 			t.Errorf("Missing Y.1564 test type: %s", test)
 		}
 	}
@@ -96,8 +202,9 @@ func TestAllTestTypesRFC2889(t *testing.T) {
 		"rfc2889_congestion",
 	}
 
+	allTypes := allTestTypes()
 	for _, test := range rfc2889Tests {
-		if _, ok := allTestTypes[test]; !ok {
+		if _, ok := allTypes[test]; !ok {
 			t.Errorf("Missing RFC 2889 test type: %s", test)
 		}
 	}
@@ -109,8 +216,9 @@ func TestAllTestTypesRFC6349(t *testing.T) {
 		"rfc6349_path",
 	}
 
+	allTypes := allTestTypes()
 	for _, test := range rfc6349Tests {
-		if _, ok := allTestTypes[test]; !ok {
+		if _, ok := allTypes[test]; !ok {
 			t.Errorf("Missing RFC 6349 test type: %s", test)
 		}
 	}
@@ -124,8 +232,9 @@ func TestAllTestTypesY1731(t *testing.T) {
 		"y1731_loopback",
 	}
 
+	allTypes := allTestTypes()
 	for _, test := range y1731Tests {
-		if _, ok := allTestTypes[test]; !ok {
+		if _, ok := allTypes[test]; !ok {
 			t.Errorf("Missing Y.1731 test type: %s", test)
 		}
 	}
@@ -138,8 +247,9 @@ func TestAllTestTypesMEF(t *testing.T) {
 		"mef",
 	}
 
+	allTypes := allTestTypes()
 	for _, test := range mefTests {
-		if _, ok := allTestTypes[test]; !ok {
+		if _, ok := allTypes[test]; !ok {
 			t.Errorf("Missing MEF test type: %s", test)
 		}
 	}
@@ -153,8 +263,9 @@ func TestAllTestTypesTSN(t *testing.T) {
 		"tsn",
 	}
 
+	allTypes := allTestTypes()
 	for _, test := range tsnTests {
-		if _, ok := allTestTypes[test]; !ok {
+		if _, ok := allTypes[test]; !ok {
 			t.Errorf("Missing TSN test type: %s", test)
 		}
 	}
@@ -162,8 +273,8 @@ func TestAllTestTypesTSN(t *testing.T) {
 
 func TestTestCategoriesCount(t *testing.T) {
 	expectedCategories := 7
-	if len(testCategories) != expectedCategories {
-		t.Errorf("Expected %d test categories, got %d", expectedCategories, len(testCategories))
+	if len(testCategories()) != expectedCategories {
+		t.Errorf("Expected %d test categories, got %d", expectedCategories, len(testCategories()))
 	}
 }
 
@@ -178,18 +289,20 @@ func TestTestCategoriesNames(t *testing.T) {
 		"TSN 802.1Qbv",
 	}
 
+	categories := testCategories()
 	for i, expected := range expectedNames {
-		if testCategories[i].name != expected {
-			t.Errorf("Expected category %d name '%s', got '%s'", i, expected, testCategories[i].name)
+		if categories[i].name != expected {
+			t.Errorf("Expected category %d name '%s', got '%s'", i, expected, categories[i].name)
 		}
 	}
 }
 
 func TestTestCategoriesTestsExist(t *testing.T) {
+	types := allTestTypes()
 	// Verify all tests in categories exist in allTestTypes.
-	for _, cat := range testCategories {
+	for _, cat := range testCategories() {
 		for _, test := range cat.tests {
-			if _, ok := allTestTypes[test]; !ok {
+			if _, ok := types[test]; !ok {
 				t.Errorf("Test '%s' in category '%s' not found in allTestTypes", test, cat.name)
 			}
 		}
@@ -248,7 +361,7 @@ func TestPrintVersion(t *testing.T) {
 	if !strings.Contains(output, ProductName) {
 		t.Error("printVersion should contain ProductName")
 	}
-	if !strings.Contains(output, version.Version) {
+	if !strings.Contains(output, version.Version()) {
 		t.Error("printVersion should contain Version")
 	}
 	if !strings.Contains(output, Company) {
@@ -309,7 +422,7 @@ func TestJumboFrameSupport(t *testing.T) {
 
 func TestTestTypeDescriptions(t *testing.T) {
 	// Verify each test type has a non-empty description.
-	for testType, desc := range allTestTypes {
+	for testType, desc := range allTestTypes() {
 		if desc == "" {
 			t.Errorf("Test type '%s' has empty description", testType)
 		}
@@ -322,8 +435,9 @@ func TestTestTypeDescriptions(t *testing.T) {
 func TestTestTypeDescriptionsContainStandard(t *testing.T) {
 	// RFC 2544 tests should reference RFC 2544.
 	rfc2544Tests := []string{"throughput", "latency", "frame_loss", "back_to_back", "system_recovery", "reset"}
+	types := allTestTypes()
 	for _, test := range rfc2544Tests {
-		desc := allTestTypes[test]
+		desc := types[test]
 		if !strings.Contains(desc, "RFC 2544") {
 			t.Errorf("RFC 2544 test '%s' description should reference RFC 2544: '%s'", test, desc)
 		}
@@ -332,7 +446,7 @@ func TestTestTypeDescriptionsContainStandard(t *testing.T) {
 	// Y.1564 tests should reference Y.1564 or ITU-T.
 	y1564Tests := []string{"y1564_config", "y1564_perf", "y1564"}
 	for _, test := range y1564Tests {
-		desc := allTestTypes[test]
+		desc := types[test]
 		if !strings.Contains(desc, "Y.1564") && !strings.Contains(desc, "ITU-T") {
 			t.Errorf("Y.1564 test '%s' description should reference Y.1564 or ITU-T: '%s'", test, desc)
 		}

@@ -1520,8 +1520,10 @@ func TestParseKeyActionProfileRange(t *testing.T) {
 }
 
 func BenchmarkParseKeyAction(b *testing.B) {
-	keys := []rune{'q', 'Q', 'r', 'R', 'p', 'P', 'f', 'F', 'h', 'H', '?',
-		'1', '2', '3', '4', '5', '6', 'a', 'x', '0'}
+	keys := []rune{
+		'q', 'Q', 'r', 'R', 'p', 'P', 'f', 'F', 'h', 'H', '?',
+		'1', '2', '3', '4', '5', '6', 'a', 'x', '0',
+	}
 	for b.Loop() {
 		for _, k := range keys {
 			_ = tui.ParseKeyAction(k)

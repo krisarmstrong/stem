@@ -88,14 +88,11 @@ func DefaultTLSConfig() TLSConfig {
 	}
 }
 
-// createTLSConfig creates a tls.Config with secure settings.
+// createTLSConfig creates a [tls.Config] with secure settings.
 // Uses TLS 1.3 minimum for best security.
 func createTLSConfig() *tls.Config {
-	//nolint:exhaustruct // Only set required TLS config fields; others use secure defaults
 	return &tls.Config{
 		MinVersion: tls.VersionTLS13,
-		// TLS 1.3 uses mandatory cipher suites, so CipherSuites is not set.
-		// TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384, TLS_CHACHA20_POLY1305_SHA256
 	}
 }
 
@@ -109,23 +106,15 @@ func ensureSelfSignedCert(certsDir string) (string, string, error) {
 	// Sanitize directory path to prevent directory traversal.
 	certsDir = filepath.Clean(certsDir)
 
-	certFile := filepath.Join(certsDir, "server.crt")
-	keyFile := filepath.Join(certsDir, "server.key")
-
-	// Check if certs already exist.
-	_, certErr := os.Stat(certFile)
-	if certErr == nil {
-		_, keyErr := os.Stat(keyFile)
-		if keyErr == nil {
-			logging.Info("Using existing TLS certificates", "cert", certFile, "key", keyFile)
-			return certFile, keyFile, nil
-		}
+	certFile, keyFile := certPaths(certsDir)
+	if existingCertFiles(certFile, keyFile) {
+		logging.Info("Using existing TLS certificates", "cert", certFile, "key", keyFile)
+		return certFile, keyFile, nil
 	}
 
 	// Ensure certs directory exists.
-	mkdirErr := os.MkdirAll(certsDir, 0o700)
-	if mkdirErr != nil {
-		return "", "", fmt.Errorf("create certs directory: %w", mkdirErr)
+	if err := os.MkdirAll(certsDir, 0o700); err != nil {
+		return "", "", fmt.Errorf("create certs directory: %w", err)
 	}
 
 	// Generate private key with 4096-bit RSA.
@@ -134,16 +123,57 @@ func ensureSelfSignedCert(certsDir string) (string, string, error) {
 		return "", "", fmt.Errorf("generate RSA key: %w", err)
 	}
 
-	// Create certificate template.
-	serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), serialNumberBitSize))
+	serialNumber, err := newSerialNumber()
 	if err != nil {
 		return "", "", fmt.Errorf("generate serial number: %w", err)
 	}
 
-	//nolint:exhaustruct // Only set required x509 fields; others have secure defaults
-	template := x509.Certificate{
+	template := newSelfSignedTemplate(serialNumber)
+	certDER, err := createSelfSignedCert(&template, privateKey)
+	if err != nil {
+		return "", "", fmt.Errorf("create certificate: %w", err)
+	}
+
+	// Write certificate.
+	if writeErr := writeCertificate(certFile, certDER); writeErr != nil {
+		return "", "", writeErr
+	}
+
+	// Write private key with restricted permissions.
+	if writeErr := writePrivateKey(keyFile, privateKey); writeErr != nil {
+		return "", "", writeErr
+	}
+
+	logging.Info("Generated self-signed TLS certificate",
+		"cert_file", certFile,
+		"key_file", keyFile,
+		"valid_until", template.NotAfter.Format(time.RFC3339),
+	)
+
+	return certFile, keyFile, nil
+}
+
+func certPaths(certsDir string) (string, string) {
+	return filepath.Join(certsDir, "server.crt"), filepath.Join(certsDir, "server.key")
+}
+
+func existingCertFiles(certFile, keyFile string) bool {
+	if _, err := os.Stat(certFile); err != nil {
+		return false
+	}
+	if _, err := os.Stat(keyFile); err != nil {
+		return false
+	}
+	return true
+}
+
+func newSerialNumber() (*big.Int, error) {
+	return rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), serialNumberBitSize))
+}
+
+func newSelfSignedTemplate(serialNumber *big.Int) x509.Certificate {
+	return x509.Certificate{
 		SerialNumber: serialNumber,
-		//nolint:exhaustruct // Only set required pkix.Name fields
 		Subject: pkix.Name{
 			Organization: []string{"The Stem"},
 			CommonName:   "The Stem Self-Signed",
@@ -154,59 +184,51 @@ func ensureSelfSignedCert(certsDir string) (string, string, error) {
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 		DNSNames:              []string{"localhost", "stem.local"},
-		IPAddresses:           nil, // Add IPs if needed
 	}
+}
 
-	// Create certificate.
-	certDER, err := x509.CreateCertificate(
+func createSelfSignedCert(template *x509.Certificate, privateKey *rsa.PrivateKey) ([]byte, error) {
+	return x509.CreateCertificate(
 		rand.Reader,
-		&template,
-		&template,
+		template,
+		template,
 		&privateKey.PublicKey,
 		privateKey,
 	)
-	if err != nil {
-		return "", "", fmt.Errorf("create certificate: %w", err)
-	}
+}
 
-	// Write certificate.
+func writeCertificate(certFile string, certDER []byte) error {
 	certOut, err := os.Create(certFile)
 	if err != nil {
-		return "", "", fmt.Errorf("create cert file: %w", err)
+		return fmt.Errorf("create cert file: %w", err)
 	}
 	defer func() { _ = certOut.Close() }()
 
-	//nolint:exhaustruct // Headers field is optional for PEM blocks
-	certBlock := &pem.Block{Type: "CERTIFICATE", Bytes: certDER}
-	encodeErr := pem.Encode(certOut, certBlock)
-	if encodeErr != nil {
-		return "", "", fmt.Errorf("encode certificate PEM: %w", encodeErr)
+	certBlock := &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certDER,
 	}
+	if encodeErr := pem.Encode(certOut, certBlock); encodeErr != nil {
+		return fmt.Errorf("encode certificate PEM: %w", encodeErr)
+	}
+	return nil
+}
 
-	// Write private key with restricted permissions.
+func writePrivateKey(keyFile string, privateKey *rsa.PrivateKey) error {
 	keyOut, err := os.OpenFile(keyFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
-		return "", "", fmt.Errorf("create key file: %w", err)
+		return fmt.Errorf("create key file: %w", err)
 	}
 	defer func() { _ = keyOut.Close() }()
 
-	//nolint:exhaustruct // Headers field is optional for PEM blocks
 	keyBlock := &pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
 	}
-	keyEncodeErr := pem.Encode(keyOut, keyBlock)
-	if keyEncodeErr != nil {
-		return "", "", fmt.Errorf("encode private key PEM: %w", keyEncodeErr)
+	if encodeErr := pem.Encode(keyOut, keyBlock); encodeErr != nil {
+		return fmt.Errorf("encode private key PEM: %w", encodeErr)
 	}
-
-	logging.Info("Generated self-signed TLS certificate",
-		"cert_file", certFile,
-		"key_file", keyFile,
-		"valid_until", template.NotAfter.Format(time.RFC3339),
-	)
-
-	return certFile, keyFile, nil
+	return nil
 }
 
 // createACMEManager creates an autocert.Manager for Let's Encrypt certificate management.
@@ -222,20 +244,17 @@ func createACMEManager(config ACMEConfig) (*autocert.Manager, error) {
 		return nil, fmt.Errorf("create ACME cache dir: %w", err)
 	}
 
-	//nolint:exhaustruct // Only set required autocert.Manager fields
-	manager := &autocert.Manager{
-		Prompt:     autocert.AcceptTOS,
-		HostPolicy: autocert.HostWhitelist(config.Domain),
-		Cache:      autocert.DirCache(cacheDir),
-		Email:      config.Email,
-	}
+	manager := &autocert.Manager{}
+	manager.Prompt = autocert.AcceptTOS
+	manager.HostPolicy = autocert.HostWhitelist(config.Domain)
+	manager.Cache = autocert.DirCache(cacheDir)
+	manager.Email = config.Email
 
 	// Use Let's Encrypt staging server for testing (certs won't be trusted by browsers)
 	if config.Staging {
-		//nolint:exhaustruct // Only set DirectoryURL for staging override
-		manager.Client = &acme.Client{
-			DirectoryURL: "https://acme-staging-v02.api.letsencrypt.org/directory",
-		}
+		client := &acme.Client{}
+		client.DirectoryURL = "https://acme-staging-v02.api.letsencrypt.org/directory"
+		manager.Client = client
 		logging.Warn("ACME: Using Let's Encrypt STAGING server (certificates will not be trusted)")
 	}
 

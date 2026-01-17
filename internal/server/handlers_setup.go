@@ -88,7 +88,7 @@ func (s *Server) handleSetupComplete(w http.ResponseWriter, r *http.Request) {
 
 	// Decode request.
 	var req SetupCompleteRequest
-	if !decodeJSONStrict(w, r, &req, maxRequestBodySize) {
+	if !decodeJSONStrict(w, r, &req) {
 		return
 	}
 

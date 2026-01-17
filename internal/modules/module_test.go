@@ -62,7 +62,7 @@ func TestRegistry(t *testing.T) {
 
 func TestDefaultRegistry(t *testing.T) {
 	// Test that default registry has all 6 modules.
-	mods := modules.DefaultRegistry.AllModules()
+	mods := modules.DefaultRegistry().AllModules()
 	if len(mods) != expectedModuleCount {
 		t.Errorf("DefaultRegistry has %d modules, want %d", len(mods), expectedModuleCount)
 	}
@@ -73,7 +73,7 @@ func TestDefaultRegistry(t *testing.T) {
 		testModuleTrafficGen, testModuleMeasure, testModuleCertify,
 	}
 	for _, name := range names {
-		if m := modules.DefaultRegistry.Get(name); m == nil {
+		if m := modules.DefaultRegistry().Get(name); m == nil {
 			t.Errorf("DefaultRegistry.Get(%q) returned nil", name)
 		}
 	}
@@ -289,7 +289,7 @@ func TestRegistryEdgeCases(t *testing.T) {
 }
 
 func TestAllModulesOrdering(t *testing.T) {
-	mods := modules.DefaultRegistry.AllModules()
+	mods := modules.DefaultRegistry().AllModules()
 	if len(mods) != expectedModuleCount {
 		t.Fatalf("Expected %d modules, got %d", expectedModuleCount, len(mods))
 	}
@@ -313,7 +313,7 @@ func TestAllModulesOrdering(t *testing.T) {
 
 func TestModuleColors(t *testing.T) {
 	// Verify each module has a unique, valid hex color.
-	mods := modules.DefaultRegistry.AllModules()
+	mods := modules.DefaultRegistry().AllModules()
 	colors := make(map[string]string)
 
 	for _, m := range mods {
@@ -338,7 +338,7 @@ func TestModuleColors(t *testing.T) {
 	}
 
 	for name, expectedColor := range expectedColors {
-		m := modules.DefaultRegistry.Get(name)
+		m := modules.DefaultRegistry().Get(name)
 		if m == nil {
 			t.Errorf("Module %s not found", name)
 			continue
@@ -367,7 +367,7 @@ func TestModuleCanRunNegativeCases(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		m := modules.DefaultRegistry.Get(tc.moduleName)
+		m := modules.DefaultRegistry().Get(tc.moduleName)
 		if m == nil {
 			t.Errorf("Module %s not found", tc.moduleName)
 			continue
@@ -409,7 +409,7 @@ func TestAllTestTypesHaveModules(t *testing.T) {
 
 func TestToInfoComplete(t *testing.T) {
 	// Test ToInfo for all modules.
-	mods := modules.DefaultRegistry.AllModules()
+	mods := modules.DefaultRegistry().AllModules()
 	for _, m := range mods {
 		info := modules.ToInfo(m)
 
@@ -437,7 +437,7 @@ func TestToInfoComplete(t *testing.T) {
 
 func TestTotalTestCount(t *testing.T) {
 	// Count all tests across all modules.
-	total := modules.DefaultRegistry.TestCount()
+	total := modules.DefaultRegistry().TestCount()
 
 	// Expected: 1 (reflector) + 6 (benchmark) + 6 (servicetest) + 1 (trafficgen) + 4 (measure) + 11 (certify) = 29.
 	if total != expectedTestCount {
@@ -502,7 +502,7 @@ func TestGetAllModules(t *testing.T) {
 
 // TestAllTestTypes tests the AllTestTypes method.
 func TestAllTestTypes(t *testing.T) {
-	types := modules.DefaultRegistry.AllTestTypes()
+	types := modules.DefaultRegistry().AllTestTypes()
 
 	if len(types) != expectedTestCount {
 		t.Errorf("AllTestTypes() returned %d types, want %d", len(types), expectedTestCount)
@@ -541,7 +541,7 @@ func TestAllTestTypes(t *testing.T) {
 
 // TestAllTestTypesModuleMapping tests that test types map to correct modules.
 func TestAllTestTypesModuleMapping(t *testing.T) {
-	types := modules.DefaultRegistry.AllTestTypes()
+	types := modules.DefaultRegistry().AllTestTypes()
 
 	// Create a map for easier lookup.
 	typeMap := make(map[string]modules.TestType)
@@ -641,9 +641,9 @@ func TestRegistryConcurrency(t *testing.T) {
 			// Multiple concurrent reads.
 			_ = modules.GetModule(testModuleBenchmark)
 			_ = modules.GetAllModules()
-			_ = modules.DefaultRegistry.AllTestTypes()
-			_ = modules.DefaultRegistry.TestCount()
-			_ = modules.DefaultRegistry.ModuleCount()
+			_ = modules.DefaultRegistry().AllTestTypes()
+			_ = modules.DefaultRegistry().TestCount()
+			_ = modules.DefaultRegistry().ModuleCount()
 			_ = modules.GetModuleForTest("rfc2544_throughput")
 			_ = modules.GetAllModuleInfos()
 			done <- true

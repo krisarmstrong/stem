@@ -64,7 +64,7 @@ func TestMiddleware_RecordsMetrics(t *testing.T) {
 
 	// Get initial counter value.
 	uniquePath := "/middleware/test/" + time.Now().Format("20060102150405.000000000")
-	initialValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", uniquePath, "200")
+	initialValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", uniquePath, "200")
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -77,7 +77,7 @@ func TestMiddleware_RecordsMetrics(t *testing.T) {
 	handler.ServeHTTP(w, req)
 
 	// Verify counter increased.
-	newValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", uniquePath, "200")
+	newValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", uniquePath, "200")
 	if newValue != initialValue+1 {
 		t.Errorf("Expected counter to increase by 1, got %f -> %f", initialValue, newValue)
 	}
@@ -88,7 +88,7 @@ func TestMiddleware_RecordsDuration(t *testing.T) {
 
 	// Get initial histogram count.
 	uniquePath := "/middleware/duration/" + time.Now().Format("20060102150405.000000000")
-	initialCount := getHistogramCount(t, metrics.HTTPRequestDuration, "GET", uniquePath)
+	initialCount := getHistogramCount(t, metrics.GetMetrics().HTTPRequestDuration, "GET", uniquePath)
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -101,7 +101,7 @@ func TestMiddleware_RecordsDuration(t *testing.T) {
 	handler.ServeHTTP(w, req)
 
 	// Verify histogram count increased.
-	newCount := getHistogramCount(t, metrics.HTTPRequestDuration, "GET", uniquePath)
+	newCount := getHistogramCount(t, metrics.GetMetrics().HTTPRequestDuration, "GET", uniquePath)
 	if newCount != initialCount+1 {
 		t.Errorf("Expected histogram count to increase by 1, got %d -> %d", initialCount, newCount)
 	}
@@ -146,7 +146,7 @@ func TestMiddleware_DefaultsTo200WhenWriteHeaderNotCalled(t *testing.T) {
 	t.Parallel()
 
 	uniquePath := "/middleware/default200/" + time.Now().Format("20060102150405.000000000")
-	initialValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", uniquePath, "200")
+	initialValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", uniquePath, "200")
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		// Don't call WriteHeader - should default to 200.
@@ -160,7 +160,7 @@ func TestMiddleware_DefaultsTo200WhenWriteHeaderNotCalled(t *testing.T) {
 	handler.ServeHTTP(w, req)
 
 	// Verify counter increased for status 200.
-	newValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", uniquePath, "200")
+	newValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", uniquePath, "200")
 	if newValue != initialValue+1 {
 		t.Errorf("Expected counter for 200 to increase by 1")
 	}
@@ -306,13 +306,13 @@ func TestMiddleware_NormalizesModulesPath(t *testing.T) {
 
 	for _, path := range paths {
 		// Get value before each request to verify individual normalization.
-		beforeValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", "/api/modules", "200")
+		beforeValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", "/api/modules", "200")
 
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 
-		afterValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", "/api/modules", "200")
+		afterValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", "/api/modules", "200")
 		if afterValue <= beforeValue {
 			t.Errorf("Expected /api/modules counter to increase for path %s", path)
 		}
@@ -340,13 +340,13 @@ func TestMiddleware_NormalizesTestPath(t *testing.T) {
 
 	for _, path := range paths {
 		// Get value before each request to verify individual normalization.
-		beforeValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", "/api/test", "200")
+		beforeValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", "/api/test", "200")
 
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 
-		afterValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", "/api/test", "200")
+		afterValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", "/api/test", "200")
 		if afterValue <= beforeValue {
 			t.Errorf("Expected /api/test counter to increase for path %s", path)
 		}
@@ -375,13 +375,13 @@ func TestMiddleware_PreservesNonNormalizedPaths(t *testing.T) {
 	for _, path := range paths {
 		t.Run(path, func(t *testing.T) {
 			t.Parallel()
-			initialValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", path, "200")
+			initialValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", path, "200")
 
 			req := httptest.NewRequest(http.MethodGet, path, nil)
 			w := httptest.NewRecorder()
 			handler.ServeHTTP(w, req)
 
-			newValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", path, "200")
+			newValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", path, "200")
 			if newValue != initialValue+1 {
 				t.Errorf("Expected counter for %s to increase by 1", path)
 			}
@@ -411,13 +411,13 @@ func TestMiddleware_ShortPaths(t *testing.T) {
 	for _, path := range paths {
 		t.Run(path, func(t *testing.T) {
 			t.Parallel()
-			initialValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", path, "200")
+			initialValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", path, "200")
 
 			req := httptest.NewRequest(http.MethodGet, path, nil)
 			w := httptest.NewRecorder()
 			handler.ServeHTTP(w, req)
 
-			newValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", path, "200")
+			newValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", path, "200")
 			if newValue != initialValue+1 {
 				t.Errorf("Expected counter for %s to increase by 1", path)
 			}
@@ -441,13 +441,13 @@ func TestMiddleware_ExactPrefixPaths(t *testing.T) {
 		// Note: /api/modules is exactly 12 characters, so length check passes.
 		// But the path[:12] check requires len > 12.
 		// So /api/modules itself should NOT be normalized.
-		initialValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", "/api/modules", "200")
+		initialValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", "/api/modules", "200")
 
 		req := httptest.NewRequest(http.MethodGet, "/api/modules", nil)
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 
-		newValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", "/api/modules", "200")
+		newValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", "/api/modules", "200")
 		if newValue != initialValue+1 {
 			t.Errorf("Expected counter to increase by 1 for exact /api/modules")
 		}
@@ -457,13 +457,13 @@ func TestMiddleware_ExactPrefixPaths(t *testing.T) {
 	t.Run("/api/test", func(t *testing.T) {
 		t.Parallel()
 		// /api/test is exactly 9 characters.
-		initialValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", "/api/test", "200")
+		initialValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", "/api/test", "200")
 
 		req := httptest.NewRequest(http.MethodGet, "/api/test", nil)
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 
-		newValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", "/api/test", "200")
+		newValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", "/api/test", "200")
 		if newValue != initialValue+1 {
 			t.Errorf("Expected counter to increase by 1 for exact /api/test")
 		}

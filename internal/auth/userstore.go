@@ -165,6 +165,16 @@ func (s *MemoryUserStore) RecordLoginSuccess(_ context.Context, username string)
 	return nil
 }
 
+// MaxLoginAttempts returns the configured max login attempts (mainly for tests).
+func (s *MemoryUserStore) MaxLoginAttempts() int {
+	return s.maxLoginAttempts
+}
+
+// LockDuration returns the configured lockout duration (mainly for tests).
+func (s *MemoryUserStore) LockDuration() time.Duration {
+	return s.lockDuration
+}
+
 // RecordLoginFailure records a failed login attempt.
 func (s *MemoryUserStore) RecordLoginFailure(_ context.Context, username string) error {
 	s.mu.Lock()

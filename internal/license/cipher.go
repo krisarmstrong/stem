@@ -16,50 +16,57 @@ const (
 
 // MSN-specific rotor tables (unique to Mustard Seed Networks products).
 // These provide the substitution mapping for license key encoding/decoding.
-//
-//nolint:gochecknoglobals // Static cipher lookup tables required for license encoding.
-var (
-	// Rotor for digits (0-9).
-	msnRotor10 = [10]int{7, 2, 9, 0, 5, 8, 1, 6, 3, 4}
 
-	// Rotor for uppercase letters (A-Z).
-	msnRotor26 = [26]int{
+func baseRotor10() [10]int {
+	return [10]int{7, 2, 9, 0, 5, 8, 1, 6, 3, 4}
+}
+
+func baseRotor26() [26]int {
+	return [26]int{
 		19, 3, 24, 7, 12, 0, 21, 15, 8, 25,
 		2, 17, 10, 5, 22, 13, 1, 18, 6, 11,
 		23, 4, 16, 9, 20, 14,
 	}
-
-	// Inverse rotors for decoding.
-	msnRotor10Inv [10]int
-	msnRotor26Inv [26]int
-)
-
-// InitRotors initializes the inverse rotor tables for decoding.
-// This must be called before using the cipher.
-func InitRotors() {
-	// Generate inverse rotor tables.
-	for i, v := range msnRotor10 {
-		msnRotor10Inv[v] = i
-	}
-	for i, v := range msnRotor26 {
-		msnRotor26Inv[v] = i
-	}
 }
 
-//nolint:gochecknoinits // Required to initialize cipher lookup tables at startup.
-func init() {
-	InitRotors()
-}
+// InitRotors is retained for backwards compatibility but is now a no-op.
+func InitRotors() {}
 
 // RotorCipher provides Enigma-style encoding/decoding.
 type RotorCipher struct {
-	position int // Current rotor position (advances with each character).
+	position   int // Current rotor position (advances with each character).
+	rotor10    [10]int
+	rotor26    [26]int
+	rotor10Inv [10]int
+	rotor26Inv [26]int
 }
 
 // NewRotorCipher creates a new cipher with the given starting position.
 func NewRotorCipher(startPosition int) *RotorCipher {
+	rotor10 := baseRotor10()
+	rotor26 := baseRotor26()
+
+	var rotor10Inv [10]int
+	var rotor26Inv [26]int
+
+	for i, v := range rotor10 {
+		rotor10Inv[v] = i
+	}
+	for i, v := range rotor26 {
+		rotor26Inv[v] = i
+	}
+
+	position := startPosition % rotorModulus
+	if position < 0 {
+		position += rotorModulus
+	}
+
 	return &RotorCipher{
-		position: startPosition % rotorModulus,
+		position:   position,
+		rotor10:    rotor10,
+		rotor26:    rotor26,
+		rotor10Inv: rotor10Inv,
+		rotor26Inv: rotor26Inv,
 	}
 }
 
@@ -70,21 +77,21 @@ func (rc *RotorCipher) Encode(c byte) byte {
 		// Digit encoding.
 		idx := int(c - '0')
 		idx = (idx + rc.position) % digitModulus
-		encoded := msnRotor10[idx]
+		encoded := rc.rotor10[idx]
 		rc.position = (rc.position + 1) % rotorModulus
 		return byte('0' + encoded)
 	case c >= 'A' && c <= 'Z':
 		// Letter encoding.
 		idx := int(c - 'A')
 		idx = (idx + rc.position) % letterModulus
-		encoded := msnRotor26[idx]
+		encoded := rc.rotor26[idx]
 		rc.position = (rc.position + 1) % rotorModulus
 		return byte('A' + encoded)
 	case c >= 'a' && c <= 'z':
 		// Lowercase - convert to upper, encode, keep case.
 		idx := int(c - 'a')
 		idx = (idx + rc.position) % letterModulus
-		encoded := msnRotor26[idx]
+		encoded := rc.rotor26[idx]
 		rc.position = (rc.position + 1) % rotorModulus
 		return byte('a' + encoded)
 	default:
@@ -98,19 +105,19 @@ func (rc *RotorCipher) Decode(c byte) byte {
 	switch {
 	case c >= '0' && c <= '9':
 		// Digit decoding.
-		idx := msnRotor10Inv[int(c-'0')]
+		idx := rc.rotor10Inv[int(c-'0')]
 		idx = (idx - rc.position%digitModulus + digitModulus) % digitModulus
 		rc.position = (rc.position + 1) % rotorModulus
 		return byte('0' + idx)
 	case c >= 'A' && c <= 'Z':
 		// Letter decoding.
-		idx := msnRotor26Inv[int(c-'A')]
+		idx := rc.rotor26Inv[int(c-'A')]
 		idx = (idx - rc.position%letterModulus + letterModulus) % letterModulus
 		rc.position = (rc.position + 1) % rotorModulus
 		return byte('A' + idx)
 	case c >= 'a' && c <= 'z':
 		// Lowercase decoding.
-		idx := msnRotor26Inv[int(c-'a')]
+		idx := rc.rotor26Inv[int(c-'a')]
 		idx = (idx - rc.position%letterModulus + letterModulus) % letterModulus
 		rc.position = (rc.position + 1) % rotorModulus
 		return byte('a' + idx)

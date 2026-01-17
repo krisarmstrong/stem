@@ -504,7 +504,6 @@ type Config struct {
 
 // Context holds the test execution context and state.
 type Context struct {
-	config    Config //nolint:unused // Placeholder for CGO implementation.
 	frameSize uint32
 }
 

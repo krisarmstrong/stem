@@ -1,23 +1,25 @@
 // Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
 
-package server
+package server_test
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/krisarmstrong/stem/internal/server"
 )
 
 // TestACMEConfig tests the ACME configuration struct.
 func TestACMEConfig(t *testing.T) {
 	tests := []struct {
 		name   string
-		config ACMEConfig
+		config server.ACMEConfig
 		valid  bool
 	}{
 		{
 			name: "valid config",
-			config: ACMEConfig{
+			config: server.ACMEConfig{
 				Enabled:  true,
 				Domain:   "stem.example.com",
 				Email:    "admin@example.com",
@@ -28,7 +30,7 @@ func TestACMEConfig(t *testing.T) {
 		},
 		{
 			name: "staging mode",
-			config: ACMEConfig{
+			config: server.ACMEConfig{
 				Enabled:  true,
 				Domain:   "test.example.com",
 				Email:    "test@example.com",
@@ -39,7 +41,7 @@ func TestACMEConfig(t *testing.T) {
 		},
 		{
 			name: "disabled config",
-			config: ACMEConfig{
+			config: server.ACMEConfig{
 				Enabled: false,
 			},
 			valid: true,
@@ -61,7 +63,7 @@ func TestCreateACMEManager(t *testing.T) {
 	tmpDir := t.TempDir()
 	cacheDir := filepath.Join(tmpDir, "acme-cache")
 
-	config := ACMEConfig{
+	config := server.ACMEConfig{
 		Enabled:  true,
 		Domain:   "test.example.com",
 		Email:    "test@example.com",
@@ -69,9 +71,9 @@ func TestCreateACMEManager(t *testing.T) {
 		Staging:  true,
 	}
 
-	manager, err := createACMEManager(config)
+	manager, err := server.CreateACMEManagerForTest(config)
 	if err != nil {
-		t.Fatalf("createACMEManager() error: %v", err)
+		t.Fatalf("server.CreateACMEManagerForTest() error: %v", err)
 	}
 
 	if manager == nil {
@@ -79,7 +81,7 @@ func TestCreateACMEManager(t *testing.T) {
 	}
 
 	// Verify cache directory was created
-	if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
+	if _, statErr := os.Stat(cacheDir); os.IsNotExist(statErr) {
 		t.Error("Expected cache directory to be created")
 	}
 }
@@ -87,12 +89,12 @@ func TestCreateACMEManager(t *testing.T) {
 // TestCreateACMEManagerDefaultCache tests default cache directory.
 func TestCreateACMEManagerDefaultCache(t *testing.T) {
 	// Skip if we can't create the default cache dir
-	if err := os.MkdirAll(defaultACMECacheDir, 0o700); err != nil {
+	if err := os.MkdirAll(server.DefaultACMECacheDirForTest(), 0o700); err != nil {
 		t.Skip("Cannot create default cache dir")
 	}
 	defer func() { _ = os.RemoveAll("certs") }()
 
-	config := ACMEConfig{
+	config := server.ACMEConfig{
 		Enabled:  true,
 		Domain:   "test.example.com",
 		Email:    "test@example.com",
@@ -100,9 +102,9 @@ func TestCreateACMEManagerDefaultCache(t *testing.T) {
 		Staging:  true,
 	}
 
-	manager, err := createACMEManager(config)
+	manager, err := server.CreateACMEManagerForTest(config)
 	if err != nil {
-		t.Fatalf("createACMEManager() error: %v", err)
+		t.Fatalf("server.CreateACMEManagerForTest() error: %v", err)
 	}
 
 	if manager == nil {
@@ -114,7 +116,7 @@ func TestCreateACMEManagerDefaultCache(t *testing.T) {
 func TestCreateACMETLSConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	config := ACMEConfig{
+	config := server.ACMEConfig{
 		Enabled:  true,
 		Domain:   "test.example.com",
 		Email:    "test@example.com",
@@ -122,12 +124,12 @@ func TestCreateACMETLSConfig(t *testing.T) {
 		Staging:  true,
 	}
 
-	manager, err := createACMEManager(config)
+	manager, err := server.CreateACMEManagerForTest(config)
 	if err != nil {
-		t.Fatalf("createACMEManager() error: %v", err)
+		t.Fatalf("server.CreateACMEManagerForTest() error: %v", err)
 	}
 
-	tlsConfig := createACMETLSConfig(manager)
+	tlsConfig := server.CreateACMETLSConfigForTest(manager)
 	if tlsConfig == nil {
 		t.Fatal("Expected non-nil TLS config")
 	}
@@ -138,14 +140,14 @@ func TestCreateACMETLSConfig(t *testing.T) {
 	}
 }
 
-// TestTLSConfigWithACME tests TLSConfig with ACME enabled.
+// TestTLSConfigWithACME tests server.TLSConfig with ACME enabled.
 func TestTLSConfigWithACME(t *testing.T) {
-	config := TLSConfig{
+	config := server.TLSConfig{
 		Enabled:  true,
 		CertFile: "",
 		KeyFile:  "",
 		CertsDir: "certs",
-		ACME: ACMEConfig{
+		ACME: server.ACMEConfig{
 			Enabled:  true,
 			Domain:   "stem.example.com",
 			Email:    "admin@example.com",
@@ -155,6 +157,18 @@ func TestTLSConfigWithACME(t *testing.T) {
 	}
 
 	// When ACME is enabled, CertFile/KeyFile should be ignored
+	if !config.Enabled {
+		t.Error("Expected TLS to be enabled")
+	}
+	if config.CertFile != "" {
+		t.Errorf("CertFile = %q, want empty", config.CertFile)
+	}
+	if config.KeyFile != "" {
+		t.Errorf("KeyFile = %q, want empty", config.KeyFile)
+	}
+	if config.CertsDir != "certs" {
+		t.Errorf("CertsDir = %q, want %q", config.CertsDir, "certs")
+	}
 	if !config.ACME.Enabled {
 		t.Error("Expected ACME to be enabled")
 	}

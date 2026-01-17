@@ -20,24 +20,22 @@ const (
 	StandardRef = "ITU-T Y.1731"
 )
 
-// testTypes lists all test types owned by the Measure module.
-//
-//nolint:gochecknoglobals // Static module definition.
-var testTypes = []string{
-	"y1731_delay",
-	"y1731_loss",
-	"y1731_slm",
-	"y1731_loopback",
+func testTypes() []string {
+	return []string{
+		"y1731_delay",
+		"y1731_loss",
+		"y1731_slm",
+		"y1731_loopback",
+	}
 }
 
-// testDescriptions provides descriptions for each test type.
-//
-//nolint:gochecknoglobals // Static module definition.
-var testDescriptions = map[string]string{
-	"y1731_delay":    "ITU-T Y.1731 Frame Delay (DMM/DMR)",
-	"y1731_loss":     "ITU-T Y.1731 Frame Loss (LMM/LMR)",
-	"y1731_slm":      "ITU-T Y.1731 Synthetic Loss Measurement",
-	"y1731_loopback": "ITU-T Y.1731 Loopback (LBM/LBR)",
+func testDescriptions() map[string]string {
+	return map[string]string{
+		"y1731_delay":    "ITU-T Y.1731 Frame Delay (DMM/DMR)",
+		"y1731_loss":     "ITU-T Y.1731 Frame Loss (LMM/LMR)",
+		"y1731_slm":      "ITU-T Y.1731 Synthetic Loss Measurement",
+		"y1731_loopback": "ITU-T Y.1731 Loopback (LBM/LBR)",
+	}
 }
 
 // Module implements the modules.Module interface for Y.1731 OAM testing.
@@ -75,15 +73,15 @@ func (m *Module) Standard() string {
 
 // TestTypes returns the list of test types this module can execute.
 func (m *Module) TestTypes() []string {
-	return testTypes
+	return testTypes()
 }
 
 // CanRun returns true if this module can execute the given test type.
 func (m *Module) CanRun(testType string) bool {
-	return slices.Contains(testTypes, testType)
+	return slices.Contains(testTypes(), testType)
 }
 
 // TestDescription returns the description for a given test type.
 func (m *Module) TestDescription(testType string) string {
-	return testDescriptions[testType]
+	return testDescriptions()[testType]
 }

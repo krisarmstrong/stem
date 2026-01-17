@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -80,32 +81,28 @@ func (r *SettingsRepository) Delete(ctx context.Context, key string) error {
 
 // List returns all settings.
 func (r *SettingsRepository) List(ctx context.Context) ([]Setting, error) {
-	rows, err := r.db.Query(ctx, `
+	var settings []Setting
+	err := r.db.Query(ctx, `
 		SELECT key, value, updated_at FROM settings ORDER BY key
-	`)
+	`, func(rows *sql.Rows) error {
+		for rows.Next() {
+			var s Setting
+			var updatedAt string
+
+			if scanErr := rows.Scan(&s.Key, &s.Value, &updatedAt); scanErr != nil {
+				return fmt.Errorf("scanning setting row: %w", scanErr)
+			}
+
+			if t, parseErr := time.Parse(time.RFC3339, updatedAt); parseErr == nil {
+				s.UpdatedAt = t
+			}
+
+			settings = append(settings, s)
+		}
+		return rows.Err()
+	})
 	if err != nil {
 		return nil, fmt.Errorf("querying settings: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var settings []Setting
-	for rows.Next() {
-		var s Setting
-		var updatedAt string
-
-		if scanErr := rows.Scan(&s.Key, &s.Value, &updatedAt); scanErr != nil {
-			return nil, fmt.Errorf("scanning setting row: %w", scanErr)
-		}
-
-		if t, parseErr := time.Parse(time.RFC3339, updatedAt); parseErr == nil {
-			s.UpdatedAt = t
-		}
-
-		settings = append(settings, s)
-	}
-
-	if rowsErr := rows.Err(); rowsErr != nil {
-		return nil, fmt.Errorf("iterating setting rows: %w", rowsErr)
 	}
 
 	return settings, nil
@@ -124,23 +121,19 @@ func (r *SettingsRepository) GetMultiple(ctx context.Context, keys []string) (ma
 		args[i] = k
 	}
 
-	rows, err := r.db.Query(ctx, query, args...)
+	result := make(map[string]string)
+	err := r.db.Query(ctx, query, func(rows *sql.Rows) error {
+		for rows.Next() {
+			var key, value string
+			if scanErr := rows.Scan(&key, &value); scanErr != nil {
+				return fmt.Errorf("scanning setting row: %w", scanErr)
+			}
+			result[key] = value
+		}
+		return rows.Err()
+	}, args...)
 	if err != nil {
 		return nil, fmt.Errorf("querying settings: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	result := make(map[string]string)
-	for rows.Next() {
-		var key, value string
-		if scanErr := rows.Scan(&key, &value); scanErr != nil {
-			return nil, fmt.Errorf("scanning setting row: %w", scanErr)
-		}
-		result[key] = value
-	}
-
-	if rowsErr := rows.Err(); rowsErr != nil {
-		return nil, fmt.Errorf("iterating setting rows: %w", rowsErr)
 	}
 
 	return result, nil
@@ -177,9 +170,10 @@ func (r *SettingsRepository) SetMultiple(ctx context.Context, settings map[strin
 
 // repeatString repeats a string n times.
 func repeatString(s string, n int) string {
-	result := ""
+	var builder strings.Builder
+	builder.Grow(len(s) * n)
 	for range n {
-		result += s
+		builder.WriteString(s)
 	}
-	return result
+	return builder.String()
 }

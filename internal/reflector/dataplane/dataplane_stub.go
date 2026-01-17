@@ -47,8 +47,7 @@ type ConfigUpdate struct {
 
 // Dataplane is the reflector packet processing engine.
 type Dataplane struct {
-	cfg     *config.Config // Placeholder for CGO implementation.
-	running bool           //nolint:unused // Placeholder for CGO implementation.
+	cfg *config.Config // Placeholder for CGO implementation.
 }
 
 // ErrNotSupported is returned when CGO dataplane is not available.

@@ -28,7 +28,7 @@
  */
 
 import { cn, layout, radius } from '../../styles/theme';
-import { getSizeConfig, getStatusConfig, type Status } from './statusConfig';
+import { getSizeConfig, getStatusConfig, type Status } from './StatusConfig';
 
 // Re-export Status type for convenience
 export type { Status };

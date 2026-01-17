@@ -697,7 +697,7 @@ func TestValidateLicenseKeyAllPaths(t *testing.T) {
 	if info.Valid {
 		t.Error("Empty key should not be valid")
 	}
-	if info.ErrorMsg != "License key must be 16 characters" {
+	if info.ErrorMsg != ErrLicenseKeyLength {
 		t.Errorf("Expected length error, got: %s", info.ErrorMsg)
 	}
 
@@ -2776,7 +2776,7 @@ func TestValidateLicenseKeyInvalidLength(t *testing.T) {
 		if info.Valid {
 			t.Errorf("Short key %q should not be valid", key)
 		}
-		if info.ErrorMsg != "License key must be 16 characters" {
+		if info.ErrorMsg != ErrLicenseKeyLength {
 			t.Errorf("Expected length error for %q, got: %s", key, info.ErrorMsg)
 		}
 	}

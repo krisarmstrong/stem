@@ -31,15 +31,19 @@ type testExecutor interface {
 // executorFactory creates a new executor for the given interface.
 type executorFactory func(iface string) (testExecutor, error)
 
-// moduleExecutorFactories maps module names to their executor factories.
-//
-//nolint:gochecknoglobals // Static map of executor factories; read-only after initialization.
-var moduleExecutorFactories = map[string]executorFactory{
-	moduleBenchmark:   func(iface string) (testExecutor, error) { return benchmark.NewExecutor(iface) },
-	moduleServicetest: func(iface string) (testExecutor, error) { return servicetest.NewExecutor(iface) },
-	moduleTrafficgen:  func(iface string) (testExecutor, error) { return trafficgen.NewExecutor(iface) },
-	moduleMeasure:     func(iface string) (testExecutor, error) { return measure.NewExecutor(iface) },
-	moduleCertify:     func(iface string) (testExecutor, error) { return certify.NewExecutor(iface) },
+// getExecutorFactory returns the executor factory for a given module name.
+// This function-based approach satisfies gochecknoglobals while maintaining
+// the registry pattern for module executor dispatch.
+func getExecutorFactory(moduleName string) (executorFactory, bool) {
+	factories := map[string]executorFactory{
+		moduleBenchmark:   func(iface string) (testExecutor, error) { return benchmark.NewExecutor(iface) },
+		moduleServicetest: func(iface string) (testExecutor, error) { return servicetest.NewExecutor(iface) },
+		moduleTrafficgen:  func(iface string) (testExecutor, error) { return trafficgen.NewExecutor(iface) },
+		moduleMeasure:     func(iface string) (testExecutor, error) { return measure.NewExecutor(iface) },
+		moduleCertify:     func(iface string) (testExecutor, error) { return certify.NewExecutor(iface) },
+	}
+	factory, ok := factories[moduleName]
+	return factory, ok
 }
 
 // executeTest runs the test via the appropriate module executor.
@@ -49,7 +53,7 @@ func (s *Server) executeTest(moduleName, testType, iface string, config *TestCon
 		return s.executeReflector(iface, config)
 	}
 
-	factory, ok := moduleExecutorFactories[moduleName]
+	factory, ok := getExecutorFactory(moduleName)
 	if !ok {
 		return fmt.Errorf("executor not implemented for module: %s", moduleName)
 	}

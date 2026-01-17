@@ -10,7 +10,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { StatusBadge } from './StatusBadge';
-import type { Status } from './statusConfig';
+import type { Status } from './StatusConfig';
 
 describe('StatusBadge', () => {
   const statuses: Status[] = ['success', 'warning', 'error', 'unknown', 'loading'];

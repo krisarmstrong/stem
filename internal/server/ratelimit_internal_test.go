@@ -418,7 +418,7 @@ func TestVisitorLastSeenUpdated(t *testing.T) {
 	}
 }
 
-// defaultRWMutex returns a default sync.RWMutex for testing.
+// defaultRWMutex returns a default [sync.RWMutex] for testing.
 func defaultRWMutex() sync.RWMutex {
 	return sync.RWMutex{}
 }

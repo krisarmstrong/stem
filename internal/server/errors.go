@@ -96,7 +96,7 @@ func (e *APIError) Error() string {
 	return e.Message
 }
 
-// Unwrap returns the underlying error for errors.Is/As support.
+// Unwrap returns the underlying error for [errors.Is]/As support.
 func (e *APIError) Unwrap() error {
 	return e.InternalErr
 }

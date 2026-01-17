@@ -8,10 +8,7 @@
 
 package i18n
 
-import (
-	"os"
-	"testing"
-)
+import "testing"
 
 func TestParseLanguage(t *testing.T) {
 	tests := []struct {
@@ -65,22 +62,6 @@ func TestParseLanguage(t *testing.T) {
 }
 
 func TestDetectLanguage(t *testing.T) {
-	// Store original env vars
-	origStemLang := os.Getenv("STEM_LANG")
-	origLang := os.Getenv("LANG")
-	origLanguage := os.Getenv("LANGUAGE")
-	origLcAll := os.Getenv("LC_ALL")
-	origLcMessages := os.Getenv("LC_MESSAGES")
-
-	// Cleanup function
-	defer func() {
-		restoreEnvVar("STEM_LANG", origStemLang)
-		restoreEnvVar("LANG", origLang)
-		restoreEnvVar("LANGUAGE", origLanguage)
-		restoreEnvVar("LC_ALL", origLcAll)
-		restoreEnvVar("LC_MESSAGES", origLcMessages)
-	}()
-
 	tests := []struct {
 		name     string
 		envVars  map[string]string
@@ -151,11 +132,11 @@ func TestDetectLanguage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clear all env vars
-			clearAllEnvVars()
+			clearAllEnvVars(t)
 
 			// Set test env vars
 			for k, v := range tt.envVars {
-				os.Setenv(k, v) //nolint:usetesting // Need manual control for detectLanguage
+				t.Setenv(k, v)
 			}
 
 			got := detectLanguage()
@@ -166,35 +147,18 @@ func TestDetectLanguage(t *testing.T) {
 	}
 }
 
-//nolint:usetesting // Manual env var control needed for detectLanguage priority testing
 func TestDetectLanguagePriority(t *testing.T) {
-	// Store original env vars
-	origStemLang := os.Getenv("STEM_LANG")
-	origLang := os.Getenv("LANG")
-	origLanguage := os.Getenv("LANGUAGE")
-	origLcAll := os.Getenv("LC_ALL")
-	origLcMessages := os.Getenv("LC_MESSAGES")
-
-	// Cleanup function
-	defer func() {
-		restoreEnvVar("STEM_LANG", origStemLang)
-		restoreEnvVar("LANG", origLang)
-		restoreEnvVar("LANGUAGE", origLanguage)
-		restoreEnvVar("LC_ALL", origLcAll)
-		restoreEnvVar("LC_MESSAGES", origLcMessages)
-	}()
-
 	// Clear all env vars
-	clearAllEnvVars()
+	clearAllEnvVars(t)
 
 	// Test priority: STEM_LANG > LANGUAGE > LANG > LC_ALL > LC_MESSAGES
 
 	// Set all to English except STEM_LANG to Spanish
-	os.Setenv("STEM_LANG", "es")
-	os.Setenv("LANGUAGE", "en")
-	os.Setenv("LANG", "en_US.UTF-8")
-	os.Setenv("LC_ALL", "en")
-	os.Setenv("LC_MESSAGES", "en")
+	t.Setenv("STEM_LANG", "es")
+	t.Setenv("LANGUAGE", "en")
+	t.Setenv("LANG", "en_US.UTF-8")
+	t.Setenv("LC_ALL", "en")
+	t.Setenv("LC_MESSAGES", "en")
 
 	got := detectLanguage()
 	if got != Spanish {
@@ -202,8 +166,8 @@ func TestDetectLanguagePriority(t *testing.T) {
 	}
 
 	// Clear STEM_LANG, now LANGUAGE should take precedence
-	os.Unsetenv("STEM_LANG")
-	os.Setenv("LANGUAGE", "es")
+	t.Setenv("STEM_LANG", "")
+	t.Setenv("LANGUAGE", "es")
 
 	got = detectLanguage()
 	if got != Spanish {
@@ -211,8 +175,8 @@ func TestDetectLanguagePriority(t *testing.T) {
 	}
 
 	// Clear LANGUAGE, now LANG should take precedence
-	os.Unsetenv("LANGUAGE")
-	os.Setenv("LANG", "es_ES.UTF-8")
+	t.Setenv("LANGUAGE", "")
+	t.Setenv("LANG", "es_ES.UTF-8")
 
 	got = detectLanguage()
 	if got != Spanish {
@@ -220,8 +184,8 @@ func TestDetectLanguagePriority(t *testing.T) {
 	}
 
 	// Clear LANG, now LC_ALL should take precedence
-	os.Unsetenv("LANG")
-	os.Setenv("LC_ALL", "es")
+	t.Setenv("LANG", "")
+	t.Setenv("LC_ALL", "es")
 
 	got = detectLanguage()
 	if got != Spanish {
@@ -229,8 +193,8 @@ func TestDetectLanguagePriority(t *testing.T) {
 	}
 
 	// Clear LC_ALL, now LC_MESSAGES should be used
-	os.Unsetenv("LC_ALL")
-	os.Setenv("LC_MESSAGES", "es")
+	t.Setenv("LC_ALL", "")
+	t.Setenv("LC_MESSAGES", "es")
 
 	got = detectLanguage()
 	if got != Spanish {
@@ -238,20 +202,14 @@ func TestDetectLanguagePriority(t *testing.T) {
 	}
 }
 
-func clearAllEnvVars() {
-	os.Unsetenv("STEM_LANG")
-	os.Unsetenv("LANG")
-	os.Unsetenv("LANGUAGE")
-	os.Unsetenv("LC_ALL")
-	os.Unsetenv("LC_MESSAGES")
-}
+func clearAllEnvVars(t *testing.T) {
+	t.Helper()
 
-func restoreEnvVar(key, value string) {
-	if value == "" {
-		os.Unsetenv(key)
-	} else {
-		os.Setenv(key, value)
-	}
+	t.Setenv("STEM_LANG", "")
+	t.Setenv("LANG", "")
+	t.Setenv("LANGUAGE", "")
+	t.Setenv("LC_ALL", "")
+	t.Setenv("LC_MESSAGES", "")
 }
 
 func TestParseLanguageEdgeCases(t *testing.T) {
@@ -302,8 +260,8 @@ func TestTFallbackToEnglish(t *testing.T) {
 	// Temporarily add a key only to English messages
 	testKey := "test.only.in.english.for.coverage"
 	testValue := "This key only exists in English"
-	messages[English][testKey] = testValue
-	defer delete(messages[English], testKey)
+	instance().messages[English][testKey] = testValue
+	defer delete(instance().messages[English], testKey)
 
 	// Set language to Spanish
 	SetLanguage(Spanish)

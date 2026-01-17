@@ -21,6 +21,16 @@ func (r *TestResultRepository) Create(ctx context.Context, result *TestResult) (
 		result.Timestamp = time.Now().UTC()
 	}
 
+	// Verify the run exists before inserting.
+	var runExists int
+	err := r.db.QueryRow(ctx, `SELECT 1 FROM test_runs WHERE id = ?`, result.RunID).Scan(&runExists)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, ErrNotFound
+	}
+	if err != nil {
+		return 0, fmt.Errorf("checking run exists: %w", err)
+	}
+
 	res, err := r.db.Exec(ctx, `
 		INSERT INTO test_results (run_id, metric_type, frame_size, value, unit, timestamp, metadata_json)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -108,7 +118,18 @@ func (r *TestResultRepository) Get(ctx context.Context, id int64) (*TestResult, 
 }
 
 // ListByRun retrieves all results for a test run.
+// Returns ErrNotFound if the run does not exist.
 func (r *TestResultRepository) ListByRun(ctx context.Context, runID string) ([]TestResult, error) {
+	// Verify the run exists first.
+	var runExists int
+	err := r.db.QueryRow(ctx, `SELECT 1 FROM test_runs WHERE id = ?`, runID).Scan(&runExists)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("checking run exists: %w", err)
+	}
+
 	return r.List(ctx, TestResultQueryOptions{RunID: runID})
 }
 
@@ -145,43 +166,35 @@ func (r *TestResultRepository) List(ctx context.Context, opts TestResultQueryOpt
 	query += " ORDER BY timestamp ASC"
 
 	if opts.Limit > 0 {
-		query += " LIMIT ?"
+		query += limitClause
 		args = append(args, opts.Limit)
 	}
 	if opts.Offset > 0 {
-		query += " OFFSET ?"
+		query += offsetClause
 		args = append(args, opts.Offset)
 	}
 
-	rows, err := r.db.Query(ctx, query, args...)
+	var results []TestResult
+	err := r.db.Query(ctx, query, func(rows *sql.Rows) error {
+		for rows.Next() {
+			var result TestResult
+			var timestamp string
+			if scanErr := rows.Scan(
+				&result.ID, &result.RunID, &result.MetricType, &result.FrameSize,
+				&result.Value, &result.Unit, &timestamp, &result.Metadata,
+			); scanErr != nil {
+				return fmt.Errorf("scanning test result row: %w", scanErr)
+			}
+			if t, parseErr := time.Parse(time.RFC3339, timestamp); parseErr == nil {
+				result.Timestamp = t
+			}
+			results = append(results, result)
+		}
+		return rows.Err()
+	}, args...)
 	if err != nil {
 		return nil, fmt.Errorf("querying test results: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
-
-	var results []TestResult
-	for rows.Next() {
-		var result TestResult
-		var timestamp string
-
-		if scanErr := rows.Scan(
-			&result.ID, &result.RunID, &result.MetricType, &result.FrameSize,
-			&result.Value, &result.Unit, &timestamp, &result.Metadata,
-		); scanErr != nil {
-			return nil, fmt.Errorf("scanning test result row: %w", scanErr)
-		}
-
-		if t, parseErr := time.Parse(time.RFC3339, timestamp); parseErr == nil {
-			result.Timestamp = t
-		}
-
-		results = append(results, result)
-	}
-
-	if rowsErr := rows.Err(); rowsErr != nil {
-		return nil, fmt.Errorf("iterating test result rows: %w", rowsErr)
-	}
-
 	return results, nil
 }
 
@@ -226,7 +239,10 @@ type MetricAggregates struct {
 }
 
 // GetByFrameSize returns results grouped by frame size for a run.
-func (r *TestResultRepository) GetByFrameSize(ctx context.Context, runID, metricType string) (map[int][]TestResult, error) {
+func (r *TestResultRepository) GetByFrameSize(
+	ctx context.Context,
+	runID, metricType string,
+) (map[int][]TestResult, error) {
 	results, err := r.List(ctx, TestResultQueryOptions{
 		RunID:      runID,
 		MetricType: metricType,

@@ -134,253 +134,185 @@ func TestModtypesSafeIntToUint32(t *testing.T) {
 }
 
 // TestBuildRFC2889Config tests the buildRFC2889Config function.
-//
-//nolint:gocognit // Table-driven tests have high cognitive complexity.
-func TestBuildRFC2889Config(t *testing.T) {
-	tests := []struct {
-		name     string
-		cfg      *modtypes.TestConfig
-		validate func(t *testing.T, config *dataplane.RFC2889Config)
-	}{
-		{
-			name: "nil params uses defaults",
-			cfg: &modtypes.TestConfig{
-				Interface: "lo",
-				FrameSize: 64,
-				Duration:  0,
-				Params:    nil,
-			},
-			validate: func(t *testing.T, config *dataplane.RFC2889Config) {
-				if config.FrameSize != 64 {
-					t.Errorf("FrameSize = %d, want 64", config.FrameSize)
-				}
-				if config.WarmupSec != defaultRFC2889WarmupSec {
-					t.Errorf("WarmupSec = %d, want %d", config.WarmupSec, defaultRFC2889WarmupSec)
-				}
-				if config.AddressCount != defaultRFC2889AddressCt {
-					t.Errorf("AddressCount = %d, want %d", config.AddressCount, defaultRFC2889AddressCt)
-				}
-				if config.DurationSec != defaultRFC2889Duration {
-					t.Errorf("DurationSec = %d, want %d", config.DurationSec, defaultRFC2889Duration)
-				}
-			},
-		},
-		{
-			name: "custom duration from field",
-			cfg: &modtypes.TestConfig{
-				Interface: "lo",
-				FrameSize: 128,
-				Duration:  120,
-				Params:    map[string]any{},
-			},
-			validate: func(t *testing.T, config *dataplane.RFC2889Config) {
-				if config.DurationSec != 120 {
-					t.Errorf("DurationSec = %d, want 120", config.DurationSec)
-				}
-			},
-		},
-		{
-			name: "custom params",
-			cfg: &modtypes.TestConfig{
-				Interface: "lo",
-				FrameSize: 256,
-				Duration:  0,
-				Params: map[string]any{
-					"warmup_sec":          uint32(10),
-					"address_count":       uint32(4096),
-					"acceptable_loss_pct": 0.5,
-					"port_count":          uint32(4),
-					"pattern":             uint32(1),
-					"duration_sec":        uint32(90),
-				},
-			},
-			validate: func(t *testing.T, config *dataplane.RFC2889Config) {
-				if config.WarmupSec != 10 {
-					t.Errorf("WarmupSec = %d, want 10", config.WarmupSec)
-				}
-				if config.AddressCount != 4096 {
-					t.Errorf("AddressCount = %d, want 4096", config.AddressCount)
-				}
-				if config.AcceptableLossPct != 0.5 {
-					t.Errorf("AcceptableLossPct = %f, want 0.5", config.AcceptableLossPct)
-				}
-				if config.PortCount != 4 {
-					t.Errorf("PortCount = %d, want 4", config.PortCount)
-				}
-				if config.Pattern != 1 {
-					t.Errorf("Pattern = %d, want 1", config.Pattern)
-				}
-				if config.DurationSec != 90 {
-					t.Errorf("DurationSec = %d, want 90", config.DurationSec)
-				}
-			},
-		},
-		{
-			name: "acceptable_loss fallback",
-			cfg: &modtypes.TestConfig{
-				Interface: "lo",
-				FrameSize: 64,
-				Duration:  60,
-				Params: map[string]any{
-					"acceptable_loss_pct": 0.0, // Zero triggers fallback.
-					"acceptable_loss":     0.25,
-				},
-			},
-			validate: func(t *testing.T, config *dataplane.RFC2889Config) {
-				if config.AcceptableLossPct != 0.25 {
-					t.Errorf("AcceptableLossPct = %f, want 0.25", config.AcceptableLossPct)
-				}
-			},
-		},
-		{
-			name: "float64 params (JSON style)",
-			cfg: &modtypes.TestConfig{
-				Interface: "lo",
-				FrameSize: 64,
-				Duration:  60,
-				Params: map[string]any{
-					"warmup_sec":    5.0,
-					"address_count": 2048.0,
-					"port_count":    3.0,
-				},
-			},
-			validate: func(t *testing.T, config *dataplane.RFC2889Config) {
-				if config.WarmupSec != 5 {
-					t.Errorf("WarmupSec = %d, want 5", config.WarmupSec)
-				}
-				if config.AddressCount != 2048 {
-					t.Errorf("AddressCount = %d, want 2048", config.AddressCount)
-				}
-				if config.PortCount != 3 {
-					t.Errorf("PortCount = %d, want 3", config.PortCount)
-				}
-			},
+func TestBuildRFC2889ConfigDefaults(t *testing.T) {
+	cfg := &modtypes.TestConfig{
+		Interface: "lo",
+		FrameSize: 64,
+		Duration:  0,
+		Params:    nil,
+	}
+
+	config := buildRFC2889Config(cfg)
+	if config == nil {
+		t.Fatal("buildRFC2889Config returned nil")
+	}
+	if config.FrameSize != 64 {
+		t.Errorf("FrameSize = %d, want 64", config.FrameSize)
+	}
+	if config.WarmupSec != defaultRFC2889WarmupSec {
+		t.Errorf("WarmupSec = %d, want %d", config.WarmupSec, defaultRFC2889WarmupSec)
+	}
+	if config.AddressCount != defaultRFC2889AddressCt {
+		t.Errorf("AddressCount = %d, want %d", config.AddressCount, defaultRFC2889AddressCt)
+	}
+	if config.DurationSec != defaultRFC2889Duration {
+		t.Errorf("DurationSec = %d, want %d", config.DurationSec, defaultRFC2889Duration)
+	}
+}
+
+func TestBuildRFC2889ConfigCustomDuration(t *testing.T) {
+	cfg := &modtypes.TestConfig{
+		Interface: "lo",
+		FrameSize: 128,
+		Duration:  120,
+		Params:    map[string]any{},
+	}
+
+	config := buildRFC2889Config(cfg)
+	if config == nil {
+		t.Fatal("buildRFC2889Config returned nil")
+	}
+	if config.DurationSec != 120 {
+		t.Errorf("DurationSec = %d, want 120", config.DurationSec)
+	}
+}
+
+func TestBuildRFC2889ConfigCustomParams(t *testing.T) {
+	cfg := &modtypes.TestConfig{
+		Interface: "lo",
+		FrameSize: 256,
+		Duration:  0,
+		Params: map[string]any{
+			"warmup_sec":          uint32(10),
+			"address_count":       uint32(4096),
+			"acceptable_loss_pct": 0.5,
+			"port_count":          uint32(4),
+			"pattern":             uint32(1),
+			"duration_sec":        uint32(90),
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			config := buildRFC2889Config(tt.cfg)
-			if config == nil {
-				t.Fatal("buildRFC2889Config returned nil")
-			}
-			tt.validate(t, config)
-		})
+	config := buildRFC2889Config(cfg)
+	if config == nil {
+		t.Fatal("buildRFC2889Config returned nil")
+	}
+	if config.WarmupSec != 10 {
+		t.Errorf("WarmupSec = %d, want 10", config.WarmupSec)
+	}
+	if config.AddressCount != 4096 {
+		t.Errorf("AddressCount = %d, want 4096", config.AddressCount)
+	}
+	if config.AcceptableLossPct != 0.5 {
+		t.Errorf("AcceptableLossPct = %f, want 0.5", config.AcceptableLossPct)
+	}
+	if config.PortCount != 4 {
+		t.Errorf("PortCount = %d, want 4", config.PortCount)
+	}
+	if config.Pattern != 1 {
+		t.Errorf("Pattern = %d, want 1", config.Pattern)
+	}
+	if config.DurationSec != 90 {
+		t.Errorf("DurationSec = %d, want 90", config.DurationSec)
 	}
 }
 
 // TestBuildRFC6349Config tests the buildRFC6349Config function.
-//
-//nolint:gocognit // Table-driven tests have high cognitive complexity.
-func TestBuildRFC6349Config(t *testing.T) {
-	tests := []struct {
-		name     string
-		cfg      *modtypes.TestConfig
-		validate func(t *testing.T, config *dataplane.RFC6349Config)
-	}{
-		{
-			name: "nil params uses defaults",
-			cfg: &modtypes.TestConfig{
-				Interface: "lo",
-				FrameSize: 1500,
-				Duration:  0,
-				Params:    nil,
-			},
-			validate: func(t *testing.T, config *dataplane.RFC6349Config) {
-				if config.TargetRateMbps != defaultRFC6349TargetRate {
-					t.Errorf("TargetRateMbps = %f, want %f", config.TargetRateMbps, defaultRFC6349TargetRate)
-				}
-				if config.MinRTTMs != defaultRFC6349MinRTTMs {
-					t.Errorf("MinRTTMs = %f, want %f", config.MinRTTMs, defaultRFC6349MinRTTMs)
-				}
-				if config.MaxRTTMs != defaultRFC6349MaxRTTMs {
-					t.Errorf("MaxRTTMs = %f, want %f", config.MaxRTTMs, defaultRFC6349MaxRTTMs)
-				}
-				if config.RWNDSize != defaultRFC6349RWND {
-					t.Errorf("RWNDSize = %d, want %d", config.RWNDSize, defaultRFC6349RWND)
-				}
-				if config.MSS != defaultRFC6349MSS {
-					t.Errorf("MSS = %d, want %d", config.MSS, defaultRFC6349MSS)
-				}
-				if config.DurationSec != defaultRFC6349Duration {
-					t.Errorf("DurationSec = %d, want %d", config.DurationSec, defaultRFC6349Duration)
-				}
-			},
-		},
-		{
-			name: "custom duration from field",
-			cfg: &modtypes.TestConfig{
-				Interface: "lo",
-				FrameSize: 1500,
-				Duration:  60,
-				Params:    map[string]any{},
-			},
-			validate: func(t *testing.T, config *dataplane.RFC6349Config) {
-				if config.DurationSec != 60 {
-					t.Errorf("DurationSec = %d, want 60", config.DurationSec)
-				}
-			},
-		},
-		{
-			name: "custom params",
-			cfg: &modtypes.TestConfig{
-				Interface: "lo",
-				FrameSize: 1500,
-				Duration:  0,
-				Params: map[string]any{
-					"target_rate_mbps": 1000.0,
-					"min_rtt_ms":       0.5,
-					"max_rtt_ms":       200.0,
-					"rwnd_size":        uint32(131072),
-					"parallel_streams": uint32(4),
-					"mss":              uint32(8960),
-					"mode":             uint32(1),
-					"duration_sec":     uint32(45),
-				},
-			},
-			validate: func(t *testing.T, config *dataplane.RFC6349Config) {
-				if config.TargetRateMbps != 1000.0 {
-					t.Errorf("TargetRateMbps = %f, want 1000.0", config.TargetRateMbps)
-				}
-				if config.MinRTTMs != 0.5 {
-					t.Errorf("MinRTTMs = %f, want 0.5", config.MinRTTMs)
-				}
-				if config.MaxRTTMs != 200.0 {
-					t.Errorf("MaxRTTMs = %f, want 200.0", config.MaxRTTMs)
-				}
-				if config.RWNDSize != 131072 {
-					t.Errorf("RWNDSize = %d, want 131072", config.RWNDSize)
-				}
-				if config.ParallelStreams != 4 {
-					t.Errorf("ParallelStreams = %d, want 4", config.ParallelStreams)
-				}
-				if config.MSS != 8960 {
-					t.Errorf("MSS = %d, want 8960", config.MSS)
-				}
-				if config.Mode != 1 {
-					t.Errorf("Mode = %d, want 1", config.Mode)
-				}
-				if config.DurationSec != 45 {
-					t.Errorf("DurationSec = %d, want 45", config.DurationSec)
-				}
-			},
-		},
+func TestBuildRFC6349ConfigDefaults(t *testing.T) {
+	cfg := &modtypes.TestConfig{
+		Interface: "lo",
+		FrameSize: 1500,
+		Duration:  0,
+		Params:    nil,
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			config := buildRFC6349Config(tt.cfg)
-			if config == nil {
-				t.Fatal("buildRFC6349Config returned nil")
-			}
-			tt.validate(t, config)
-		})
+	config := buildRFC6349Config(cfg)
+	if config == nil {
+		t.Fatal("buildRFC6349Config returned nil")
+	}
+	if config.TargetRateMbps != defaultRFC6349TargetRate {
+		t.Errorf("TargetRateMbps = %f, want %f", config.TargetRateMbps, defaultRFC6349TargetRate)
+	}
+	if config.MinRTTMs != defaultRFC6349MinRTTMs {
+		t.Errorf("MinRTTMs = %f, want %f", config.MinRTTMs, defaultRFC6349MinRTTMs)
+	}
+	if config.MaxRTTMs != defaultRFC6349MaxRTTMs {
+		t.Errorf("MaxRTTMs = %f, want %f", config.MaxRTTMs, defaultRFC6349MaxRTTMs)
+	}
+	if config.RWNDSize != defaultRFC6349RWND {
+		t.Errorf("RWNDSize = %d, want %d", config.RWNDSize, defaultRFC6349RWND)
+	}
+	if config.MSS != defaultRFC6349MSS {
+		t.Errorf("MSS = %d, want %d", config.MSS, defaultRFC6349MSS)
+	}
+	if config.DurationSec != defaultRFC6349Duration {
+		t.Errorf("DurationSec = %d, want %d", config.DurationSec, defaultRFC6349Duration)
 	}
 }
 
-// TestBuildTSNConfig tests the buildTSNConfig function.
-//
-//nolint:gocognit // Table-driven tests have high cognitive complexity.
+func TestBuildRFC6349ConfigCustomDuration(t *testing.T) {
+	cfg := &modtypes.TestConfig{
+		Interface: "lo",
+		FrameSize: 1500,
+		Duration:  60,
+		Params:    map[string]any{},
+	}
+
+	config := buildRFC6349Config(cfg)
+	if config == nil {
+		t.Fatal("buildRFC6349Config returned nil")
+	}
+	if config.DurationSec != 60 {
+		t.Errorf("DurationSec = %d, want 60", config.DurationSec)
+	}
+}
+
+func TestBuildRFC6349ConfigCustomParams(t *testing.T) {
+	cfg := &modtypes.TestConfig{
+		Interface: "lo",
+		FrameSize: 1500,
+		Duration:  0,
+		Params: map[string]any{
+			"target_rate_mbps": 1000.0,
+			"min_rtt_ms":       0.5,
+			"max_rtt_ms":       200.0,
+			"rwnd_size":        uint32(131072),
+			"parallel_streams": uint32(4),
+			"mss":              uint32(8960),
+			"mode":             uint32(1),
+			"duration_sec":     uint32(45),
+		},
+	}
+
+	config := buildRFC6349Config(cfg)
+	if config == nil {
+		t.Fatal("buildRFC6349Config returned nil")
+	}
+	if config.TargetRateMbps != 1000.0 {
+		t.Errorf("TargetRateMbps = %f, want 1000.0", config.TargetRateMbps)
+	}
+	if config.MinRTTMs != 0.5 {
+		t.Errorf("MinRTTMs = %f, want 0.5", config.MinRTTMs)
+	}
+	if config.MaxRTTMs != 200.0 {
+		t.Errorf("MaxRTTMs = %f, want 200.0", config.MaxRTTMs)
+	}
+	if config.RWNDSize != 131072 {
+		t.Errorf("RWNDSize = %d, want 131072", config.RWNDSize)
+	}
+	if config.ParallelStreams != 4 {
+		t.Errorf("ParallelStreams = %d, want 4", config.ParallelStreams)
+	}
+	if config.MSS != 8960 {
+		t.Errorf("MSS = %d, want 8960", config.MSS)
+	}
+	if config.Mode != 1 {
+		t.Errorf("Mode = %d, want 1", config.Mode)
+	}
+	if config.DurationSec != 45 {
+		t.Errorf("DurationSec = %d, want 45", config.DurationSec)
+	}
+}
+
 func TestBuildTSNConfig(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -395,38 +327,7 @@ func TestBuildTSNConfig(t *testing.T) {
 				Duration:  0,
 				Params:    nil,
 			},
-			validate: func(t *testing.T, config *dataplane.TSNConfig) {
-				if config.WarmupSec != defaultTSNWarmupSec {
-					t.Errorf("WarmupSec = %d, want %d", config.WarmupSec, defaultTSNWarmupSec)
-				}
-				if config.MaxLatencyNs != defaultTSNMaxLatencyNs {
-					t.Errorf("MaxLatencyNs = %d, want %d", config.MaxLatencyNs, defaultTSNMaxLatencyNs)
-				}
-				if config.MaxJitterNs != defaultTSNMaxJitterNs {
-					t.Errorf("MaxJitterNs = %d, want %d", config.MaxJitterNs, defaultTSNMaxJitterNs)
-				}
-				if !config.RequirePTPSync {
-					t.Error("RequirePTPSync should be true by default")
-				}
-				if !config.PTPEnabled {
-					t.Error("PTPEnabled should be true by default")
-				}
-				if config.PreemptionEnabled {
-					t.Error("PreemptionEnabled should be false by default")
-				}
-				if config.NumTrafficClasses != defaultTSNClassCount {
-					t.Errorf("NumTrafficClasses = %d, want %d", config.NumTrafficClasses, defaultTSNClassCount)
-				}
-				if config.DurationSec != defaultTSNDuration {
-					t.Errorf("DurationSec = %d, want %d", config.DurationSec, defaultTSNDuration)
-				}
-				if config.FrameSize != defaultTSNFrameSize {
-					t.Errorf("FrameSize = %d, want %d", config.FrameSize, defaultTSNFrameSize)
-				}
-				if config.TrafficClass != defaultTSNTrafficClass {
-					t.Errorf("TrafficClass = %d, want %d", config.TrafficClass, defaultTSNTrafficClass)
-				}
-			},
+			validate: assertTSNDefaults,
 		},
 		{
 			name: "custom duration and frame size from fields",
@@ -437,12 +338,7 @@ func TestBuildTSNConfig(t *testing.T) {
 				Params:    map[string]any{},
 			},
 			validate: func(t *testing.T, config *dataplane.TSNConfig) {
-				if config.DurationSec != 120 {
-					t.Errorf("DurationSec = %d, want 120", config.DurationSec)
-				}
-				if config.FrameSize != 128 {
-					t.Errorf("FrameSize = %d, want 128", config.FrameSize)
-				}
+				assertTSNDurationAndFrameSize(t, config, 120, 128)
 			},
 		},
 		{
@@ -467,47 +363,7 @@ func TestBuildTSNConfig(t *testing.T) {
 					"duration_sec":        uint32(90),
 				},
 			},
-			validate: func(t *testing.T, config *dataplane.TSNConfig) {
-				if config.WarmupSec != 10 {
-					t.Errorf("WarmupSec = %d, want 10", config.WarmupSec)
-				}
-				if config.MaxLatencyNs != 500000 {
-					t.Errorf("MaxLatencyNs = %d, want 500000", config.MaxLatencyNs)
-				}
-				if config.MaxJitterNs != 50000 {
-					t.Errorf("MaxJitterNs = %d, want 50000", config.MaxJitterNs)
-				}
-				if config.RequirePTPSync {
-					t.Error("RequirePTPSync should be false")
-				}
-				if config.MaxSyncOffsetNs != 500 {
-					t.Errorf("MaxSyncOffsetNs = %d, want 500", config.MaxSyncOffsetNs)
-				}
-				if config.PTPEnabled {
-					t.Error("PTPEnabled should be false")
-				}
-				if !config.PreemptionEnabled {
-					t.Error("PreemptionEnabled should be true")
-				}
-				if config.NumTrafficClasses != 4 {
-					t.Errorf("NumTrafficClasses = %d, want 4", config.NumTrafficClasses)
-				}
-				if config.BaseTimeNs != 1000000 {
-					t.Errorf("BaseTimeNs = %d, want 1000000", config.BaseTimeNs)
-				}
-				if config.CycleTimeNs != 500000 {
-					t.Errorf("CycleTimeNs = %d, want 500000", config.CycleTimeNs)
-				}
-				if config.TrafficClass != 3 {
-					t.Errorf("TrafficClass = %d, want 3", config.TrafficClass)
-				}
-				if config.FrameSize != 256 {
-					t.Errorf("FrameSize = %d, want 256", config.FrameSize)
-				}
-				if config.DurationSec != 90 {
-					t.Errorf("DurationSec = %d, want 90", config.DurationSec)
-				}
-			},
+			validate: assertTSNCustomParams,
 		},
 		{
 			name: "frame_size fallback when FrameSize is 0",
@@ -520,9 +376,7 @@ func TestBuildTSNConfig(t *testing.T) {
 				},
 			},
 			validate: func(t *testing.T, config *dataplane.TSNConfig) {
-				if config.FrameSize != 512 {
-					t.Errorf("FrameSize = %d, want 512", config.FrameSize)
-				}
+				assertTSNFrameSize(t, config, 512)
 			},
 		},
 	}
@@ -535,6 +389,104 @@ func TestBuildTSNConfig(t *testing.T) {
 			}
 			tt.validate(t, config)
 		})
+	}
+}
+
+func assertTSNDefaults(t *testing.T, config *dataplane.TSNConfig) {
+	t.Helper()
+
+	if config.WarmupSec != defaultTSNWarmupSec {
+		t.Errorf("WarmupSec = %d, want %d", config.WarmupSec, defaultTSNWarmupSec)
+	}
+	if config.MaxLatencyNs != defaultTSNMaxLatencyNs {
+		t.Errorf("MaxLatencyNs = %d, want %d", config.MaxLatencyNs, defaultTSNMaxLatencyNs)
+	}
+	if config.MaxJitterNs != defaultTSNMaxJitterNs {
+		t.Errorf("MaxJitterNs = %d, want %d", config.MaxJitterNs, defaultTSNMaxJitterNs)
+	}
+	if !config.RequirePTPSync {
+		t.Error("RequirePTPSync should be true by default")
+	}
+	if !config.PTPEnabled {
+		t.Error("PTPEnabled should be true by default")
+	}
+	if config.PreemptionEnabled {
+		t.Error("PreemptionEnabled should be false by default")
+	}
+	if config.NumTrafficClasses != defaultTSNClassCount {
+		t.Errorf("NumTrafficClasses = %d, want %d", config.NumTrafficClasses, defaultTSNClassCount)
+	}
+	if config.DurationSec != defaultTSNDuration {
+		t.Errorf("DurationSec = %d, want %d", config.DurationSec, defaultTSNDuration)
+	}
+	if config.FrameSize != defaultTSNFrameSize {
+		t.Errorf("FrameSize = %d, want %d", config.FrameSize, defaultTSNFrameSize)
+	}
+	if config.TrafficClass != defaultTSNTrafficClass {
+		t.Errorf("TrafficClass = %d, want %d", config.TrafficClass, defaultTSNTrafficClass)
+	}
+}
+
+func assertTSNDurationAndFrameSize(t *testing.T, config *dataplane.TSNConfig, duration, frameSize uint32) {
+	t.Helper()
+
+	if config.DurationSec != duration {
+		t.Errorf("DurationSec = %d, want %d", config.DurationSec, duration)
+	}
+	if config.FrameSize != frameSize {
+		t.Errorf("FrameSize = %d, want %d", config.FrameSize, frameSize)
+	}
+}
+
+func assertTSNCustomParams(t *testing.T, config *dataplane.TSNConfig) {
+	t.Helper()
+
+	if config.WarmupSec != 10 {
+		t.Errorf("WarmupSec = %d, want 10", config.WarmupSec)
+	}
+	if config.MaxLatencyNs != 500000 {
+		t.Errorf("MaxLatencyNs = %d, want 500000", config.MaxLatencyNs)
+	}
+	if config.MaxJitterNs != 50000 {
+		t.Errorf("MaxJitterNs = %d, want 50000", config.MaxJitterNs)
+	}
+	if config.RequirePTPSync {
+		t.Error("RequirePTPSync should be false")
+	}
+	if config.MaxSyncOffsetNs != 500 {
+		t.Errorf("MaxSyncOffsetNs = %d, want 500", config.MaxSyncOffsetNs)
+	}
+	if config.PTPEnabled {
+		t.Error("PTPEnabled should be false")
+	}
+	if !config.PreemptionEnabled {
+		t.Error("PreemptionEnabled should be true")
+	}
+	if config.NumTrafficClasses != 4 {
+		t.Errorf("NumTrafficClasses = %d, want 4", config.NumTrafficClasses)
+	}
+	if config.BaseTimeNs != 1000000 {
+		t.Errorf("BaseTimeNs = %d, want 1000000", config.BaseTimeNs)
+	}
+	if config.CycleTimeNs != 500000 {
+		t.Errorf("CycleTimeNs = %d, want 500000", config.CycleTimeNs)
+	}
+	if config.TrafficClass != 3 {
+		t.Errorf("TrafficClass = %d, want 3", config.TrafficClass)
+	}
+	if config.FrameSize != 256 {
+		t.Errorf("FrameSize = %d, want 256", config.FrameSize)
+	}
+	if config.DurationSec != 90 {
+		t.Errorf("DurationSec = %d, want 90", config.DurationSec)
+	}
+}
+
+func assertTSNFrameSize(t *testing.T, config *dataplane.TSNConfig, frameSize uint32) {
+	t.Helper()
+
+	if config.FrameSize != frameSize {
+		t.Errorf("FrameSize = %d, want %d", config.FrameSize, frameSize)
 	}
 }
 
@@ -631,7 +583,6 @@ func TestNewExecutorWithContext(t *testing.T) {
 func TestNewExecutor(t *testing.T) {
 	// On non-Linux/non-CGO builds, NewExecutor should return an error.
 	exec, err := NewExecutor("lo")
-
 	// In stub mode, we expect an error.
 	if err != nil {
 		// This is expected on non-Linux.

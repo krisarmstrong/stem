@@ -26,7 +26,6 @@ import (
 	"log/slog"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -95,15 +94,7 @@ const (
 	FieldDurationMS = "duration_ms"
 )
 
-//nolint:gochecknoglobals // Required for package-level logger singleton pattern.
-var (
-	// globalLogger is the package-level logger instance.
-	globalLogger *slog.Logger
-	// loggerMu protects globalLogger from concurrent access.
-	loggerMu sync.RWMutex
-)
-
-// parseLevel converts a string level to slog.Level.
+// parseLevel converts a string level to [slog.Level].
 func parseLevel(level string) slog.Level {
 	switch strings.ToLower(level) {
 	case "debug":
@@ -143,6 +134,31 @@ func jsonReplaceAttr(isJSON bool) func([]string, slog.Attr) slog.Attr {
 			return a
 		}
 	}
+}
+
+func configureDefaultLogger(cfg *Config, output io.Writer) {
+	isJSON := strings.EqualFold(cfg.Format, "json")
+	opts := &slog.HandlerOptions{
+		Level:       parseLevel(cfg.Level),
+		AddSource:   cfg.AddSource,
+		ReplaceAttr: jsonReplaceAttr(isJSON),
+	}
+
+	var baseHandler slog.Handler
+	if isJSON {
+		baseHandler = slog.NewJSONHandler(output, opts)
+	} else {
+		baseHandler = slog.NewTextHandler(output, opts)
+	}
+
+	redactingHandler := NewRedactingHandler(baseHandler)
+
+	logger := slog.New(redactingHandler)
+	if cfg.Component != "" {
+		logger = logger.With(FieldComponent, cfg.Component)
+	}
+
+	slog.SetDefault(logger)
 }
 
 // Init initializes the global structured logger with the given configuration.
@@ -195,49 +211,15 @@ func Init(cfg *Config) error {
 		output = io.MultiWriter(writers...)
 	}
 
-	isJSON := strings.EqualFold(cfg.Format, "json")
-
-	// Configure handler options.
-	opts := &slog.HandlerOptions{
-		Level:       parseLevel(cfg.Level),
-		AddSource:   cfg.AddSource,
-		ReplaceAttr: jsonReplaceAttr(isJSON),
-	}
-
-	// Create base handler based on format
-	var baseHandler slog.Handler
-	if isJSON {
-		baseHandler = slog.NewJSONHandler(output, opts)
-	} else {
-		baseHandler = slog.NewTextHandler(output, opts)
-	}
-
-	// Wrap with redacting handler for automatic sensitive data redaction
-	redactingHandler := NewRedactingHandler(baseHandler)
-
-	// Set global logger, optionally with default component
-	loggerMu.Lock()
-	logger := slog.New(redactingHandler)
-	if cfg.Component != "" {
-		logger = logger.With(FieldComponent, cfg.Component)
-	}
-	globalLogger = logger
-	slog.SetDefault(globalLogger)
-	loggerMu.Unlock()
+	configureDefaultLogger(cfg, output)
 
 	return nil
 }
 
 // Get returns the global logger instance.
-// If Init hasn't been called, returns slog.Default().
+// If Init hasn't been called, returns [slog.Default].
 func Get() *slog.Logger {
-	loggerMu.RLock()
-	defer loggerMu.RUnlock()
-
-	if globalLogger == nil {
-		return slog.Default()
-	}
-	return globalLogger
+	return slog.Default()
 }
 
 // InitWithWriter initializes the logger with a custom writer.
@@ -247,41 +229,14 @@ func InitWithWriter(cfg *Config, w io.Writer) error {
 		cfg = DefaultConfig()
 	}
 
-	isJSON := strings.EqualFold(cfg.Format, "json")
-
-	// Configure handler options.
-	opts := &slog.HandlerOptions{
-		Level:       parseLevel(cfg.Level),
-		AddSource:   cfg.AddSource,
-		ReplaceAttr: jsonReplaceAttr(isJSON),
-	}
-
-	var baseHandler slog.Handler
-	if isJSON {
-		baseHandler = slog.NewJSONHandler(w, opts)
-	} else {
-		baseHandler = slog.NewTextHandler(w, opts)
-	}
-
-	redactingHandler := NewRedactingHandler(baseHandler)
-
-	loggerMu.Lock()
-	logger := slog.New(redactingHandler)
-	if cfg.Component != "" {
-		logger = logger.With(FieldComponent, cfg.Component)
-	}
-	globalLogger = logger
-	slog.SetDefault(globalLogger)
-	loggerMu.Unlock()
+	configureDefaultLogger(cfg, w)
 
 	return nil
 }
 
-// Reset resets the global logger to nil. Used for testing.
+// Reset resets the global logger to the default slog instance. Used for testing.
 func Reset() {
-	loggerMu.Lock()
-	globalLogger = nil
-	loggerMu.Unlock()
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
 }
 
 // WithRequestID returns a new context with the given request ID.

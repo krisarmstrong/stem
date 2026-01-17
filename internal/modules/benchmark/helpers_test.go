@@ -1,18 +1,19 @@
 // Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
 
-package benchmark
+package benchmark_test
 
 import (
 	"errors"
 	"testing"
 
+	"github.com/krisarmstrong/stem/internal/modules/benchmark"
 	"github.com/krisarmstrong/stem/internal/modules/modtypes"
 	"github.com/krisarmstrong/stem/internal/testmaster/dataplane"
 )
 
 // TestGetLoadLevels tests the getLoadLevels helper function.
 func TestGetLoadLevels(t *testing.T) {
-	exec := &Executor{Module: New(), ctx: nil}
+	exec := benchmark.NewExecutorWithContext(nil)
 
 	tests := []struct {
 		name     string
@@ -22,12 +23,12 @@ func TestGetLoadLevels(t *testing.T) {
 		{
 			name:     "nil params returns defaults",
 			cfg:      &modtypes.TestConfig{Interface: "", FrameSize: 0, Duration: 0, Params: nil},
-			expected: defaultLoadLevels,
+			expected: benchmark.DefaultLoadLevelsForTest(),
 		},
 		{
 			name:     "empty params returns defaults",
 			cfg:      &modtypes.TestConfig{Interface: "", FrameSize: 0, Duration: 0, Params: map[string]any{}},
-			expected: defaultLoadLevels,
+			expected: benchmark.DefaultLoadLevelsForTest(),
 		},
 		{
 			name: "custom load levels",
@@ -51,7 +52,7 @@ func TestGetLoadLevels(t *testing.T) {
 					"load_levels": "invalid",
 				},
 			},
-			expected: defaultLoadLevels,
+			expected: benchmark.DefaultLoadLevelsForTest(),
 		},
 		{
 			name: "int slice returns defaults (wrong type)",
@@ -63,13 +64,13 @@ func TestGetLoadLevels(t *testing.T) {
 					"load_levels": []int{10, 50, 100},
 				},
 			},
-			expected: defaultLoadLevels,
+			expected: benchmark.DefaultLoadLevelsForTest(),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := exec.getLoadLevels(tt.cfg)
+			result := benchmark.LoadLevelsForTest(exec, tt.cfg)
 			if len(result) != len(tt.expected) {
 				t.Errorf("getLoadLevels() returned %d elements, want %d", len(result), len(tt.expected))
 				return
@@ -85,7 +86,7 @@ func TestGetLoadLevels(t *testing.T) {
 
 // TestGetFrameLossParams tests the getFrameLossParams helper function.
 func TestGetFrameLossParams(t *testing.T) {
-	exec := &Executor{Module: New(), ctx: nil}
+	exec := benchmark.NewExecutorWithContext(nil)
 
 	tests := []struct {
 		name         string
@@ -97,16 +98,16 @@ func TestGetFrameLossParams(t *testing.T) {
 		{
 			name:         "nil params returns defaults",
 			cfg:          &modtypes.TestConfig{Interface: "", FrameSize: 0, Duration: 0, Params: nil},
-			expectedS:    defaultStartPct,
-			expectedE:    defaultEndPct,
-			expectedStep: defaultStepPct,
+			expectedS:    benchmark.DefaultStartPctForTest(),
+			expectedE:    benchmark.DefaultEndPctForTest(),
+			expectedStep: benchmark.DefaultStepPctForTest(),
 		},
 		{
 			name:         "empty params returns defaults",
 			cfg:          &modtypes.TestConfig{Interface: "", FrameSize: 0, Duration: 0, Params: map[string]any{}},
-			expectedS:    defaultStartPct,
-			expectedE:    defaultEndPct,
-			expectedStep: defaultStepPct,
+			expectedS:    benchmark.DefaultStartPctForTest(),
+			expectedE:    benchmark.DefaultEndPctForTest(),
+			expectedStep: benchmark.DefaultStepPctForTest(),
 		},
 		{
 			name: "custom parameters",
@@ -135,8 +136,8 @@ func TestGetFrameLossParams(t *testing.T) {
 				},
 			},
 			expectedS:    15.0,
-			expectedE:    defaultEndPct,
-			expectedStep: defaultStepPct,
+			expectedE:    benchmark.DefaultEndPctForTest(),
+			expectedStep: benchmark.DefaultStepPctForTest(),
 		},
 		{
 			name: "int values convert",
@@ -158,7 +159,7 @@ func TestGetFrameLossParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s, e, step := exec.getFrameLossParams(tt.cfg)
+			s, e, step := benchmark.FrameLossParamsForTest(exec, tt.cfg)
 			if s != tt.expectedS {
 				t.Errorf("start_pct = %v, want %v", s, tt.expectedS)
 			}
@@ -174,7 +175,7 @@ func TestGetFrameLossParams(t *testing.T) {
 
 // TestGetBackToBackParams tests the getBackToBackParams helper function.
 func TestGetBackToBackParams(t *testing.T) {
-	exec := &Executor{Module: New(), ctx: nil}
+	exec := benchmark.NewExecutorWithContext(nil)
 
 	tests := []struct {
 		name           string
@@ -185,14 +186,14 @@ func TestGetBackToBackParams(t *testing.T) {
 		{
 			name:           "nil params returns defaults",
 			cfg:            &modtypes.TestConfig{Interface: "", FrameSize: 0, Duration: 0, Params: nil},
-			expectedBurst:  defaultInitialBurst,
-			expectedTrials: defaultTrials,
+			expectedBurst:  benchmark.DefaultInitialBurstForTest(),
+			expectedTrials: benchmark.DefaultTrialsForTest(),
 		},
 		{
 			name:           "empty params returns defaults",
 			cfg:            &modtypes.TestConfig{Interface: "", FrameSize: 0, Duration: 0, Params: map[string]any{}},
-			expectedBurst:  defaultInitialBurst,
-			expectedTrials: defaultTrials,
+			expectedBurst:  benchmark.DefaultInitialBurstForTest(),
+			expectedTrials: benchmark.DefaultTrialsForTest(),
 		},
 		{
 			name: "custom parameters",
@@ -240,7 +241,7 @@ func TestGetBackToBackParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			burst, trials := exec.getBackToBackParams(tt.cfg)
+			burst, trials := benchmark.BackToBackParamsForTest(exec, tt.cfg)
 			if burst != tt.expectedBurst {
 				t.Errorf("initial_burst = %v, want %v", burst, tt.expectedBurst)
 			}
@@ -253,7 +254,7 @@ func TestGetBackToBackParams(t *testing.T) {
 
 // TestGetRecoveryParams tests the getRecoveryParams helper function.
 func TestGetRecoveryParams(t *testing.T) {
-	exec := &Executor{Module: New(), ctx: nil}
+	exec := benchmark.NewExecutorWithContext(nil)
 
 	tests := []struct {
 		name             string
@@ -264,14 +265,14 @@ func TestGetRecoveryParams(t *testing.T) {
 		{
 			name:             "nil params returns defaults",
 			cfg:              &modtypes.TestConfig{Interface: "", FrameSize: 0, Duration: 0, Params: nil},
-			expectedThrough:  defaultThroughputPct,
-			expectedOverload: defaultOverloadSec,
+			expectedThrough:  benchmark.DefaultThroughputPctForTest(),
+			expectedOverload: benchmark.DefaultOverloadSecForTest(),
 		},
 		{
 			name:             "empty params returns defaults",
 			cfg:              &modtypes.TestConfig{Interface: "", FrameSize: 0, Duration: 0, Params: map[string]any{}},
-			expectedThrough:  defaultThroughputPct,
-			expectedOverload: defaultOverloadSec,
+			expectedThrough:  benchmark.DefaultThroughputPctForTest(),
+			expectedOverload: benchmark.DefaultOverloadSecForTest(),
 		},
 		{
 			name: "custom parameters",
@@ -319,7 +320,7 @@ func TestGetRecoveryParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			through, overload := exec.getRecoveryParams(tt.cfg)
+			through, overload := benchmark.RecoveryParamsForTest(exec, tt.cfg)
 			if through != tt.expectedThrough {
 				t.Errorf("throughput_pct = %v, want %v", through, tt.expectedThrough)
 			}
@@ -332,7 +333,7 @@ func TestGetRecoveryParams(t *testing.T) {
 
 // TestExecuteInvalidTestTypeInternal tests invalid test type handling.
 func TestExecuteInvalidTestTypeInternal(t *testing.T) {
-	exec := &Executor{Module: New(), ctx: nil}
+	exec := benchmark.NewExecutorWithContext(nil)
 
 	cfg := &modtypes.TestConfig{
 		Interface: "lo",
@@ -361,7 +362,7 @@ func TestExecuteInvalidTestTypeInternal(t *testing.T) {
 
 // TestExecuteNilConfigInternal tests nil config handling.
 func TestExecuteNilConfigInternal(t *testing.T) {
-	exec := &Executor{Module: New(), ctx: nil}
+	exec := benchmark.NewExecutorWithContext(nil)
 
 	validTests := []string{
 		"rfc2544_throughput",
@@ -387,7 +388,7 @@ func TestExecuteNilConfigInternal(t *testing.T) {
 
 // TestConfigureContextNilContext tests configureContext with nil context.
 func TestConfigureContextNilContext(t *testing.T) {
-	exec := &Executor{Module: New(), ctx: nil}
+	exec := benchmark.NewExecutorWithContext(nil)
 
 	cfg := &modtypes.TestConfig{
 		Interface: "lo",
@@ -406,7 +407,7 @@ func TestConfigureContextNilContext(t *testing.T) {
 		_ = recover() // Just capture any panic.
 	}()
 
-	err := exec.configureContext(cfg)
+	err := benchmark.ConfigureContextForTest(exec, cfg)
 	// If we get here without panic, verify it returned an error.
 	if err == nil {
 		t.Error("configureContext with nil ctx should return error or panic")
@@ -416,39 +417,57 @@ func TestConfigureContextNilContext(t *testing.T) {
 // TestDefaultConstants verifies the default constant values.
 func TestDefaultConstants(t *testing.T) {
 	// Verify default constants are reasonable values.
+	defaultResolution := benchmark.DefaultResolutionForTest()
 	if defaultResolution <= 0 || defaultResolution >= 100 {
-		t.Errorf("defaultResolution = %v, should be between 0 and 100", defaultResolution)
+		t.Errorf("DefaultResolutionForTest() = %v, should be between 0 and 100", defaultResolution)
 	}
+
+	defaultAcceptableLoss := benchmark.DefaultAcceptableLossForTest()
 	if defaultAcceptableLoss < 0 || defaultAcceptableLoss >= 100 {
-		t.Errorf("defaultAcceptableLoss = %v, should be between 0 and 100", defaultAcceptableLoss)
+		t.Errorf("DefaultAcceptableLossForTest() = %v, should be between 0 and 100", defaultAcceptableLoss)
 	}
+
+	defaultStartPct := benchmark.DefaultStartPctForTest()
 	if defaultStartPct <= 0 || defaultStartPct >= 100 {
-		t.Errorf("defaultStartPct = %v, should be between 0 and 100", defaultStartPct)
+		t.Errorf("DefaultStartPctForTest() = %v, should be between 0 and 100", defaultStartPct)
 	}
+
+	defaultEndPct := benchmark.DefaultEndPctForTest()
 	if defaultEndPct <= 0 || defaultEndPct > 100 {
-		t.Errorf("defaultEndPct = %v, should be between 0 and 100", defaultEndPct)
+		t.Errorf("DefaultEndPctForTest() = %v, should be between 0 and 100", defaultEndPct)
 	}
+
+	defaultStepPct := benchmark.DefaultStepPctForTest()
 	if defaultStepPct <= 0 || defaultStepPct > 100 {
-		t.Errorf("defaultStepPct = %v, should be between 0 and 100", defaultStepPct)
+		t.Errorf("DefaultStepPctForTest() = %v, should be between 0 and 100", defaultStepPct)
 	}
+
+	defaultInitialBurst := benchmark.DefaultInitialBurstForTest()
 	if defaultInitialBurst == 0 {
-		t.Error("defaultInitialBurst should not be 0")
+		t.Error("DefaultInitialBurstForTest() should not be 0")
 	}
+
+	defaultTrials := benchmark.DefaultTrialsForTest()
 	if defaultTrials == 0 {
-		t.Error("defaultTrials should not be 0")
+		t.Error("DefaultTrialsForTest() should not be 0")
 	}
+
+	defaultThroughputPct := benchmark.DefaultThroughputPctForTest()
 	if defaultThroughputPct <= 0 || defaultThroughputPct > 100 {
-		t.Errorf("defaultThroughputPct = %v, should be between 0 and 100", defaultThroughputPct)
+		t.Errorf("DefaultThroughputPctForTest() = %v, should be between 0 and 100", defaultThroughputPct)
 	}
+
+	defaultOverloadSec := benchmark.DefaultOverloadSecForTest()
 	if defaultOverloadSec == 0 {
-		t.Error("defaultOverloadSec should not be 0")
+		t.Error("DefaultOverloadSecForTest() should not be 0")
 	}
 
 	// Verify default load levels.
-	if len(defaultLoadLevels) == 0 {
+	defaultLevels := benchmark.DefaultLoadLevelsForTest()
+	if len(defaultLevels) == 0 {
 		t.Error("defaultLoadLevels should not be empty")
 	}
-	for i, level := range defaultLoadLevels {
+	for i, level := range defaultLevels {
 		if level <= 0 || level > 100 {
 			t.Errorf("defaultLoadLevels[%d] = %v, should be between 0 and 100", i, level)
 		}
@@ -457,14 +476,14 @@ func TestDefaultConstants(t *testing.T) {
 
 // TestExecutorWithNilContext tests executor behavior with nil context.
 func TestExecutorWithNilContext(t *testing.T) {
-	exec := &Executor{Module: New(), ctx: nil}
+	exec := benchmark.NewExecutorWithContext(nil)
 
 	// Module methods should work.
-	if exec.Name() != ModuleName {
-		t.Errorf("Name() = %q, want %q", exec.Name(), ModuleName)
+	if exec.Name() != benchmark.ModuleName {
+		t.Errorf("Name() = %q, want %q", exec.Name(), benchmark.ModuleName)
 	}
-	if exec.DisplayName() != DisplayName {
-		t.Errorf("DisplayName() = %q, want %q", exec.DisplayName(), DisplayName)
+	if exec.DisplayName() != benchmark.DisplayName {
+		t.Errorf("benchmark.DisplayName() = %q, want %q", exec.DisplayName(), benchmark.DisplayName)
 	}
 	if !exec.SupportsExecution() {
 		t.Error("SupportsExecution() should return true")
@@ -486,8 +505,8 @@ func verifyErrorResult(t *testing.T, result *modtypes.Result, testType string) {
 	if result.TestType != testType {
 		t.Errorf("Result.TestType = %q, want %q", result.TestType, testType)
 	}
-	if result.ModuleName != ModuleName {
-		t.Errorf("Result.ModuleName = %q, want %q", result.ModuleName, ModuleName)
+	if result.ModuleName != benchmark.ModuleName {
+		t.Errorf("Result.benchmark.ModuleName = %q, want %q", result.ModuleName, benchmark.ModuleName)
 	}
 	if result.Success {
 		t.Error("Result.Success should be false when configureContext fails")
@@ -499,7 +518,7 @@ func verifyErrorResult(t *testing.T, result *modtypes.Result, testType string) {
 
 // TestExecuteConfigureContextError tests Execute when configureContext fails.
 func TestExecuteConfigureContextError(t *testing.T) {
-	exec := &Executor{Module: New(), ctx: nil}
+	exec := benchmark.NewExecutorWithContext(nil)
 
 	cfg := &modtypes.TestConfig{
 		Interface: "lo",
@@ -536,7 +555,7 @@ func TestExecuteConfigureContextError(t *testing.T) {
 
 // TestConfigureContextWithDuration tests configureContext with various durations.
 func TestConfigureContextWithDuration(t *testing.T) {
-	exec := &Executor{Module: New(), ctx: nil}
+	exec := benchmark.NewExecutorWithContext(nil)
 
 	tests := []struct {
 		name     string
@@ -561,14 +580,14 @@ func TestConfigureContextWithDuration(t *testing.T) {
 				_ = recover()
 			}()
 
-			_ = exec.configureContext(cfg)
+			_ = benchmark.ConfigureContextForTest(exec, cfg)
 		})
 	}
 }
 
 // TestConfigureContextWithWarmup tests configureContext with various warmup values.
-func TestConfigureContextWithWarmup(t *testing.T) {
-	exec := &Executor{Module: New(), ctx: nil}
+func TestConfigureContextWithWarmupHelper(t *testing.T) {
+	exec := benchmark.NewExecutorWithContext(nil)
 
 	tests := []struct {
 		name   string
@@ -595,7 +614,7 @@ func TestConfigureContextWithWarmup(t *testing.T) {
 				_ = recover()
 			}()
 
-			_ = exec.configureContext(cfg)
+			_ = benchmark.ConfigureContextForTest(exec, cfg)
 		})
 	}
 }
@@ -605,7 +624,7 @@ func TestConfigureContextWithWarmup(t *testing.T) {
 func TestExecuteWithTestContext(t *testing.T) {
 	// Use NewTestContext which returns a valid but non-functional context.
 	ctx := dataplane.NewTestContext()
-	exec := &Executor{Module: New(), ctx: ctx}
+	exec := benchmark.NewExecutorWithContext(ctx)
 	defer exec.Close()
 
 	testCases := []struct {
@@ -700,8 +719,8 @@ func verifyFailureResult(t *testing.T, result *modtypes.Result, testType string)
 	if result.TestType != testType {
 		t.Errorf("Result.TestType = %q, want %q", result.TestType, testType)
 	}
-	if result.ModuleName != ModuleName {
-		t.Errorf("Result.ModuleName = %q, want %q", result.ModuleName, ModuleName)
+	if result.ModuleName != benchmark.ModuleName {
+		t.Errorf("Result.benchmark.ModuleName = %q, want %q", result.ModuleName, benchmark.ModuleName)
 	}
 	if result.Success {
 		t.Error("Result.Success should be false when error")
@@ -714,7 +733,7 @@ func verifyFailureResult(t *testing.T, result *modtypes.Result, testType string)
 // TestExecuteWithTestContextFrameSize tests Execute with various frame sizes.
 func TestExecuteWithTestContextFrameSize(t *testing.T) {
 	ctx := dataplane.NewTestContext()
-	exec := &Executor{Module: New(), ctx: ctx}
+	exec := benchmark.NewExecutorWithContext(ctx)
 	defer exec.Close()
 
 	frameSizes := []uint32{0, 64, 128, 256, 512, 1024, 1280, 1518, 9000}
@@ -736,7 +755,7 @@ func TestExecuteWithTestContextFrameSize(t *testing.T) {
 // TestExecuteWithTestContextDefaultBranch tests the default case in Execute switch.
 func TestExecuteWithTestContextDefaultBranch(t *testing.T) {
 	ctx := dataplane.NewTestContext()
-	exec := &Executor{Module: New(), ctx: ctx}
+	exec := benchmark.NewExecutorWithContext(ctx)
 	defer exec.Close()
 
 	// This should never happen because CanRun check comes first,
@@ -760,7 +779,7 @@ func TestExecuteWithTestContextDefaultBranch(t *testing.T) {
 // TestCloseWithTestContext tests Close with a valid context.
 func TestCloseWithTestContext(_ *testing.T) {
 	ctx := dataplane.NewTestContext()
-	exec := &Executor{Module: New(), ctx: ctx}
+	exec := benchmark.NewExecutorWithContext(ctx)
 
 	// Close should not panic.
 	exec.Close()
@@ -773,13 +792,13 @@ func TestCloseWithTestContext(_ *testing.T) {
 // TestNewExecutorWithTestContext tests NewExecutorWithContext with test context.
 func TestNewExecutorWithTestContext(t *testing.T) {
 	ctx := dataplane.NewTestContext()
-	exec := NewExecutorWithContext(ctx)
+	exec := benchmark.NewExecutorWithContext(ctx)
 
 	if exec == nil {
 		t.Fatal("NewExecutorWithContext returned nil")
 	}
-	if exec.Name() != ModuleName {
-		t.Errorf("Name() = %q, want %q", exec.Name(), ModuleName)
+	if exec.Name() != benchmark.ModuleName {
+		t.Errorf("Name() = %q, want %q", exec.Name(), benchmark.ModuleName)
 	}
 
 	defer exec.Close()
@@ -788,7 +807,7 @@ func TestNewExecutorWithTestContext(t *testing.T) {
 // TestExecutorSupportsExecutionWithTestContext tests SupportsExecution.
 func TestExecutorSupportsExecutionWithTestContext(t *testing.T) {
 	ctx := dataplane.NewTestContext()
-	exec := &Executor{Module: New(), ctx: ctx}
+	exec := benchmark.NewExecutorWithContext(ctx)
 	defer exec.Close()
 
 	if !exec.SupportsExecution() {
@@ -799,7 +818,7 @@ func TestExecutorSupportsExecutionWithTestContext(t *testing.T) {
 // TestConfigureContextWithTestContext tests configureContext with valid context.
 func TestConfigureContextWithTestContext(t *testing.T) {
 	ctx := dataplane.NewTestContext()
-	exec := &Executor{Module: New(), ctx: ctx}
+	exec := benchmark.NewExecutorWithContext(ctx)
 	defer exec.Close()
 
 	tests := []struct {
@@ -871,7 +890,7 @@ func TestConfigureContextWithTestContext(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := exec.configureContext(tt.cfg)
+			err := benchmark.ConfigureContextForTest(exec, tt.cfg)
 			// In stub mode, Configure returns ErrNotSupported.
 			if err == nil {
 				t.Log("configureContext succeeded (not expected in stub mode)")
@@ -884,20 +903,20 @@ func TestConfigureContextWithTestContext(t *testing.T) {
 }
 
 // verifyExecutorSuccess checks a successfully created executor.
-func verifyExecutorSuccess(t *testing.T, exec *Executor) {
+func verifyExecutorSuccess(t *testing.T, exec *benchmark.Executor) {
 	t.Helper()
 	if exec == nil {
 		t.Error("NewExecutor returned nil without error")
 		return
 	}
 	defer exec.Close()
-	if exec.Name() != ModuleName {
-		t.Errorf("Name() = %q, want %q", exec.Name(), ModuleName)
+	if exec.Name() != benchmark.ModuleName {
+		t.Errorf("Name() = %q, want %q", exec.Name(), benchmark.ModuleName)
 	}
 }
 
 // verifyExecutorFailure checks executor state when creation failed.
-func verifyExecutorFailure(t *testing.T, exec *Executor, err error) {
+func verifyExecutorFailure(t *testing.T, exec *benchmark.Executor, err error) {
 	t.Helper()
 	if exec != nil {
 		t.Error("NewExecutor returned non-nil executor with error")
@@ -910,7 +929,7 @@ func verifyExecutorFailure(t *testing.T, exec *Executor, err error) {
 // TestNewExecutorError tests NewExecutor error handling.
 func TestNewExecutorError(t *testing.T) {
 	// On non-Linux/non-CGO platforms, NewExecutor always fails.
-	exec, err := NewExecutor("lo")
+	exec, err := benchmark.NewExecutor("lo")
 	if err == nil {
 		verifyExecutorSuccess(t, exec)
 	} else {
@@ -924,7 +943,7 @@ func TestNewExecutorDifferentInterfaces(t *testing.T) {
 
 	for _, iface := range interfaces {
 		t.Run(iface, func(_ *testing.T) {
-			exec, err := NewExecutor(iface)
+			exec, err := benchmark.NewExecutor(iface)
 			if err == nil {
 				defer exec.Close()
 			}

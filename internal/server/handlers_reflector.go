@@ -38,7 +38,7 @@ func (s *Server) handleReflectorConfig(w http.ResponseWriter, r *http.Request) {
 // handleReflectorConfigUpdate handles POST requests to update reflector configuration.
 func (s *Server) handleReflectorConfigUpdate(w http.ResponseWriter, r *http.Request) {
 	var cfg ReflectorConfig
-	if !decodeJSONStrict(w, r, &cfg, maxRequestBodySize) {
+	if !decodeJSONStrict(w, r, &cfg) {
 		return
 	}
 

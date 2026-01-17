@@ -4,11 +4,30 @@ package tui
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
+
+// safeIntToUint32 safely converts int to uint32 with bounds checking.
+// Returns 0 if the value is negative or exceeds uint32 max.
+func safeIntToUint32(v int) uint32 {
+	if v < 0 || v > math.MaxUint32 {
+		return 0
+	}
+	return uint32(v)
+}
+
+// safeIntToUint8 safely converts int to uint8 with bounds checking.
+// Returns 0 if the value is negative or exceeds uint8 max.
+func safeIntToUint8(v int) uint8 {
+	if v < 0 || v > math.MaxUint8 {
+		return 0
+	}
+	return uint8(v)
+}
 
 // RFC2889Config holds RFC 2889 LAN Switch test configuration.
 type RFC2889Config struct {
@@ -136,6 +155,10 @@ const (
 
 	// Conversion constants.
 	nsToMicroseconds = 1000
+
+	// Dropdown default indices.
+	defaultCCMIntervalIndex = 3 // Default 1s in CCM interval list.
+	defaultCycleTimeIndex   = 3 // Default 1ms in cycle time list.
 )
 
 // DefaultRFC2889Config returns default RFC 2889 configuration.
@@ -306,9 +329,13 @@ func (e *RFC2889ConfigEditor) build() {
 
 	// Pattern.
 	patterns := []string{"Full Mesh", "Pair", "Broadcast"}
-	e.form.AddDropDown("Traffic Pattern", patterns, int(e.config.Pattern), func(_ string, idx int) {
+	patternIdx := 0
+	if e.config.Pattern < safeIntToUint32(len(patterns)) {
+		patternIdx = int(e.config.Pattern)
+	}
+	e.form.AddDropDown("Traffic Pattern", patterns, patternIdx, func(_ string, idx int) {
 		if idx >= 0 && idx < len(patterns) {
-			e.config.Pattern = uint32(idx) // #nosec G115 -- bounds checked above
+			e.config.Pattern = safeIntToUint32(idx)
 		}
 	})
 
@@ -339,7 +366,8 @@ func (e *RFC2889ConfigEditor) Show() {
 	e.app.pages.SwitchToPage("rfc2889config")
 
 	e.app.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Key() { //nolint:exhaustive // Only handle specific keys.
+		//exhaustive:ignore
+		switch event.Key() {
 		case tcell.KeyF5:
 			if e.onSave != nil {
 				e.onSave(*e.config)
@@ -476,9 +504,13 @@ func (e *RFC6349ConfigEditor) build() {
 
 	// Mode.
 	modes := []string{"Bidirectional", "Upstream", "Downstream"}
-	e.form.AddDropDown("Test Mode", modes, int(e.config.Mode), func(_ string, idx int) {
+	modeIdx := 0
+	if e.config.Mode < safeIntToUint32(len(modes)) {
+		modeIdx = int(e.config.Mode)
+	}
+	e.form.AddDropDown("Test Mode", modes, modeIdx, func(_ string, idx int) {
 		if idx >= 0 && idx < len(modes) {
-			e.config.Mode = uint32(idx) // #nosec G115 -- bounds checked above
+			e.config.Mode = safeIntToUint32(idx)
 		}
 	})
 
@@ -499,7 +531,8 @@ func (e *RFC6349ConfigEditor) Show() {
 	e.app.pages.SwitchToPage("rfc6349config")
 
 	e.app.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Key() { //nolint:exhaustive // Only handle specific keys.
+		//exhaustive:ignore
+		switch event.Key() {
 		case tcell.KeyF5:
 			if e.onSave != nil {
 				e.onSave(*e.config)
@@ -562,9 +595,15 @@ func (a *App) NewY1731ConfigEditor(
 	return editor
 }
 
-func (e *Y1731ConfigEditor) build() { //nolint:gocognit // Y.1731 has many configuration fields.
+func (e *Y1731ConfigEditor) build() {
 	e.form.SetTitle(" Y.1731 OAM Configuration ").SetBorder(true)
+	e.addMEPFields()
+	e.addTimingFields()
+	e.addFrameFields()
+	e.buildY1731Container()
+}
 
+func (e *Y1731ConfigEditor) addMEPFields() {
 	// MEP ID.
 	e.form.AddInputField("MEP ID", strconv.FormatUint(uint64(e.config.MEPID), 10),
 		configFormWidth, nil, func(text string) {
@@ -576,9 +615,13 @@ func (e *Y1731ConfigEditor) build() { //nolint:gocognit // Y.1731 has many confi
 
 	// MEG Level.
 	levels := []string{"0", "1", "2", "3", "4", "5", "6", "7"}
-	e.form.AddDropDown("MEG Level", levels, int(e.config.MEGLevel), func(_ string, idx int) {
+	levelIdx := 0
+	if e.config.MEGLevel < safeIntToUint32(len(levels)) {
+		levelIdx = int(e.config.MEGLevel)
+	}
+	e.form.AddDropDown("MEG Level", levels, levelIdx, func(_ string, idx int) {
 		if idx >= 0 && idx < len(levels) {
-			e.config.MEGLevel = uint32(idx) // #nosec G115 -- bounds checked above
+			e.config.MEGLevel = safeIntToUint32(idx)
 		}
 	})
 
@@ -590,13 +633,7 @@ func (e *Y1731ConfigEditor) build() { //nolint:gocognit // Y.1731 has many confi
 	// CCM Interval.
 	ccmOptions := []string{"3.33ms", "10ms", "100ms", "1s", "10s", "1min", "10min"}
 	ccmValues := []uint32{3, 10, 100, 1000, 10000, 60000, 600000}
-	ccmIdx := 3 // Default 1s.
-	for i, v := range ccmValues {
-		if v == e.config.CCMInterval {
-			ccmIdx = i
-			break
-		}
-	}
+	ccmIdx := findCCMIndex(e.config.CCMInterval, ccmValues)
 	e.form.AddDropDown("CCM Interval", ccmOptions, ccmIdx, func(_ string, idx int) {
 		if idx >= 0 && idx < len(ccmValues) {
 			e.config.CCMInterval = ccmValues[idx]
@@ -605,12 +642,27 @@ func (e *Y1731ConfigEditor) build() { //nolint:gocognit // Y.1731 has many confi
 
 	// Priority.
 	priorities := []string{"0", "1", "2", "3", "4", "5", "6", "7"}
-	e.form.AddDropDown("Priority", priorities, int(e.config.Priority), func(_ string, idx int) {
+	priorityIdx := 0
+	if int(e.config.Priority) < len(priorities) {
+		priorityIdx = int(e.config.Priority)
+	}
+	e.form.AddDropDown("Priority", priorities, priorityIdx, func(_ string, idx int) {
 		if idx >= 0 && idx < len(priorities) {
-			e.config.Priority = uint8(idx) // #nosec G115 -- bounds checked above
+			e.config.Priority = safeIntToUint8(idx)
 		}
 	})
+}
 
+func findCCMIndex(interval uint32, values []uint32) int {
+	for i, v := range values {
+		if v == interval {
+			return i
+		}
+	}
+	return defaultCCMIntervalIndex
+}
+
+func (e *Y1731ConfigEditor) addTimingFields() {
 	// Duration.
 	e.form.AddInputField("Duration (s)", strconv.FormatUint(uint64(e.config.Duration), 10),
 		configFormWidth, nil, func(text string) {
@@ -637,16 +689,12 @@ func (e *Y1731ConfigEditor) build() { //nolint:gocognit // Y.1731 has many confi
 				e.config.Count = uint32(v)
 			}
 		})
+}
 
+func (e *Y1731ConfigEditor) addFrameFields() {
 	// Frame Size.
 	frameSizes := []string{"64", "128", "256", "512", "1024", "1518"}
-	fsIdx := 0
-	for i, s := range frameSizes {
-		if s == strconv.FormatUint(uint64(e.config.FrameSize), 10) {
-			fsIdx = i
-			break
-		}
-	}
+	fsIdx := findFrameSizeIndex(e.config.FrameSize, frameSizes)
 	e.form.AddDropDown("Frame Size", frameSizes, fsIdx, func(option string, _ int) {
 		v, _ := strconv.ParseUint(option, 10, 32)
 		e.config.FrameSize = uint32(v)
@@ -656,7 +704,19 @@ func (e *Y1731ConfigEditor) build() { //nolint:gocognit // Y.1731 has many confi
 	e.form.AddCheckbox("Priority Tagged (802.1Q)", e.config.PriorityTagged, func(checked bool) {
 		e.config.PriorityTagged = checked
 	})
+}
 
+func findFrameSizeIndex(frameSize uint32, sizes []string) int {
+	currentFS := strconv.FormatUint(uint64(frameSize), 10)
+	for i, s := range sizes {
+		if s == currentFS {
+			return i
+		}
+	}
+	return 0
+}
+
+func (e *Y1731ConfigEditor) buildY1731Container() {
 	helpText := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter).
@@ -674,7 +734,8 @@ func (e *Y1731ConfigEditor) Show() {
 	e.app.pages.SwitchToPage("y1731config")
 
 	e.app.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Key() { //nolint:exhaustive // Only handle specific keys.
+		//exhaustive:ignore
+		switch event.Key() {
 		case tcell.KeyF5:
 			if e.onSave != nil {
 				e.onSave(*e.config)
@@ -737,9 +798,15 @@ func (a *App) NewTSNConfigEditor(
 	return editor
 }
 
-func (e *TSNConfigEditor) build() { //nolint:funlen,gocognit // TSN has many configuration fields.
+func (e *TSNConfigEditor) build() {
 	e.form.SetTitle(" TSN 802.1Qbv Configuration ").SetBorder(true)
+	e.addTSNBasicFields()
+	e.addTSNPTPFields()
+	e.addTSNScheduleFields()
+	e.buildTSNContainer()
+}
 
+func (e *TSNConfigEditor) addTSNBasicFields() {
 	// Duration.
 	e.form.AddInputField("Duration (s)", strconv.FormatUint(uint64(e.config.Duration), 10),
 		configFormWidth, nil, func(text string) {
@@ -760,13 +827,7 @@ func (e *TSNConfigEditor) build() { //nolint:funlen,gocognit // TSN has many con
 
 	// Frame Size.
 	frameSizes := []string{"64", "128", "256", "512", "1024", "1518"}
-	fsIdx := 0
-	for i, s := range frameSizes {
-		if s == strconv.FormatUint(uint64(e.config.FrameSize), 10) {
-			fsIdx = i
-			break
-		}
-	}
+	fsIdx := findFrameSizeIndex(e.config.FrameSize, frameSizes)
 	e.form.AddDropDown("Frame Size", frameSizes, fsIdx, func(option string, _ int) {
 		v, _ := strconv.ParseUint(option, 10, 32)
 		e.config.FrameSize = uint32(v)
@@ -789,7 +850,9 @@ func (e *TSNConfigEditor) build() { //nolint:funlen,gocognit // TSN has many con
 				e.config.MaxJitterNs = uint32(v) * nsToMicroseconds
 			}
 		})
+}
 
+func (e *TSNConfigEditor) addTSNPTPFields() {
 	// PTP Enabled.
 	e.form.AddCheckbox("Enable PTP Timestamping", e.config.PTPEnabled, func(checked bool) {
 		e.config.PTPEnabled = checked
@@ -813,17 +876,13 @@ func (e *TSNConfigEditor) build() { //nolint:funlen,gocognit // TSN has many con
 	e.form.AddCheckbox("Enable Frame Preemption", e.config.PreemptionEnabled, func(checked bool) {
 		e.config.PreemptionEnabled = checked
 	})
+}
 
+func (e *TSNConfigEditor) addTSNScheduleFields() {
 	// Cycle Time.
 	cycleOptions := []string{"125µs", "250µs", "500µs", "1ms", "2ms", "4ms"}
 	cycleValues := []uint32{125000, 250000, 500000, 1000000, 2000000, 4000000}
-	cycleIdx := 3 // Default 1ms.
-	for i, v := range cycleValues {
-		if v == e.config.CycleTimeNs {
-			cycleIdx = i
-			break
-		}
-	}
+	cycleIdx := findCycleTimeIndex(e.config.CycleTimeNs, cycleValues)
 	e.form.AddDropDown("Cycle Time", cycleOptions, cycleIdx, func(_ string, idx int) {
 		if idx >= 0 && idx < len(cycleValues) {
 			e.config.CycleTimeNs = cycleValues[idx]
@@ -832,9 +891,13 @@ func (e *TSNConfigEditor) build() { //nolint:funlen,gocognit // TSN has many con
 
 	// Traffic Class.
 	tcOptions := []string{"0", "1", "2", "3", "4", "5", "6", "7"}
-	e.form.AddDropDown("Traffic Class", tcOptions, int(e.config.TrafficClass), func(_ string, idx int) {
+	tcIdx := 0
+	if e.config.TrafficClass < safeIntToUint32(len(tcOptions)) {
+		tcIdx = int(e.config.TrafficClass)
+	}
+	e.form.AddDropDown("Traffic Class", tcOptions, tcIdx, func(_ string, idx int) {
 		if idx >= 0 && idx < len(tcOptions) {
-			e.config.TrafficClass = uint32(idx) // #nosec G115 -- bounds checked above
+			e.config.TrafficClass = safeIntToUint32(idx)
 		}
 	})
 
@@ -855,7 +918,18 @@ func (e *TSNConfigEditor) build() { //nolint:funlen,gocognit // TSN has many con
 				e.config.BaseTimeNs = v
 			}
 		})
+}
 
+func findCycleTimeIndex(cycleTime uint32, values []uint32) int {
+	for i, v := range values {
+		if v == cycleTime {
+			return i
+		}
+	}
+	return defaultCycleTimeIndex
+}
+
+func (e *TSNConfigEditor) buildTSNContainer() {
 	helpText := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter).
@@ -873,7 +947,8 @@ func (e *TSNConfigEditor) Show() {
 	e.app.pages.SwitchToPage("tsnconfig")
 
 	e.app.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Key() { //nolint:exhaustive // Only handle specific keys.
+		//exhaustive:ignore
+		switch event.Key() {
 		case tcell.KeyF5:
 			if e.onSave != nil {
 				e.onSave(*e.config)
@@ -936,18 +1011,18 @@ func (a *App) NewTrafficGenConfigEditor(
 	return editor
 }
 
-func (e *TrafficGenConfigEditor) build() { //nolint:funlen // Traffic generator has many configuration fields.
+func (e *TrafficGenConfigEditor) build() {
 	e.form.SetTitle(" Traffic Generator Configuration ").SetBorder(true)
+	e.addTrafficGenBasicFields()
+	e.addTrafficGenBurstFields()
+	e.addTrafficGenVLANFields()
+	e.buildTrafficGenContainer()
+}
 
+func (e *TrafficGenConfigEditor) addTrafficGenBasicFields() {
 	// Frame Size.
 	frameSizes := []string{"64", "128", "256", "512", "1024", "1280", "1518", "9000"}
-	fsIdx := 0
-	for i, s := range frameSizes {
-		if s == strconv.FormatUint(uint64(e.config.FrameSize), 10) {
-			fsIdx = i
-			break
-		}
-	}
+	fsIdx := findFrameSizeIndex(e.config.FrameSize, frameSizes)
 	e.form.AddDropDown("Frame Size", frameSizes, fsIdx, func(option string, _ int) {
 		v, _ := strconv.ParseUint(option, 10, 32)
 		e.config.FrameSize = uint32(v)
@@ -988,7 +1063,9 @@ func (e *TrafficGenConfigEditor) build() { //nolint:funlen // Traffic generator 
 				e.config.StreamID = uint32(v)
 			}
 		})
+}
 
+func (e *TrafficGenConfigEditor) addTrafficGenBurstFields() {
 	// Burst Mode.
 	e.form.AddCheckbox("Burst Mode", e.config.BurstMode, func(checked bool) {
 		e.config.BurstMode = checked
@@ -1011,7 +1088,9 @@ func (e *TrafficGenConfigEditor) build() { //nolint:funlen // Traffic generator 
 				e.config.InterBurstGapUs = uint32(v)
 			}
 		})
+}
 
+func (e *TrafficGenConfigEditor) addTrafficGenVLANFields() {
 	// VLAN ID.
 	e.form.AddInputField("VLAN ID (0=untagged)", strconv.FormatUint(uint64(e.config.VlanID), 10),
 		configFormWidth, nil, func(text string) {
@@ -1023,9 +1102,13 @@ func (e *TrafficGenConfigEditor) build() { //nolint:funlen // Traffic generator 
 
 	// VLAN Priority.
 	vlanPriorities := []string{"0", "1", "2", "3", "4", "5", "6", "7"}
-	e.form.AddDropDown("VLAN Priority", vlanPriorities, int(e.config.VlanPriority), func(_ string, idx int) {
+	vlanPriorityIdx := 0
+	if int(e.config.VlanPriority) < len(vlanPriorities) {
+		vlanPriorityIdx = int(e.config.VlanPriority)
+	}
+	e.form.AddDropDown("VLAN Priority", vlanPriorities, vlanPriorityIdx, func(_ string, idx int) {
 		if idx >= 0 && idx < len(vlanPriorities) {
-			e.config.VlanPriority = uint8(idx) // #nosec G115 -- bounds checked above
+			e.config.VlanPriority = safeIntToUint8(idx)
 		}
 	})
 
@@ -1040,7 +1123,9 @@ func (e *TrafficGenConfigEditor) build() { //nolint:funlen // Traffic generator 
 		configFormWidth+megIDExtraWidth, nil, func(text string) {
 			e.config.DstMac = text
 		})
+}
 
+func (e *TrafficGenConfigEditor) buildTrafficGenContainer() {
 	helpText := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter).
@@ -1058,7 +1143,8 @@ func (e *TrafficGenConfigEditor) Show() {
 	e.app.pages.SwitchToPage("trafficgenconfig")
 
 	e.app.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Key() { //nolint:exhaustive // Only handle specific keys.
+		//exhaustive:ignore
+		switch event.Key() {
 		case tcell.KeyF5:
 			if e.onSave != nil {
 				e.onSave(*e.config)

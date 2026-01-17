@@ -183,7 +183,7 @@ func Export(ctx context.Context, db *database.Database, outputPath string, opts 
 	return recordCount, nil
 }
 
-// ExportToWriter writes backup data to an io.Writer.
+// ExportToWriter writes backup data to an [io.Writer].
 func ExportToWriter(ctx context.Context, db *database.Database, w io.Writer, opts *ExportOptions) (int, error) {
 	if opts == nil {
 		opts = DefaultExportOptions()
@@ -295,7 +295,7 @@ func Import(ctx context.Context, db *database.Database, inputPath string, opts *
 	return importFromData(ctx, db, data, opts)
 }
 
-// ImportFromReader restores data from an io.Reader.
+// ImportFromReader restores data from an [io.Reader].
 func ImportFromReader(ctx context.Context, db *database.Database, r io.Reader, opts *ImportOptions) (int, error) {
 	if opts == nil {
 		opts = DefaultImportOptions()

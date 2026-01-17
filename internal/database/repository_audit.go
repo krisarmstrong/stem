@@ -147,41 +147,37 @@ func (r *AuditLogRepository) List(ctx context.Context, opts AuditLogQueryOptions
 	query += " ORDER BY timestamp DESC"
 
 	if opts.Limit > 0 {
-		query += " LIMIT ?"
+		query += limitClause
 		args = append(args, opts.Limit)
 	}
 	if opts.Offset > 0 {
-		query += " OFFSET ?"
+		query += offsetClause
 		args = append(args, opts.Offset)
 	}
 
-	rows, err := r.db.Query(ctx, query, args...)
+	var entries []AuditLogEntry
+	err := r.db.Query(ctx, query, func(rows *sql.Rows) error {
+		for rows.Next() {
+			var entry AuditLogEntry
+			var timestamp string
+
+			if scanErr := rows.Scan(
+				&entry.ID, &entry.Action, &entry.User, &entry.ResourceType, &entry.ResourceID,
+				&entry.OldValueJSON, &entry.NewValueJSON, &entry.IPAddress, &entry.UserAgent, &timestamp,
+			); scanErr != nil {
+				return fmt.Errorf("scanning audit log row: %w", scanErr)
+			}
+
+			if t, parseErr := time.Parse(time.RFC3339, timestamp); parseErr == nil {
+				entry.Timestamp = t
+			}
+
+			entries = append(entries, entry)
+		}
+		return rows.Err()
+	}, args...)
 	if err != nil {
 		return nil, fmt.Errorf("querying audit log: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var entries []AuditLogEntry
-	for rows.Next() {
-		var entry AuditLogEntry
-		var timestamp string
-
-		if scanErr := rows.Scan(
-			&entry.ID, &entry.Action, &entry.User, &entry.ResourceType, &entry.ResourceID,
-			&entry.OldValueJSON, &entry.NewValueJSON, &entry.IPAddress, &entry.UserAgent, &timestamp,
-		); scanErr != nil {
-			return nil, fmt.Errorf("scanning audit log row: %w", scanErr)
-		}
-
-		if t, parseErr := time.Parse(time.RFC3339, timestamp); parseErr == nil {
-			entry.Timestamp = t
-		}
-
-		entries = append(entries, entry)
-	}
-
-	if rowsErr := rows.Err(); rowsErr != nil {
-		return nil, fmt.Errorf("iterating audit log rows: %w", rowsErr)
 	}
 
 	return entries, nil
@@ -196,7 +192,11 @@ func (r *AuditLogRepository) ListByUser(ctx context.Context, user string, limit 
 }
 
 // ListByResource returns all audit log entries for a specific resource.
-func (r *AuditLogRepository) ListByResource(ctx context.Context, resourceType, resourceID string, limit int) ([]AuditLogEntry, error) {
+func (r *AuditLogRepository) ListByResource(
+	ctx context.Context,
+	resourceType, resourceID string,
+	limit int,
+) ([]AuditLogEntry, error) {
 	return r.List(ctx, AuditLogQueryOptions{
 		ResourceType: resourceType,
 		ResourceID:   resourceID,

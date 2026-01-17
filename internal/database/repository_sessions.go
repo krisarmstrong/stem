@@ -87,81 +87,65 @@ func (r *SessionRepository) Get(ctx context.Context, tokenID string) (*Session, 
 
 // ListAll returns all blacklisted sessions.
 func (r *SessionRepository) ListAll(ctx context.Context) ([]Session, error) {
-	rows, err := r.db.Query(ctx, `
+	var sessions []Session
+	err := r.db.Query(ctx, `
 		SELECT id, token_id, username, reason, blacklisted_at, expires_at
 		FROM sessions ORDER BY blacklisted_at DESC
-	`)
+	`, func(rows *sql.Rows) error {
+		for rows.Next() {
+			var session Session
+			var blacklistedAt, expiresAt string
+			if scanErr := rows.Scan(
+				&session.ID, &session.TokenID, &session.Username, &session.Reason,
+				&blacklistedAt, &expiresAt,
+			); scanErr != nil {
+				return fmt.Errorf("scanning session row: %w", scanErr)
+			}
+			if t, parseErr := time.Parse(time.RFC3339, blacklistedAt); parseErr == nil {
+				session.BlacklistedAt = t
+			}
+			if t, parseErr := time.Parse(time.RFC3339, expiresAt); parseErr == nil {
+				session.ExpiresAt = t
+			}
+			sessions = append(sessions, session)
+		}
+		return rows.Err()
+	})
 	if err != nil {
 		return nil, fmt.Errorf("querying sessions: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
-
-	var sessions []Session
-	for rows.Next() {
-		var session Session
-		var blacklistedAt, expiresAt string
-
-		if scanErr := rows.Scan(
-			&session.ID, &session.TokenID, &session.Username, &session.Reason,
-			&blacklistedAt, &expiresAt,
-		); scanErr != nil {
-			return nil, fmt.Errorf("scanning session row: %w", scanErr)
-		}
-
-		if t, parseErr := time.Parse(time.RFC3339, blacklistedAt); parseErr == nil {
-			session.BlacklistedAt = t
-		}
-		if t, parseErr := time.Parse(time.RFC3339, expiresAt); parseErr == nil {
-			session.ExpiresAt = t
-		}
-
-		sessions = append(sessions, session)
-	}
-
-	if rowsErr := rows.Err(); rowsErr != nil {
-		return nil, fmt.Errorf("iterating session rows: %w", rowsErr)
-	}
-
 	return sessions, nil
 }
 
 // ListByUser returns all blacklisted sessions for a user.
 func (r *SessionRepository) ListByUser(ctx context.Context, username string) ([]Session, error) {
-	rows, err := r.db.Query(ctx, `
+	var sessions []Session
+	err := r.db.Query(ctx, `
 		SELECT id, token_id, username, reason, blacklisted_at, expires_at
 		FROM sessions WHERE username = ? ORDER BY blacklisted_at DESC
-	`, username)
+	`, func(rows *sql.Rows) error {
+		for rows.Next() {
+			var session Session
+			var blacklistedAt, expiresAt string
+			if scanErr := rows.Scan(
+				&session.ID, &session.TokenID, &session.Username, &session.Reason,
+				&blacklistedAt, &expiresAt,
+			); scanErr != nil {
+				return fmt.Errorf("scanning session row: %w", scanErr)
+			}
+			if t, parseErr := time.Parse(time.RFC3339, blacklistedAt); parseErr == nil {
+				session.BlacklistedAt = t
+			}
+			if t, parseErr := time.Parse(time.RFC3339, expiresAt); parseErr == nil {
+				session.ExpiresAt = t
+			}
+			sessions = append(sessions, session)
+		}
+		return rows.Err()
+	}, username)
 	if err != nil {
 		return nil, fmt.Errorf("querying sessions: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
-
-	var sessions []Session
-	for rows.Next() {
-		var session Session
-		var blacklistedAt, expiresAt string
-
-		if scanErr := rows.Scan(
-			&session.ID, &session.TokenID, &session.Username, &session.Reason,
-			&blacklistedAt, &expiresAt,
-		); scanErr != nil {
-			return nil, fmt.Errorf("scanning session row: %w", scanErr)
-		}
-
-		if t, parseErr := time.Parse(time.RFC3339, blacklistedAt); parseErr == nil {
-			session.BlacklistedAt = t
-		}
-		if t, parseErr := time.Parse(time.RFC3339, expiresAt); parseErr == nil {
-			session.ExpiresAt = t
-		}
-
-		sessions = append(sessions, session)
-	}
-
-	if rowsErr := rows.Err(); rowsErr != nil {
-		return nil, fmt.Errorf("iterating session rows: %w", rowsErr)
-	}
-
 	return sessions, nil
 }
 

@@ -11,7 +11,7 @@ import { Cpu } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CollapsibleSection } from '../../CollapsibleSection';
-import { type RFC2889Config, RFC2889ConfigForm } from '../../RFC2889ConfigForm';
+import { type RFC2889Config, RFC2889ConfigForm } from '../../Rfc2889ConfigForm';
 import { TestCheckbox } from '../TestCheckbox';
 import type { TestDefinition, TestSectionProps } from '../types';
 

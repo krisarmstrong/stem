@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/krisarmstrong/stem/internal/logging"
 )
 
 // RetentionConfig configures data retention policies.
@@ -21,12 +23,14 @@ type RetentionConfig struct {
 	CleanupInterval time.Duration
 }
 
+const defaultCleanupInterval = 24 * time.Hour
+
 // DefaultRetentionConfig returns sensible default retention settings.
 func DefaultRetentionConfig() RetentionConfig {
 	return RetentionConfig{
-		TestResultRetention: 90 * 24 * time.Hour, // 90 days
-		AuditLogRetention:   365 * 24 * time.Hour, // 1 year
-		CleanupInterval:     24 * time.Hour,       // Daily
+		TestResultRetention: 90 * 24 * time.Hour,    // 90 days
+		AuditLogRetention:   365 * 24 * time.Hour,   // 1 year
+		CleanupInterval:     defaultCleanupInterval, // Daily
 	}
 }
 
@@ -131,7 +135,14 @@ func (m *RetentionManager) cleanupTestResults(ctx context.Context) error {
 	deleted, _ := result.RowsAffected()
 	if deleted > 0 {
 		// Test results are deleted via CASCADE
-		fmt.Printf("Retention: deleted %d test runs older than %s\n", deleted, cutoff.Format(time.RFC3339))
+		logging.InfoContext(
+			ctx,
+			"Retention cleanup deleted test runs",
+			"deleted",
+			deleted,
+			"cutoff",
+			cutoff.Format(time.RFC3339),
+		)
 	}
 
 	return nil
@@ -147,7 +158,14 @@ func (m *RetentionManager) cleanupAuditLogs(ctx context.Context) error {
 	}
 
 	if deleted > 0 {
-		fmt.Printf("Retention: deleted %d audit log entries older than %s\n", deleted, cutoff.Format(time.RFC3339))
+		logging.InfoContext(
+			ctx,
+			"Retention cleanup deleted audit log entries",
+			"deleted",
+			deleted,
+			"cutoff",
+			cutoff.Format(time.RFC3339),
+		)
 	}
 
 	return nil

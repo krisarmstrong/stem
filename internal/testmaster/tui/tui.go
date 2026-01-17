@@ -241,7 +241,7 @@ func New() *App {
 		logView:      nil,
 		progressBar:  nil,
 		statusBar:    nil,
-		stats:        Stats{}, //nolint:exhaustruct // Stats fields default to zero values.
+		stats:        Stats{},
 		results:      make([]Result, 0),
 		y1564Results: make([]Y1564Result, 0),
 		OnStart:      nil,
@@ -253,7 +253,14 @@ func New() *App {
 	return a
 }
 
-func (a *App) build() { //nolint:funlen // Main UI setup has many components.
+func (a *App) build() {
+	a.buildPanels()
+	a.buildLayout()
+	a.setupKeyBindings()
+	a.app.SetRoot(a.pages, true)
+}
+
+func (a *App) buildPanels() {
 	// Stats panel (left side).
 	a.statsView = tview.NewTable().
 		SetBorders(false).
@@ -291,8 +298,9 @@ func (a *App) build() { //nolint:funlen // Main UI setup has many components.
 	statusText := "[yellow]Stem Test Master[white] | " +
 		"[green]F1[white] Start | [red]F2[white] Stop | [cyan]F3-F8[white] Config | [blue]F10[white] Quit"
 	a.statusBar.SetText(statusText)
+}
 
-	// Layout.
+func (a *App) buildLayout() {
 	topRow := tview.NewFlex().
 		AddItem(a.statsView, 0, 1, false).
 		AddItem(a.resultsView, 0, resultsFlexProportion, false)
@@ -304,73 +312,71 @@ func (a *App) build() { //nolint:funlen // Main UI setup has many components.
 		AddItem(a.statusBar, statusBarFlexHeight, 0, false)
 
 	a.pages.AddPage("main", mainFlex, true, true)
+}
 
-	// Key bindings.
+func (a *App) setupKeyBindings() {
 	a.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Key() { //nolint:exhaustive // Only handle specific keys.
-		case tcell.KeyF1:
-			if a.OnStart != nil {
-				go a.OnStart()
-			}
-			return nil
-		case tcell.KeyF2:
-			if a.OnStop != nil {
-				go a.OnStop()
-			}
-			return nil
-		case tcell.KeyF3:
-			// Show RFC 2889 configuration editor.
-			a.ShowRFC2889Config(nil, func(_ RFC2889Config) {
-				a.LogInfof("RFC 2889 configuration saved")
-			})
-			return nil
-		case tcell.KeyF4:
-			// Show RFC 6349 configuration editor.
-			a.ShowRFC6349Config(nil, func(_ RFC6349Config) {
-				a.LogInfof("RFC 6349 configuration saved")
-			})
-			return nil
-		case tcell.KeyF5:
-			// Show Y.1731 configuration editor.
-			a.ShowY1731Config(nil, func(_ Y1731Config) {
-				a.LogInfof("Y.1731 configuration saved")
-			})
-			return nil
-		case tcell.KeyF6:
-			// Show Y.1564 configuration editor.
-			a.ShowY1564Config(nil, func(_ []Y1564ServiceConfig) {
-				a.LogInfof("Y.1564 configuration saved")
-			})
-			return nil
-		case tcell.KeyF7:
-			// Show TSN configuration editor.
-			a.ShowTSNConfig(nil, func(_ TSNConfig) {
-				a.LogInfof("TSN configuration saved")
-			})
-			return nil
-		case tcell.KeyF8:
-			// Show TrafficGen configuration editor.
-			a.ShowTrafficGenConfig(nil, func(_ TrafficGenConfig) {
-				a.LogInfof("TrafficGen configuration saved")
-			})
-			return nil
-		case tcell.KeyF10, tcell.KeyEscape:
-			if a.OnQuit != nil {
-				a.OnQuit()
-			}
-			a.app.Stop()
-			return nil
-		case tcell.KeyCtrlC:
-			if a.OnCancel != nil {
-				a.OnCancel()
-			}
-			return nil
-		default:
-			return event
-		}
+		return a.handleKeyEvent(event)
 	})
+}
 
-	a.app.SetRoot(a.pages, true)
+func (a *App) handleKeyEvent(event *tcell.EventKey) *tcell.EventKey {
+	//exhaustive:ignore
+	switch event.Key() {
+	case tcell.KeyF1:
+		if a.OnStart != nil {
+			go a.OnStart()
+		}
+		return nil
+	case tcell.KeyF2:
+		if a.OnStop != nil {
+			go a.OnStop()
+		}
+		return nil
+	case tcell.KeyF3:
+		a.ShowRFC2889Config(nil, func(_ RFC2889Config) {
+			a.LogInfof("RFC 2889 configuration saved")
+		})
+		return nil
+	case tcell.KeyF4:
+		a.ShowRFC6349Config(nil, func(_ RFC6349Config) {
+			a.LogInfof("RFC 6349 configuration saved")
+		})
+		return nil
+	case tcell.KeyF5:
+		a.ShowY1731Config(nil, func(_ Y1731Config) {
+			a.LogInfof("Y.1731 configuration saved")
+		})
+		return nil
+	case tcell.KeyF6:
+		a.ShowY1564Config(nil, func(_ []Y1564ServiceConfig) {
+			a.LogInfof("Y.1564 configuration saved")
+		})
+		return nil
+	case tcell.KeyF7:
+		a.ShowTSNConfig(nil, func(_ TSNConfig) {
+			a.LogInfof("TSN configuration saved")
+		})
+		return nil
+	case tcell.KeyF8:
+		a.ShowTrafficGenConfig(nil, func(_ TrafficGenConfig) {
+			a.LogInfof("TrafficGen configuration saved")
+		})
+		return nil
+	case tcell.KeyF10, tcell.KeyEscape:
+		if a.OnQuit != nil {
+			a.OnQuit()
+		}
+		a.app.Stop()
+		return nil
+	case tcell.KeyCtrlC:
+		if a.OnCancel != nil {
+			a.OnCancel()
+		}
+		return nil
+	default:
+		return event
+	}
 }
 
 func (a *App) initStatsView() {
@@ -976,62 +982,81 @@ func (e *Y1564ConfigEditor) buildForm() {
 }
 
 // Show displays the Y.1564 configuration editor.
-func (e *Y1564ConfigEditor) Show() { //nolint:gocognit // Key handling and form updates add complexity.
+func (e *Y1564ConfigEditor) Show() {
 	e.app.pages.SwitchToPage("y1564config")
-
-	// Set up key handler for config page.
 	e.app.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Key() { //nolint:exhaustive // Only handle specific keys.
-		case tcell.KeyF3:
-			// Add new service (max services to prevent overflow).
-			const maxServices = 256
-			numServices := len(e.services)
-			if numServices >= maxServices {
-				return nil
-			}
-			newID := uint32(numServices + 1) // #nosec G115 -- bounds checked above (max 256)
-			e.services = append(e.services, DefaultY1564ServiceConfig(newID))
-			e.currentIndex = len(e.services) - 1
-			e.updateServiceList()
-			e.buildForm()
-			return nil
-		case tcell.KeyF4:
-			// Remove current service.
-			if len(e.services) > 1 {
-				e.services = append(e.services[:e.currentIndex], e.services[e.currentIndex+1:]...)
-				if e.currentIndex >= len(e.services) {
-					e.currentIndex = len(e.services) - 1
-				}
-				e.updateServiceList()
-				e.buildForm()
-			}
-			return nil
-		case tcell.KeyF5:
-			// Save.
-			if e.onSave != nil {
-				e.onSave(e.services)
-			}
-			e.Hide()
-			return nil
-		case tcell.KeyEscape:
-			// Cancel.
-			if e.onCancel != nil {
-				e.onCancel()
-			}
-			e.Hide()
-			return nil
-		case tcell.KeyTab:
-			// Switch focus between list and form.
-			if e.app.app.GetFocus() == e.serviceList {
-				e.app.app.SetFocus(e.form)
-			} else {
-				e.app.app.SetFocus(e.serviceList)
-			}
-			return nil
-		default:
-			return event
-		}
+		return e.handleY1564KeyEvent(event)
 	})
+}
+
+func (e *Y1564ConfigEditor) handleY1564KeyEvent(event *tcell.EventKey) *tcell.EventKey {
+	//exhaustive:ignore
+	switch event.Key() {
+	case tcell.KeyF3:
+		e.handleAddService()
+		return nil
+	case tcell.KeyF4:
+		e.handleRemoveService()
+		return nil
+	case tcell.KeyF5:
+		e.handleSave()
+		return nil
+	case tcell.KeyEscape:
+		e.handleCancel()
+		return nil
+	case tcell.KeyTab:
+		e.handleTabFocus()
+		return nil
+	default:
+		return event
+	}
+}
+
+func (e *Y1564ConfigEditor) handleAddService() {
+	const maxServices = 256
+	numServices := len(e.services)
+	if numServices >= maxServices {
+		return
+	}
+	newID := safeIntToUint32(numServices + 1)
+	e.services = append(e.services, DefaultY1564ServiceConfig(newID))
+	e.currentIndex = len(e.services) - 1
+	e.updateServiceList()
+	e.buildForm()
+}
+
+func (e *Y1564ConfigEditor) handleRemoveService() {
+	if len(e.services) <= 1 {
+		return
+	}
+	e.services = append(e.services[:e.currentIndex], e.services[e.currentIndex+1:]...)
+	if e.currentIndex >= len(e.services) {
+		e.currentIndex = len(e.services) - 1
+	}
+	e.updateServiceList()
+	e.buildForm()
+}
+
+func (e *Y1564ConfigEditor) handleSave() {
+	if e.onSave != nil {
+		e.onSave(e.services)
+	}
+	e.Hide()
+}
+
+func (e *Y1564ConfigEditor) handleCancel() {
+	if e.onCancel != nil {
+		e.onCancel()
+	}
+	e.Hide()
+}
+
+func (e *Y1564ConfigEditor) handleTabFocus() {
+	if e.app.app.GetFocus() == e.serviceList {
+		e.app.app.SetFocus(e.form)
+	} else {
+		e.app.app.SetFocus(e.serviceList)
+	}
 }
 
 // Hide hides the Y.1564 configuration editor and restores main view.

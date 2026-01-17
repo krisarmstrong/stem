@@ -99,7 +99,7 @@ func TestExtractIPAddresses(t *testing.T) {
 	}
 }
 
-// mockAddr is a mock implementation of net.Addr for testing invalid addresses.
+// mockAddr is a mock implementation of [net.Addr] for testing invalid addresses.
 type mockAddr struct {
 	addr string
 }
@@ -138,70 +138,43 @@ func TestExtractIPAddressesInvalidAddr(t *testing.T) {
 	}
 }
 
+type sysfsTestCase struct {
+	name        string
+	ifaceName   string
+	subpath     []string
+	wantErr     bool
+	errContains string
+}
+
+func newSysfsTestCase(name, ifaceName string, subpath []string, wantErr bool, errContains string) sysfsTestCase {
+	return sysfsTestCase{
+		name:        name,
+		ifaceName:   ifaceName,
+		subpath:     subpath,
+		wantErr:     wantErr,
+		errContains: errContains,
+	}
+}
+
+func buildInterfaceInfo(setter func(*InterfaceInfo)) InterfaceInfo {
+	var info InterfaceInfo
+	if setter != nil {
+		setter(&info)
+	}
+	return info
+}
+
 // TestSysfsNetPath tests the sysfsNetPath function.
-//
-//nolint:exhaustruct // Test data - only relevant fields populated.
 func TestSysfsNetPath(t *testing.T) {
-	tests := []struct {
-		name        string
-		ifaceName   string
-		subpath     []string
-		wantErr     bool
-		errContains string
-	}{
-		{
-			name:      "valid interface name",
-			ifaceName: "eth0",
-			subpath:   []string{},
-			wantErr:   false,
-		},
-		{
-			name:      "valid interface with subpath",
-			ifaceName: "eth0",
-			subpath:   []string{"speed"},
-			wantErr:   false,
-		},
-		{
-			name:      "valid interface with multiple subpaths",
-			ifaceName: "eth0",
-			subpath:   []string{"device", "driver"},
-			wantErr:   false,
-		},
-		{
-			name:        "empty interface name",
-			ifaceName:   "",
-			subpath:     []string{},
-			wantErr:     true,
-			errContains: "invalid interface name",
-		},
-		{
-			name:        "interface name with slash",
-			ifaceName:   "eth0/evil",
-			subpath:     []string{},
-			wantErr:     true,
-			errContains: "invalid interface name",
-		},
-		{
-			name:        "interface name with backslash",
-			ifaceName:   "eth0\\evil",
-			subpath:     []string{},
-			wantErr:     true,
-			errContains: "invalid interface name",
-		},
-		{
-			name:        "interface name with dots",
-			ifaceName:   "eth0..",
-			subpath:     []string{},
-			wantErr:     true,
-			errContains: "invalid interface name",
-		},
-		{
-			name:        "path traversal attempt",
-			ifaceName:   "..%2f..%2fetc",
-			subpath:     []string{},
-			wantErr:     true,
-			errContains: "invalid interface name",
-		},
+	tests := []sysfsTestCase{
+		newSysfsTestCase("valid interface name", "eth0", []string{}, false, ""),
+		newSysfsTestCase("valid interface with subpath", "eth0", []string{"speed"}, false, ""),
+		newSysfsTestCase("valid interface with multiple subpaths", "eth0", []string{"device", "driver"}, false, ""),
+		newSysfsTestCase("empty interface name", "", []string{}, true, "invalid interface name"),
+		newSysfsTestCase("interface name with slash", "eth0/evil", []string{}, true, "invalid interface name"),
+		newSysfsTestCase("interface name with backslash", "eth0\\evil", []string{}, true, "invalid interface name"),
+		newSysfsTestCase("interface name with dots", "eth0..", []string{}, true, "invalid interface name"),
+		newSysfsTestCase("path traversal attempt", "..%2f..%2fetc", []string{}, true, "invalid interface name"),
 	}
 
 	for _, tt := range tests {
@@ -228,72 +201,16 @@ func TestSysfsNetPath(t *testing.T) {
 }
 
 // TestReadSysfsFile tests the readSysfsFile function.
-//
-//nolint:exhaustruct // Test data - only relevant fields populated.
 func TestReadSysfsFile(t *testing.T) {
-	tests := []struct {
-		name        string
-		ifaceName   string
-		subpath     []string
-		wantErr     bool
-		errContains string
-	}{
-		{
-			name:        "empty interface name",
-			ifaceName:   "",
-			subpath:     []string{},
-			wantErr:     true,
-			errContains: "invalid interface name",
-		},
-		{
-			name:        "interface name with slash",
-			ifaceName:   "eth0/evil",
-			subpath:     []string{},
-			wantErr:     true,
-			errContains: "invalid interface name",
-		},
-		{
-			name:        "interface name with backslash",
-			ifaceName:   "eth0\\evil",
-			subpath:     []string{},
-			wantErr:     true,
-			errContains: "invalid interface name",
-		},
-		{
-			name:        "interface name with dots",
-			ifaceName:   "eth0..",
-			subpath:     []string{},
-			wantErr:     true,
-			errContains: "invalid interface name",
-		},
-		{
-			name:        "subpath with slash",
-			ifaceName:   "eth0",
-			subpath:     []string{"evil/path"},
-			wantErr:     true,
-			errContains: "invalid subpath",
-		},
-		{
-			name:        "subpath with backslash",
-			ifaceName:   "eth0",
-			subpath:     []string{"evil\\path"},
-			wantErr:     true,
-			errContains: "invalid subpath",
-		},
-		{
-			name:        "subpath with dots",
-			ifaceName:   "eth0",
-			subpath:     []string{".."},
-			wantErr:     true,
-			errContains: "invalid subpath",
-		},
-		{
-			name:      "non-existent interface",
-			ifaceName: "nonexistent_iface_xyz",
-			subpath:   []string{"speed"},
-			wantErr:   true,
-			// Error will be about opening the file
-		},
+	tests := []sysfsTestCase{
+		newSysfsTestCase("empty interface name", "", []string{}, true, "invalid interface name"),
+		newSysfsTestCase("interface name with slash", "eth0/evil", []string{}, true, "invalid interface name"),
+		newSysfsTestCase("interface name with backslash", "eth0\\evil", []string{}, true, "invalid interface name"),
+		newSysfsTestCase("interface name with dots", "eth0..", []string{}, true, "invalid interface name"),
+		newSysfsTestCase("subpath with slash", "eth0", []string{"evil/path"}, true, "invalid subpath"),
+		newSysfsTestCase("subpath with backslash", "eth0", []string{"evil\\path"}, true, "invalid subpath"),
+		newSysfsTestCase("subpath with dots", "eth0", []string{".."}, true, "invalid subpath"),
+		newSysfsTestCase("non-existent interface", "nonexistent_iface_xyz", []string{"speed"}, true, ""),
 	}
 
 	for _, tt := range tests {
@@ -472,8 +389,6 @@ func TestCheckDPDKSupport(t *testing.T) {
 }
 
 // TestCalculateScore tests the calculateScore function.
-//
-//nolint:exhaustruct // Test data - only relevant fields populated.
 func TestCalculateScore(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -482,122 +397,122 @@ func TestCalculateScore(t *testing.T) {
 	}{
 		{
 			name: "interface down returns zero",
-			info: InterfaceInfo{
-				State:    "down",
-				Physical: true,
-				Speed:    10000,
-			},
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "down"
+				info.Physical = true
+				info.Speed = 10000
+			}),
 			expected: 0,
 		},
 		{
 			name: "virtual interface up",
-			info: InterfaceInfo{
-				State:    "up",
-				Physical: false,
-				Speed:    1000,
-			},
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "up"
+				info.Physical = false
+				info.Speed = 1000
+			}),
 			expected: 10, // 1000/100 = 10
 		},
 		{
 			name: "physical interface up",
-			info: InterfaceInfo{
-				State:    "up",
-				Physical: true,
-				Speed:    1000,
-			},
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "up"
+				info.Physical = true
+				info.Speed = 1000
+			}),
 			expected: 110, // 100 (physical) + 10 (speed)
 		},
 		{
 			name: "physical interface with XDP",
-			info: InterfaceInfo{
-				State:      "up",
-				Physical:   true,
-				Speed:      10000,
-				XDPSupport: true,
-			},
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "up"
+				info.Physical = true
+				info.Speed = 10000
+				info.XDPSupport = true
+			}),
 			expected: 250, // 100 (physical) + 100 (speed) + 50 (XDP)
 		},
 		{
 			name: "physical interface with DPDK",
-			info: InterfaceInfo{
-				State:       "up",
-				Physical:    true,
-				Speed:       10000,
-				DPDKSupport: true,
-			},
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "up"
+				info.Physical = true
+				info.Speed = 10000
+				info.DPDKSupport = true
+			}),
 			expected: 230, // 100 (physical) + 100 (speed) + 30 (DPDK)
 		},
 		{
 			name: "physical interface with XDP and DPDK",
-			info: InterfaceInfo{
-				State:       "up",
-				Physical:    true,
-				Speed:       10000,
-				XDPSupport:  true,
-				DPDKSupport: true,
-			},
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "up"
+				info.Physical = true
+				info.Speed = 10000
+				info.XDPSupport = true
+				info.DPDKSupport = true
+			}),
 			expected: 280, // 100 (physical) + 100 (speed) + 50 (XDP) + 30 (DPDK)
 		},
 		{
 			name: "interface with IPv4",
-			info: InterfaceInfo{
-				State:    "up",
-				Physical: true,
-				Speed:    1000,
-				IPv4:     "192.168.1.1",
-			},
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "up"
+				info.Physical = true
+				info.Speed = 1000
+				info.IPv4 = "192.168.1.1"
+			}),
 			expected: 120, // 100 (physical) + 10 (speed) + 10 (IPv4)
 		},
 		{
 			name: "interface with full duplex",
-			info: InterfaceInfo{
-				State:    "up",
-				Physical: true,
-				Speed:    1000,
-				Duplex:   "full",
-			},
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "up"
+				info.Physical = true
+				info.Speed = 1000
+				info.Duplex = "full"
+			}),
 			expected: 115, // 100 (physical) + 10 (speed) + 5 (full duplex)
 		},
 		{
 			name: "fully configured high-speed interface",
-			info: InterfaceInfo{
-				State:       "up",
-				Physical:    true,
-				Speed:       100000, // 100G
-				XDPSupport:  true,
-				DPDKSupport: true,
-				IPv4:        "10.0.0.1",
-				Duplex:      "full",
-			},
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "up"
+				info.Physical = true
+				info.Speed = 100000 // 100G
+				info.XDPSupport = true
+				info.DPDKSupport = true
+				info.IPv4 = "10.0.0.1"
+				info.Duplex = "full"
+			}),
 			expected: 1195, // 100 (physical) + 1000 (speed) + 50 (XDP) + 30 (DPDK) + 10 (IPv4) + 5 (full)
 		},
 		{
 			name: "half duplex interface",
-			info: InterfaceInfo{
-				State:    "up",
-				Physical: true,
-				Speed:    100,
-				Duplex:   "half",
-			},
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "up"
+				info.Physical = true
+				info.Speed = 100
+				info.Duplex = "half"
+			}),
 			expected: 101, // 100 (physical) + 1 (speed) + 0 (not full duplex)
 		},
 		{
 			name: "unknown duplex interface",
-			info: InterfaceInfo{
-				State:    "up",
-				Physical: true,
-				Speed:    1000,
-				Duplex:   "unknown",
-			},
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "up"
+				info.Physical = true
+				info.Speed = 1000
+				info.Duplex = "unknown"
+			}),
 			expected: 110, // 100 (physical) + 10 (speed)
 		},
 		{
 			name: "zero speed interface",
-			info: InterfaceInfo{
-				State:    "up",
-				Physical: true,
-				Speed:    0,
-			},
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "up"
+				info.Physical = true
+				info.Speed = 0
+			}),
 			expected: 100, // 100 (physical)
 		},
 	}
@@ -824,8 +739,6 @@ func TestGetDriverEdgeCases(t *testing.T) {
 }
 
 // TestCalculateScoreAdditionalCases tests more scenarios for calculateScore.
-//
-//nolint:exhaustruct // Test data - only relevant fields populated.
 func TestCalculateScoreAdditionalCases(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -834,49 +747,49 @@ func TestCalculateScoreAdditionalCases(t *testing.T) {
 	}{
 		{
 			name: "empty state returns zero",
-			info: InterfaceInfo{
-				State:    "",
-				Physical: true,
-				Speed:    10000,
-			},
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = ""
+				info.Physical = true
+				info.Speed = 10000
+			}),
 			expected: 0,
 		},
 		{
 			name: "other state returns zero",
-			info: InterfaceInfo{
-				State:    "unknown",
-				Physical: true,
-				Speed:    10000,
-			},
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "unknown"
+				info.Physical = true
+				info.Speed = 10000
+			}),
 			expected: 0,
 		},
 		{
 			name: "only XDP support no physical",
-			info: InterfaceInfo{
-				State:      "up",
-				Physical:   false,
-				XDPSupport: true,
-			},
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "up"
+				info.Physical = false
+				info.XDPSupport = true
+			}),
 			expected: 50, // Only XDP bonus
 		},
 		{
 			name: "only DPDK support no physical",
-			info: InterfaceInfo{
-				State:       "up",
-				Physical:    false,
-				DPDKSupport: true,
-			},
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "up"
+				info.Physical = false
+				info.DPDKSupport = true
+			}),
 			expected: 30, // Only DPDK bonus
 		},
 		{
 			name: "empty IPv4 and IPv6",
-			info: InterfaceInfo{
-				State:    "up",
-				Physical: true,
-				Speed:    0,
-				IPv4:     "",
-				IPv6:     "",
-			},
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "up"
+				info.Physical = true
+				info.Speed = 0
+				info.IPv4 = ""
+				info.IPv6 = ""
+			}),
 			expected: 100, // Only physical bonus
 		},
 	}
@@ -937,7 +850,7 @@ func TestInterfaceInfoDefaults(t *testing.T) {
 }
 
 // TestDetectInterfacesErrorPaths exercises error paths in DetectInterfaces.
-// Note: The error from net.Interfaces() is hard to trigger directly,
+// Note: The error from [net.Interfaces] is hard to trigger directly,
 // so this test verifies the function behaves correctly in normal conditions.
 func TestDetectInterfacesErrorPaths(t *testing.T) {
 	// This test ensures DetectInterfaces handles various interface states.
@@ -959,7 +872,7 @@ func TestDetectInterfacesErrorPaths(t *testing.T) {
 
 // TestGetBestInterfaceWithNoInterfaces tests GetBestInterface behavior
 // when DetectInterfaces returns empty list.
-// Note: This is hard to test directly without mocking net.Interfaces().
+// Note: This is hard to test directly without mocking [net.Interfaces].
 func TestGetBestInterfaceErrorMessages(t *testing.T) {
 	// Verify error messages are descriptive.
 	if errNoSuitableInterfaces.Error() != "no suitable interfaces found" {
@@ -996,8 +909,6 @@ func TestScoringConstants(t *testing.T) {
 }
 
 // TestSpeedScoring verifies speed contributes correctly to score.
-//
-//nolint:exhaustruct // Test data - only relevant fields populated.
 func TestSpeedScoring(t *testing.T) {
 	testCases := []struct {
 		speed         int
@@ -1015,10 +926,10 @@ func TestSpeedScoring(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("%dMbps", tc.speed), func(t *testing.T) {
-			info := InterfaceInfo{
-				State: "up",
-				Speed: tc.speed,
-			}
+			info := buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "up"
+				info.Speed = tc.speed
+			})
 			score := calculateScore(info)
 			if score != tc.expectedBonus {
 				t.Errorf("calculateScore(speed=%d) = %d, want %d",
@@ -1029,8 +940,6 @@ func TestSpeedScoring(t *testing.T) {
 }
 
 // TestAllScoringCombinations tests various combinations of scoring factors.
-//
-//nolint:exhaustruct // Test data - only relevant fields populated.
 func TestAllScoringCombinations(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -1038,46 +947,63 @@ func TestAllScoringCombinations(t *testing.T) {
 		expected int
 	}{
 		{
-			name:     "minimum score - just up",
-			info:     InterfaceInfo{State: "up"},
+			name: "minimum score - just up",
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "up"
+			}),
 			expected: 0,
 		},
 		{
-			name:     "physical only",
-			info:     InterfaceInfo{State: "up", Physical: true},
+			name: "physical only",
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "up"
+				info.Physical = true
+			}),
 			expected: scorePhysical,
 		},
 		{
-			name:     "XDP only",
-			info:     InterfaceInfo{State: "up", XDPSupport: true},
+			name: "XDP only",
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "up"
+				info.XDPSupport = true
+			}),
 			expected: scoreXDPSupport,
 		},
 		{
-			name:     "DPDK only",
-			info:     InterfaceInfo{State: "up", DPDKSupport: true},
+			name: "DPDK only",
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "up"
+				info.DPDKSupport = true
+			}),
 			expected: scoreDPDKSupport,
 		},
 		{
-			name:     "IPv4 only",
-			info:     InterfaceInfo{State: "up", IPv4: "10.0.0.1"},
+			name: "IPv4 only",
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "up"
+				info.IPv4 = "10.0.0.1"
+			}),
 			expected: scoreHasIPv4,
 		},
 		{
-			name:     "Full duplex only",
-			info:     InterfaceInfo{State: "up", Duplex: "full"},
+			name: "Full duplex only",
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "up"
+				info.Duplex = "full"
+			}),
 			expected: scoreFullDuplex,
 		},
 		{
 			name: "All bonuses with 10G",
-			info: InterfaceInfo{
-				State:       "up",
-				Physical:    true,
-				Speed:       10000,
-				XDPSupport:  true,
-				DPDKSupport: true,
-				IPv4:        "1.2.3.4",
-				Duplex:      "full",
-			},
+			info: buildInterfaceInfo(func(info *InterfaceInfo) {
+				info.State = "up"
+				info.Physical = true
+				info.Speed = 10000
+				info.XDPSupport = true
+				info.DPDKSupport = true
+				info.IPv4 = "1.2.3.4"
+				info.Duplex = "full"
+			}),
 			expected: scorePhysical + 100 + scoreXDPSupport + scoreDPDKSupport + scoreHasIPv4 + scoreFullDuplex,
 		},
 	}

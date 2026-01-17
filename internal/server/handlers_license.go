@@ -99,7 +99,7 @@ func (s *Server) handleLicenseActivate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req LicenseActivateRequest
-	if !decodeJSONStrict(w, r, &req, maxRequestBodySize) {
+	if !decodeJSONStrict(w, r, &req) {
 		return
 	}
 

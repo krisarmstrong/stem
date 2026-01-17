@@ -1,7 +1,6 @@
 // Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
 
-//nolint:testpackage,exhaustruct,gocognit // Internal test package, partial structs in tests, complex table-driven tests.
-package servicetest
+package servicetest_test
 
 import (
 	"errors"
@@ -9,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/krisarmstrong/stem/internal/modules/modtypes"
+	"github.com/krisarmstrong/stem/internal/modules/servicetest"
 	"github.com/krisarmstrong/stem/internal/testmaster/dataplane"
 )
 
@@ -16,7 +16,7 @@ import (
 func TestNewExecutor(t *testing.T) {
 	// NewExecutor will fail on non-Linux/non-CGO builds because
 	// dataplane.NewContext returns ErrNotSupported.
-	_, err := NewExecutor("eth0")
+	_, err := servicetest.NewExecutor("eth0")
 	if err == nil {
 		// If it succeeds (on Linux with CGO), verify the executor is valid.
 		t.Log("NewExecutor succeeded - running on supported platform")
@@ -29,32 +29,33 @@ func TestNewExecutor(t *testing.T) {
 // TestNewExecutorWithContext tests the NewExecutorWithContext function.
 func TestNewExecutorWithContext(t *testing.T) {
 	t.Run("with nil context", func(t *testing.T) {
-		exec := NewExecutorWithContext(nil)
+		exec := servicetest.NewExecutorWithContext(nil)
 		if exec == nil {
 			t.Fatal("NewExecutorWithContext(nil) returned nil")
 		}
 		if exec.Module == nil {
 			t.Error("NewExecutorWithContext(nil) returned executor with nil Module")
 		}
-		if exec.ctx != nil {
+		if servicetest.ContextForTest(exec) != nil {
 			t.Error("NewExecutorWithContext(nil) should have nil context")
 		}
 	})
 
 	t.Run("embeds module correctly", func(t *testing.T) {
-		exec := NewExecutorWithContext(nil)
-		if exec.Name() != ModuleName {
-			t.Errorf("Embedded module Name() = %q, want %q", exec.Name(), ModuleName)
+		exec := servicetest.NewExecutorWithContext(nil)
+		if exec.Name() != servicetest.ModuleName {
+			t.Errorf("Embedded module Name() = %q, want %q", exec.Name(), servicetest.ModuleName)
 		}
-		if exec.DisplayName() != DisplayName {
-			t.Errorf("Embedded module DisplayName() = %q, want %q", exec.DisplayName(), DisplayName)
+		displayName := exec.DisplayName()
+		if displayName != servicetest.DisplayName {
+			t.Errorf("Embedded module DisplayName() = %q, want %q", displayName, servicetest.DisplayName)
 		}
 	})
 }
 
 // TestExecutorSupportsExecution tests the SupportsExecution method.
 func TestExecutorSupportsExecution(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 	if !exec.SupportsExecution() {
 		t.Error("SupportsExecution() = false, want true")
 	}
@@ -63,7 +64,7 @@ func TestExecutorSupportsExecution(t *testing.T) {
 // TestExecutorClose tests the Close method.
 func TestExecutorClose(t *testing.T) {
 	t.Run("with nil context", func(_ *testing.T) {
-		exec := NewExecutorWithContext(nil)
+		exec := servicetest.NewExecutorWithContext(nil)
 		// Should not panic.
 		exec.Close()
 	})
@@ -71,10 +72,7 @@ func TestExecutorClose(t *testing.T) {
 	t.Run("with context", func(_ *testing.T) {
 		// Create an executor with a mock context if available.
 		// On stub builds, we can't create a real context.
-		exec := &Executor{
-			Module: New(),
-			ctx:    &dataplane.Context{},
-		}
+		exec := servicetest.NewExecutorWithContext(&dataplane.Context{})
 		// Should not panic.
 		exec.Close()
 	})
@@ -82,7 +80,7 @@ func TestExecutorClose(t *testing.T) {
 
 // TestExecutorExecuteErrors tests Execute error cases.
 func TestExecutorExecuteErrors(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	t.Run("unsupported test type", func(t *testing.T) {
 		cfg := &modtypes.TestConfig{
@@ -125,7 +123,7 @@ func TestExecutorExecuteErrors(t *testing.T) {
 
 // TestExecutorExecuteWithNilContext tests Execute with nil dataplane context.
 func TestExecutorExecuteWithNilContext(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
 		FrameSize: 1518,
@@ -167,7 +165,7 @@ func TestExecutorExecuteWithNilContext(t *testing.T) {
 
 // TestSafeDuration tests the safeDuration method.
 func TestSafeDuration(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	tests := []struct {
 		name     string
@@ -201,21 +199,21 @@ func TestSafeDuration(t *testing.T) {
 		},
 		{
 			name:     "max uint32 value",
-			duration: int(maxUint32),
+			duration: int(servicetest.MaxUint32ForTest()),
 			fallback: 100,
-			expected: maxUint32,
+			expected: servicetest.MaxUint32ForTest(),
 		},
 		{
-			name:     "value exceeding uint32 returns maxUint32",
-			duration: int(maxUint32) + 1,
+			name:     "value exceeding uint32 returns servicetest.MaxUint32ForTest()",
+			duration: int(servicetest.MaxUint32ForTest()) + 1,
 			fallback: 100,
-			expected: maxUint32,
+			expected: servicetest.MaxUint32ForTest(),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := exec.safeDuration(tt.duration, tt.fallback)
+			result := servicetest.SafeDurationForTest(exec, tt.duration, tt.fallback)
 			if result != tt.expected {
 				t.Errorf("safeDuration(%d, %d) = %d, want %d",
 					tt.duration, tt.fallback, result, tt.expected)
@@ -334,7 +332,7 @@ func TestModtypesGetUint8Param(t *testing.T) {
 
 // TestBuildY1564Service tests the buildY1564Service method.
 func TestBuildY1564Service(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	t.Run("default values", func(t *testing.T) {
 		cfg := &modtypes.TestConfig{
@@ -343,26 +341,8 @@ func TestBuildY1564Service(t *testing.T) {
 			Duration:  0,
 			Params:    nil,
 		}
-		service := exec.buildY1564Service(cfg)
-
-		if service.ServiceID != defaultServiceID {
-			t.Errorf("ServiceID = %d, want %d", service.ServiceID, defaultServiceID)
-		}
-		if service.ServiceName != defaultServiceName {
-			t.Errorf("ServiceName = %q, want %q", service.ServiceName, defaultServiceName)
-		}
-		if service.FrameSize != defaultFrameSize {
-			t.Errorf("FrameSize = %d, want %d", service.FrameSize, defaultFrameSize)
-		}
-		if service.SLA.CIRMbps != defaultCIRMbps {
-			t.Errorf("SLA.CIRMbps = %f, want %f", service.SLA.CIRMbps, defaultCIRMbps)
-		}
-		if service.SLA.EIRMbps != defaultEIRMbps {
-			t.Errorf("SLA.EIRMbps = %f, want %f", service.SLA.EIRMbps, defaultEIRMbps)
-		}
-		if !service.Enabled {
-			t.Error("Enabled should be true by default")
-		}
+		service := servicetest.BuildY1564ServiceForTest(exec, cfg)
+		assertY1564Defaults(t, service)
 	})
 
 	t.Run("with custom frame size", func(t *testing.T) {
@@ -372,11 +352,8 @@ func TestBuildY1564Service(t *testing.T) {
 			Duration:  0,
 			Params:    nil,
 		}
-		service := exec.buildY1564Service(cfg)
-
-		if service.FrameSize != 512 {
-			t.Errorf("FrameSize = %d, want 512", service.FrameSize)
-		}
+		service := servicetest.BuildY1564ServiceForTest(exec, cfg)
+		assertY1564FrameSize(t, service, 512)
 	})
 
 	t.Run("with SLA parameters", func(t *testing.T) {
@@ -394,29 +371,8 @@ func TestBuildY1564Service(t *testing.T) {
 				"flr_threshold_pct": 0.001,
 			},
 		}
-		service := exec.buildY1564Service(cfg)
-
-		if service.SLA.CIRMbps != 200.0 {
-			t.Errorf("SLA.CIRMbps = %f, want 200.0", service.SLA.CIRMbps)
-		}
-		if service.SLA.EIRMbps != 50.0 {
-			t.Errorf("SLA.EIRMbps = %f, want 50.0", service.SLA.EIRMbps)
-		}
-		if service.SLA.CBSBytes != 12000 {
-			t.Errorf("SLA.CBSBytes = %d, want 12000", service.SLA.CBSBytes)
-		}
-		if service.SLA.EBSBytes != 6000 {
-			t.Errorf("SLA.EBSBytes = %d, want 6000", service.SLA.EBSBytes)
-		}
-		if service.SLA.FDThresholdMs != 5.0 {
-			t.Errorf("SLA.FDThresholdMs = %f, want 5.0", service.SLA.FDThresholdMs)
-		}
-		if service.SLA.FDVThresholdMs != 2.5 {
-			t.Errorf("SLA.FDVThresholdMs = %f, want 2.5", service.SLA.FDVThresholdMs)
-		}
-		if service.SLA.FLRThresholdPct != 0.001 {
-			t.Errorf("SLA.FLRThresholdPct = %f, want 0.001", service.SLA.FLRThresholdPct)
-		}
+		service := servicetest.BuildY1564ServiceForTest(exec, cfg)
+		assertY1564SLAParams(t, service, 200.0, 50.0, 12000, 6000, 5.0, 2.5, 0.001)
 	})
 
 	t.Run("with service parameters", func(t *testing.T) {
@@ -430,17 +386,8 @@ func TestBuildY1564Service(t *testing.T) {
 				"enabled":    false,
 			},
 		}
-		service := exec.buildY1564Service(cfg)
-
-		if service.FrameSize != 9000 {
-			t.Errorf("FrameSize = %d, want 9000", service.FrameSize)
-		}
-		if service.CoS != 5 {
-			t.Errorf("CoS = %d, want 5", service.CoS)
-		}
-		if service.Enabled {
-			t.Error("Enabled should be false")
-		}
+		service := servicetest.BuildY1564ServiceForTest(exec, cfg)
+		assertY1564ServiceParams(t, service, 9000, 5, false)
 	})
 
 	t.Run("with JSON-decoded params (float64)", func(t *testing.T) {
@@ -455,17 +402,8 @@ func TestBuildY1564Service(t *testing.T) {
 				"cos":        3.0,
 			},
 		}
-		service := exec.buildY1564Service(cfg)
-
-		if service.SLA.CIRMbps != 500.0 {
-			t.Errorf("SLA.CIRMbps = %f, want 500.0", service.SLA.CIRMbps)
-		}
-		if service.FrameSize != 1024 {
-			t.Errorf("FrameSize = %d, want 1024", service.FrameSize)
-		}
-		if service.CoS != 3 {
-			t.Errorf("CoS = %d, want 3", service.CoS)
-		}
+		service := servicetest.BuildY1564ServiceForTest(exec, cfg)
+		assertY1564JSONParams(t, service, 500.0, 1024, 3)
 	})
 
 	t.Run("cos out of range falls back to default", func(t *testing.T) {
@@ -475,18 +413,16 @@ func TestBuildY1564Service(t *testing.T) {
 				"cos": uint32(300), // Exceeds uint8 max, falls back to default.
 			},
 		}
-		service := exec.buildY1564Service(cfg)
+		service := servicetest.BuildY1564ServiceForTest(exec, cfg)
 
 		// Out-of-range CoS falls back to default (0 in buildY1564Service).
-		if service.CoS != 0 {
-			t.Errorf("CoS = %d, want 0 (default)", service.CoS)
-		}
+		assertY1564CoS(t, service, 0)
 	})
 }
 
 // TestBuildMEFConfig tests the buildMEFConfig method.
 func TestBuildMEFConfig(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	t.Run("default values", func(t *testing.T) {
 		cfg := &modtypes.TestConfig{
@@ -495,26 +431,8 @@ func TestBuildMEFConfig(t *testing.T) {
 			Duration:  0,
 			Params:    nil,
 		}
-		mefCfg := exec.buildMEFConfig(cfg)
-
-		if mefCfg.ServiceID != "" {
-			t.Errorf("ServiceID = %q, want empty", mefCfg.ServiceID)
-		}
-		if mefCfg.CIRMbps != defaultCIRMbps {
-			t.Errorf("CIRMbps = %f, want %f", mefCfg.CIRMbps, defaultCIRMbps)
-		}
-		if mefCfg.EIRMbps != defaultEIRMbps {
-			t.Errorf("EIRMbps = %f, want %f", mefCfg.EIRMbps, defaultEIRMbps)
-		}
-		if mefCfg.ConfigDurationSec != defaultMEFConfigDurationSec {
-			t.Errorf("ConfigDurationSec = %d, want %d", mefCfg.ConfigDurationSec, defaultMEFConfigDurationSec)
-		}
-		if mefCfg.PerfDurationMin != defaultMEFPerfDurationMin {
-			t.Errorf("PerfDurationMin = %d, want %d", mefCfg.PerfDurationMin, defaultMEFPerfDurationMin)
-		}
-		if mefCfg.AvailabilityPct != defaultAvailabilityPct {
-			t.Errorf("AvailabilityPct = %f, want %f", mefCfg.AvailabilityPct, defaultAvailabilityPct)
-		}
+		mefCfg := servicetest.BuildMEFConfigForTest(exec, cfg)
+		assertMEFDefaults(t, mefCfg)
 	})
 
 	t.Run("with custom parameters", func(t *testing.T) {
@@ -537,44 +455,8 @@ func TestBuildMEFConfig(t *testing.T) {
 				"cos":                 uint32(4),
 			},
 		}
-		mefCfg := exec.buildMEFConfig(cfg)
-
-		if mefCfg.ServiceID != "test-service-1" {
-			t.Errorf("ServiceID = %q, want %q", mefCfg.ServiceID, "test-service-1")
-		}
-		if mefCfg.CIRMbps != 500.0 {
-			t.Errorf("CIRMbps = %f, want 500.0", mefCfg.CIRMbps)
-		}
-		if mefCfg.EIRMbps != 100.0 {
-			t.Errorf("EIRMbps = %f, want 100.0", mefCfg.EIRMbps)
-		}
-		if mefCfg.CBSBytes != 24000 {
-			t.Errorf("CBSBytes = %d, want 24000", mefCfg.CBSBytes)
-		}
-		if mefCfg.EBSBytes != 12000 {
-			t.Errorf("EBSBytes = %d, want 12000", mefCfg.EBSBytes)
-		}
-		if mefCfg.FDThresholdUs != 5000.0 {
-			t.Errorf("FDThresholdUs = %f, want 5000.0", mefCfg.FDThresholdUs)
-		}
-		if mefCfg.FDVThresholdUs != 2500.0 {
-			t.Errorf("FDVThresholdUs = %f, want 2500.0", mefCfg.FDVThresholdUs)
-		}
-		if mefCfg.FLRThresholdPct != 0.001 {
-			t.Errorf("FLRThresholdPct = %f, want 0.001", mefCfg.FLRThresholdPct)
-		}
-		if mefCfg.AvailabilityPct != 99.9 {
-			t.Errorf("AvailabilityPct = %f, want 99.9", mefCfg.AvailabilityPct)
-		}
-		if mefCfg.ConfigDurationSec != 120 {
-			t.Errorf("ConfigDurationSec = %d, want 120", mefCfg.ConfigDurationSec)
-		}
-		if mefCfg.PerfDurationMin != 30 {
-			t.Errorf("PerfDurationMin = %d, want 30", mefCfg.PerfDurationMin)
-		}
-		if mefCfg.CoS != 4 {
-			t.Errorf("CoS = %d, want 4", mefCfg.CoS)
-		}
+		mefCfg := servicetest.BuildMEFConfigForTest(exec, cfg)
+		assertMEFCustomParams(t, mefCfg)
 	})
 
 	t.Run("with frame size from config", func(t *testing.T) {
@@ -584,11 +466,8 @@ func TestBuildMEFConfig(t *testing.T) {
 			Duration:  0,
 			Params:    nil,
 		}
-		mefCfg := exec.buildMEFConfig(cfg)
-
-		if len(mefCfg.FrameSizes) != 1 || mefCfg.FrameSizes[0] != 512 {
-			t.Errorf("FrameSizes = %v, want [512]", mefCfg.FrameSizes)
-		}
+		mefCfg := servicetest.BuildMEFConfigForTest(exec, cfg)
+		assertMEFFrameSizes(t, mefCfg, []uint32{512})
 	})
 
 	t.Run("with duration in seconds (converts to minutes)", func(t *testing.T) {
@@ -598,12 +477,8 @@ func TestBuildMEFConfig(t *testing.T) {
 			Duration:  1800, // 30 minutes in seconds.
 			Params:    nil,
 		}
-		mefCfg := exec.buildMEFConfig(cfg)
-
-		// 1800 / 60 = 30 minutes.
-		if mefCfg.PerfDurationMin != 30 {
-			t.Errorf("PerfDurationMin = %d, want 30", mefCfg.PerfDurationMin)
-		}
+		mefCfg := servicetest.BuildMEFConfigForTest(exec, cfg)
+		assertMEFPerfDuration(t, mefCfg, 30)
 	})
 
 	t.Run("with duration less than a minute", func(t *testing.T) {
@@ -613,168 +488,379 @@ func TestBuildMEFConfig(t *testing.T) {
 			Duration:  45, // 45 seconds, less than 1 minute.
 			Params:    nil,
 		}
-		mefCfg := exec.buildMEFConfig(cfg)
-
-		// 45 / 60 = 0, so it should use 45 as raw value.
-		if mefCfg.PerfDurationMin != 45 {
-			t.Errorf("PerfDurationMin = %d, want 45", mefCfg.PerfDurationMin)
-		}
+		mefCfg := servicetest.BuildMEFConfigForTest(exec, cfg)
+		assertMEFPerfDuration(t, mefCfg, 45)
 	})
+}
+
+func assertY1564Defaults(t *testing.T, service *dataplane.Y1564Service) {
+	t.Helper()
+
+	if service.ServiceID != servicetest.DefaultServiceIDForTest() {
+		t.Errorf("ServiceID = %d, want %d", service.ServiceID, servicetest.DefaultServiceIDForTest())
+	}
+	if service.ServiceName != servicetest.DefaultServiceNameForTest() {
+		t.Errorf("ServiceName = %q, want %q", service.ServiceName, servicetest.DefaultServiceNameForTest())
+	}
+	if service.FrameSize != servicetest.DefaultFrameSizeForTest() {
+		t.Errorf("FrameSize = %d, want %d", service.FrameSize, servicetest.DefaultFrameSizeForTest())
+	}
+	if service.SLA.CIRMbps != servicetest.DefaultCIRMbpsForTest() {
+		t.Errorf("SLA.CIRMbps = %f, want %f", service.SLA.CIRMbps, servicetest.DefaultCIRMbpsForTest())
+	}
+	if service.SLA.EIRMbps != servicetest.DefaultEIRMbpsForTest() {
+		t.Errorf("SLA.EIRMbps = %f, want %f", service.SLA.EIRMbps, servicetest.DefaultEIRMbpsForTest())
+	}
+	if !service.Enabled {
+		t.Error("Enabled should be true by default")
+	}
+}
+
+func assertY1564FrameSize(t *testing.T, service *dataplane.Y1564Service, frameSize uint32) {
+	t.Helper()
+
+	if service.FrameSize != frameSize {
+		t.Errorf("FrameSize = %d, want %d", service.FrameSize, frameSize)
+	}
+}
+
+func assertY1564SLAParams(
+	t *testing.T,
+	service *dataplane.Y1564Service,
+	cir,
+	eir float64,
+	cbs,
+	ebs uint32,
+	fd,
+	fdv,
+	flr float64,
+) {
+	t.Helper()
+
+	if service.SLA.CIRMbps != cir {
+		t.Errorf("SLA.CIRMbps = %f, want %f", service.SLA.CIRMbps, cir)
+	}
+	if service.SLA.EIRMbps != eir {
+		t.Errorf("SLA.EIRMbps = %f, want %f", service.SLA.EIRMbps, eir)
+	}
+	if service.SLA.CBSBytes != cbs {
+		t.Errorf("SLA.CBSBytes = %d, want %d", service.SLA.CBSBytes, cbs)
+	}
+	if service.SLA.EBSBytes != ebs {
+		t.Errorf("SLA.EBSBytes = %d, want %d", service.SLA.EBSBytes, ebs)
+	}
+	if service.SLA.FDThresholdMs != fd {
+		t.Errorf("SLA.FDThresholdMs = %f, want %f", service.SLA.FDThresholdMs, fd)
+	}
+	if service.SLA.FDVThresholdMs != fdv {
+		t.Errorf("SLA.FDVThresholdMs = %f, want %f", service.SLA.FDVThresholdMs, fdv)
+	}
+	if service.SLA.FLRThresholdPct != flr {
+		t.Errorf("SLA.FLRThresholdPct = %f, want %f", service.SLA.FLRThresholdPct, flr)
+	}
+}
+
+func assertY1564ServiceParams(
+	t *testing.T,
+	service *dataplane.Y1564Service,
+	frameSize uint32,
+	cos uint8,
+	enabled bool,
+) {
+	t.Helper()
+
+	if service.FrameSize != frameSize {
+		t.Errorf("FrameSize = %d, want %d", service.FrameSize, frameSize)
+	}
+	if service.CoS != cos {
+		t.Errorf("CoS = %d, want %d", service.CoS, cos)
+	}
+	if service.Enabled != enabled {
+		t.Errorf("Enabled = %t, want %t", service.Enabled, enabled)
+	}
+}
+
+func assertY1564JSONParams(t *testing.T, service *dataplane.Y1564Service, cir float64, frameSize uint32, cos uint8) {
+	t.Helper()
+
+	if service.SLA.CIRMbps != cir {
+		t.Errorf("SLA.CIRMbps = %f, want %f", service.SLA.CIRMbps, cir)
+	}
+	if service.FrameSize != frameSize {
+		t.Errorf("FrameSize = %d, want %d", service.FrameSize, frameSize)
+	}
+	if service.CoS != cos {
+		t.Errorf("CoS = %d, want %d", service.CoS, cos)
+	}
+}
+
+func assertY1564CoS(t *testing.T, service *dataplane.Y1564Service, cos uint8) {
+	t.Helper()
+
+	if service.CoS != cos {
+		t.Errorf("CoS = %d, want %d", service.CoS, cos)
+	}
+}
+
+func assertMEFDefaults(t *testing.T, mefCfg *dataplane.MEFConfig) {
+	t.Helper()
+
+	if mefCfg.ServiceID != "" {
+		t.Errorf("ServiceID = %q, want empty", mefCfg.ServiceID)
+	}
+	if mefCfg.CIRMbps != servicetest.DefaultCIRMbpsForTest() {
+		t.Errorf("CIRMbps = %f, want %f", mefCfg.CIRMbps, servicetest.DefaultCIRMbpsForTest())
+	}
+	if mefCfg.EIRMbps != servicetest.DefaultEIRMbpsForTest() {
+		t.Errorf("EIRMbps = %f, want %f", mefCfg.EIRMbps, servicetest.DefaultEIRMbpsForTest())
+	}
+	defaultConfigDuration := servicetest.DefaultMEFConfigDurationSecForTest()
+	if mefCfg.ConfigDurationSec != defaultConfigDuration {
+		t.Errorf("ConfigDurationSec = %d, want %d", mefCfg.ConfigDurationSec, defaultConfigDuration)
+	}
+	defaultPerfDuration := servicetest.DefaultMEFPerfDurationMinForTest()
+	if mefCfg.PerfDurationMin != defaultPerfDuration {
+		t.Errorf("PerfDurationMin = %d, want %d", mefCfg.PerfDurationMin, defaultPerfDuration)
+	}
+	defaultAvailability := servicetest.DefaultAvailabilityPctForTest()
+	if mefCfg.AvailabilityPct != defaultAvailability {
+		t.Errorf("AvailabilityPct = %f, want %f", mefCfg.AvailabilityPct, defaultAvailability)
+	}
+}
+
+func assertMEFCustomParams(t *testing.T, mefCfg *dataplane.MEFConfig) {
+	t.Helper()
+
+	if mefCfg.ServiceID != "test-service-1" {
+		t.Errorf("ServiceID = %q, want %q", mefCfg.ServiceID, "test-service-1")
+	}
+	if mefCfg.CIRMbps != 500.0 {
+		t.Errorf("CIRMbps = %f, want 500.0", mefCfg.CIRMbps)
+	}
+	if mefCfg.EIRMbps != 100.0 {
+		t.Errorf("EIRMbps = %f, want 100.0", mefCfg.EIRMbps)
+	}
+	if mefCfg.CBSBytes != 24000 {
+		t.Errorf("CBSBytes = %d, want 24000", mefCfg.CBSBytes)
+	}
+	if mefCfg.EBSBytes != 12000 {
+		t.Errorf("EBSBytes = %d, want 12000", mefCfg.EBSBytes)
+	}
+	if mefCfg.FDThresholdUs != 5000.0 {
+		t.Errorf("FDThresholdUs = %f, want 5000.0", mefCfg.FDThresholdUs)
+	}
+	if mefCfg.FDVThresholdUs != 2500.0 {
+		t.Errorf("FDVThresholdUs = %f, want 2500.0", mefCfg.FDVThresholdUs)
+	}
+	if mefCfg.FLRThresholdPct != 0.001 {
+		t.Errorf("FLRThresholdPct = %f, want 0.001", mefCfg.FLRThresholdPct)
+	}
+	if mefCfg.AvailabilityPct != 99.9 {
+		t.Errorf("AvailabilityPct = %f, want 99.9", mefCfg.AvailabilityPct)
+	}
+	if mefCfg.ConfigDurationSec != 120 {
+		t.Errorf("ConfigDurationSec = %d, want 120", mefCfg.ConfigDurationSec)
+	}
+	if mefCfg.PerfDurationMin != 30 {
+		t.Errorf("PerfDurationMin = %d, want 30", mefCfg.PerfDurationMin)
+	}
+	if mefCfg.CoS != 4 {
+		t.Errorf("CoS = %d, want 4", mefCfg.CoS)
+	}
+}
+
+func assertMEFFrameSizes(t *testing.T, mefCfg *dataplane.MEFConfig, expected []uint32) {
+	t.Helper()
+
+	if len(mefCfg.FrameSizes) != len(expected) {
+		t.Errorf("FrameSizes length = %d, want %d", len(mefCfg.FrameSizes), len(expected))
+		return
+	}
+	for i, size := range expected {
+		if mefCfg.FrameSizes[i] != size {
+			t.Errorf("FrameSizes[%d] = %d, want %d", i, mefCfg.FrameSizes[i], size)
+		}
+	}
+}
+
+func assertMEFPerfDuration(t *testing.T, mefCfg *dataplane.MEFConfig, expected uint32) {
+	t.Helper()
+
+	if mefCfg.PerfDurationMin != expected {
+		t.Errorf("PerfDurationMin = %d, want %d", mefCfg.PerfDurationMin, expected)
+	}
 }
 
 // TestExtractY1564Params tests the extractY1564Params method.
 func TestExtractY1564Params(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	t.Run("nil params does not modify service", func(t *testing.T) {
-		service := &dataplane.Y1564Service{
-			SLA: dataplane.Y1564SLA{
-				CIRMbps: 100.0,
-			},
-		}
-		cfg := &modtypes.TestConfig{
-			Params: nil,
-		}
-		exec.extractY1564Params(cfg, service)
-
-		if service.SLA.CIRMbps != 100.0 {
-			t.Errorf("SLA.CIRMbps = %f, want 100.0 (unchanged)", service.SLA.CIRMbps)
-		}
+		testExtractY1564ParamsNil(exec, t)
 	})
-
 	t.Run("empty params does not modify service", func(t *testing.T) {
-		service := &dataplane.Y1564Service{
-			SLA: dataplane.Y1564SLA{
-				CIRMbps: 100.0,
-			},
-		}
-		cfg := &modtypes.TestConfig{
-			Params: map[string]any{},
-		}
-		exec.extractY1564Params(cfg, service)
-
-		if service.SLA.CIRMbps != 100.0 {
-			t.Errorf("SLA.CIRMbps = %f, want 100.0 (unchanged)", service.SLA.CIRMbps)
-		}
+		testExtractY1564ParamsEmpty(exec, t)
 	})
-
 	t.Run("all SLA params", func(t *testing.T) {
-		service := &dataplane.Y1564Service{
-			SLA:       dataplane.Y1564SLA{},
-			FrameSize: 1518,
-			CoS:       0,
-			Enabled:   true,
-		}
-		cfg := &modtypes.TestConfig{
-			Params: map[string]any{
-				"cir":               200.0,
-				"eir":               50.0,
-				"cbs":               uint32(10000),
-				"ebs":               uint32(5000),
-				"fd_threshold_ms":   8.0,
-				"fdv_threshold_ms":  4.0,
-				"flr_threshold_pct": 0.05,
-				"frame_size":        uint32(9000),
-				"cos":               uint32(7),
-				"enabled":           false,
-			},
-		}
-		exec.extractY1564Params(cfg, service)
-
-		if service.SLA.CIRMbps != 200.0 {
-			t.Errorf("SLA.CIRMbps = %f, want 200.0", service.SLA.CIRMbps)
-		}
-		if service.SLA.EIRMbps != 50.0 {
-			t.Errorf("SLA.EIRMbps = %f, want 50.0", service.SLA.EIRMbps)
-		}
-		if service.SLA.CBSBytes != 10000 {
-			t.Errorf("SLA.CBSBytes = %d, want 10000", service.SLA.CBSBytes)
-		}
-		if service.SLA.EBSBytes != 5000 {
-			t.Errorf("SLA.EBSBytes = %d, want 5000", service.SLA.EBSBytes)
-		}
-		if service.SLA.FDThresholdMs != 8.0 {
-			t.Errorf("SLA.FDThresholdMs = %f, want 8.0", service.SLA.FDThresholdMs)
-		}
-		if service.SLA.FDVThresholdMs != 4.0 {
-			t.Errorf("SLA.FDVThresholdMs = %f, want 4.0", service.SLA.FDVThresholdMs)
-		}
-		if service.SLA.FLRThresholdPct != 0.05 {
-			t.Errorf("SLA.FLRThresholdPct = %f, want 0.05", service.SLA.FLRThresholdPct)
-		}
-		if service.FrameSize != 9000 {
-			t.Errorf("FrameSize = %d, want 9000", service.FrameSize)
-		}
-		if service.CoS != 7 {
-			t.Errorf("CoS = %d, want 7", service.CoS)
-		}
-		if service.Enabled {
-			t.Error("Enabled should be false")
-		}
+		testExtractY1564ParamsAll(exec, t)
 	})
-
 	t.Run("partial params only updates provided", func(t *testing.T) {
-		service := &dataplane.Y1564Service{
-			SLA: dataplane.Y1564SLA{
-				CIRMbps:         100.0,
-				EIRMbps:         0.0,
-				FDThresholdMs:   10.0,
-				FDVThresholdMs:  5.0,
-				FLRThresholdPct: 0.01,
-			},
-			FrameSize: 1518,
-			CoS:       0,
-			Enabled:   true,
-		}
-		cfg := &modtypes.TestConfig{
-			Params: map[string]any{
-				"cir": 500.0, // Only CIR is provided.
-			},
-		}
-		exec.extractY1564Params(cfg, service)
-
-		// Only CIR should change.
-		if service.SLA.CIRMbps != 500.0 {
-			t.Errorf("SLA.CIRMbps = %f, want 500.0", service.SLA.CIRMbps)
-		}
-		// Others should remain unchanged.
-		if service.SLA.EIRMbps != 0.0 {
-			t.Errorf("SLA.EIRMbps = %f, want 0.0 (unchanged)", service.SLA.EIRMbps)
-		}
-		if service.SLA.FDThresholdMs != 10.0 {
-			t.Errorf("SLA.FDThresholdMs = %f, want 10.0 (unchanged)", service.SLA.FDThresholdMs)
-		}
+		testExtractY1564ParamsPartial(exec, t)
 	})
-
 	t.Run("enabled param with non-bool type", func(t *testing.T) {
-		service := &dataplane.Y1564Service{
-			Enabled: true,
-		}
-		cfg := &modtypes.TestConfig{
-			Params: map[string]any{
-				"enabled": "false", // String, not bool.
-			},
-		}
-		exec.extractY1564Params(cfg, service)
-
-		// Should remain unchanged because type is wrong.
-		if !service.Enabled {
-			t.Error("Enabled should remain true (non-bool value ignored)")
-		}
+		testExtractY1564ParamsInvalidEnabled(exec, t)
 	})
 }
 
+func testExtractY1564ParamsNil(exec *servicetest.Executor, t *testing.T) {
+	service := &dataplane.Y1564Service{
+		SLA: dataplane.Y1564SLA{
+			CIRMbps: 100.0,
+		},
+	}
+	cfg := &modtypes.TestConfig{
+		Params: nil,
+	}
+	servicetest.ExtractY1564ParamsForTest(exec, cfg, service)
+
+	if service.SLA.CIRMbps != 100.0 {
+		t.Errorf("SLA.CIRMbps = %f, want 100.0 (unchanged)", service.SLA.CIRMbps)
+	}
+}
+
+func testExtractY1564ParamsEmpty(exec *servicetest.Executor, t *testing.T) {
+	service := &dataplane.Y1564Service{
+		SLA: dataplane.Y1564SLA{
+			CIRMbps: 100.0,
+		},
+	}
+	cfg := &modtypes.TestConfig{
+		Params: map[string]any{},
+	}
+	servicetest.ExtractY1564ParamsForTest(exec, cfg, service)
+
+	if service.SLA.CIRMbps != 100.0 {
+		t.Errorf("SLA.CIRMbps = %f, want 100.0 (unchanged)", service.SLA.CIRMbps)
+	}
+}
+
+func testExtractY1564ParamsAll(exec *servicetest.Executor, t *testing.T) {
+	service := &dataplane.Y1564Service{
+		SLA:       dataplane.Y1564SLA{},
+		FrameSize: 1518,
+		CoS:       0,
+		Enabled:   true,
+	}
+	cfg := &modtypes.TestConfig{
+		Params: map[string]any{
+			"cir":               200.0,
+			"eir":               50.0,
+			"cbs":               uint32(10000),
+			"ebs":               uint32(5000),
+			"fd_threshold_ms":   8.0,
+			"fdv_threshold_ms":  4.0,
+			"flr_threshold_pct": 0.05,
+			"frame_size":        uint32(9000),
+			"cos":               uint32(7),
+			"enabled":           false,
+		},
+	}
+	servicetest.ExtractY1564ParamsForTest(exec, cfg, service)
+
+	if service.SLA.CIRMbps != 200.0 {
+		t.Errorf("SLA.CIRMbps = %f, want 200.0", service.SLA.CIRMbps)
+	}
+	if service.SLA.EIRMbps != 50.0 {
+		t.Errorf("SLA.EIRMbps = %f, want 50.0", service.SLA.EIRMbps)
+	}
+	if service.SLA.CBSBytes != 10000 {
+		t.Errorf("SLA.CBSBytes = %d, want 10000", service.SLA.CBSBytes)
+	}
+	if service.SLA.EBSBytes != 5000 {
+		t.Errorf("SLA.EBSBytes = %d, want 5000", service.SLA.EBSBytes)
+	}
+	if service.SLA.FDThresholdMs != 8.0 {
+		t.Errorf("SLA.FDThresholdMs = %f, want 8.0", service.SLA.FDThresholdMs)
+	}
+	if service.SLA.FDVThresholdMs != 4.0 {
+		t.Errorf("SLA.FDVThresholdMs = %f, want 4.0", service.SLA.FDVThresholdMs)
+	}
+	if service.SLA.FLRThresholdPct != 0.05 {
+		t.Errorf("SLA.FLRThresholdPct = %f, want 0.05", service.SLA.FLRThresholdPct)
+	}
+	if service.FrameSize != 9000 {
+		t.Errorf("FrameSize = %d, want 9000", service.FrameSize)
+	}
+	if service.CoS != 7 {
+		t.Errorf("CoS = %d, want 7", service.CoS)
+	}
+	if service.Enabled {
+		t.Error("Enabled should be false")
+	}
+}
+
+func testExtractY1564ParamsPartial(exec *servicetest.Executor, t *testing.T) {
+	service := &dataplane.Y1564Service{
+		SLA: dataplane.Y1564SLA{
+			CIRMbps:         100.0,
+			EIRMbps:         0.0,
+			FDThresholdMs:   10.0,
+			FDVThresholdMs:  5.0,
+			FLRThresholdPct: 0.01,
+		},
+		FrameSize: 1518,
+		CoS:       0,
+		Enabled:   true,
+	}
+	cfg := &modtypes.TestConfig{
+		Params: map[string]any{
+			"cir": 500.0, // Only CIR is provided.
+		},
+	}
+	servicetest.ExtractY1564ParamsForTest(exec, cfg, service)
+
+	// Only CIR should change.
+	if service.SLA.CIRMbps != 500.0 {
+		t.Errorf("SLA.CIRMbps = %f, want 500.0", service.SLA.CIRMbps)
+	}
+	// Others should remain unchanged.
+	if service.SLA.EIRMbps != 0.0 {
+		t.Errorf("SLA.EIRMbps = %f, want 0.0 (unchanged)", service.SLA.EIRMbps)
+	}
+	if service.SLA.FDThresholdMs != 10.0 {
+		t.Errorf("SLA.FDThresholdMs = %f, want 10.0 (unchanged)", service.SLA.FDThresholdMs)
+	}
+}
+
+func testExtractY1564ParamsInvalidEnabled(exec *servicetest.Executor, t *testing.T) {
+	service := &dataplane.Y1564Service{
+		Enabled: true,
+	}
+	cfg := &modtypes.TestConfig{
+		Params: map[string]any{
+			"enabled": "false", // String, not bool.
+		},
+	}
+	servicetest.ExtractY1564ParamsForTest(exec, cfg, service)
+
+	// Should remain unchanged because type is wrong.
+	if !service.Enabled {
+		t.Error("Enabled should remain true (non-bool value ignored)")
+	}
+}
+
+// TestConfigureContext tests the configureContext method.
 // TestConfigureContext tests the configureContext method.
 func TestConfigureContext(t *testing.T) {
 	t.Run("with nil context", func(t *testing.T) {
-		exec := NewExecutorWithContext(nil)
+		exec := servicetest.NewExecutorWithContext(nil)
 		cfg := &modtypes.TestConfig{
 			Interface: "eth0",
 			Duration:  60,
 		}
 
 		// This will fail because context is nil.
-		err := exec.configureContext(cfg)
+		err := servicetest.ConfigureContextForTest(exec, cfg)
 		if err == nil {
 			// On unsupported platforms, this might panic or return nil error.
 			t.Log("configureContext with nil context did not return error")
@@ -786,20 +872,20 @@ func TestConfigureContext(t *testing.T) {
 
 // TestExecutorModuleEmbedding verifies that Executor properly embeds Module.
 func TestExecutorModuleEmbedding(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	// Test all Module interface methods are accessible.
-	if exec.Name() != ModuleName {
-		t.Errorf("Name() = %q, want %q", exec.Name(), ModuleName)
+	if exec.Name() != servicetest.ModuleName {
+		t.Errorf("Name() = %q, want %q", exec.Name(), servicetest.ModuleName)
 	}
-	if exec.DisplayName() != DisplayName {
-		t.Errorf("DisplayName() = %q, want %q", exec.DisplayName(), DisplayName)
+	if exec.DisplayName() != servicetest.DisplayName {
+		t.Errorf("servicetest.DisplayName() = %q, want %q", exec.DisplayName(), servicetest.DisplayName)
 	}
-	if exec.Color() != ColorHex {
-		t.Errorf("Color() = %q, want %q", exec.Color(), ColorHex)
+	if exec.Color() != servicetest.ColorHex {
+		t.Errorf("Color() = %q, want %q", exec.Color(), servicetest.ColorHex)
 	}
-	if exec.Standard() != StandardRef {
-		t.Errorf("Standard() = %q, want %q", exec.Standard(), StandardRef)
+	if exec.Standard() != servicetest.StandardRef {
+		t.Errorf("Standard() = %q, want %q", exec.Standard(), servicetest.StandardRef)
 	}
 
 	execTestTypes := exec.TestTypes()
@@ -821,32 +907,35 @@ func TestExecutorModuleEmbedding(t *testing.T) {
 // TestConstants verifies module constants are defined correctly.
 func TestConstants(t *testing.T) {
 	// Verify default test parameters.
+	defaultServiceID := servicetest.DefaultServiceIDForTest()
 	if defaultServiceID != 1 {
-		t.Errorf("defaultServiceID = %d, want 1", defaultServiceID)
+		t.Errorf("DefaultServiceIDForTest() = %d, want 1", defaultServiceID)
 	}
+	defaultServiceName := servicetest.DefaultServiceNameForTest()
 	if defaultServiceName != "Service-1" {
-		t.Errorf("defaultServiceName = %q, want %q", defaultServiceName, "Service-1")
+		t.Errorf("DefaultServiceNameForTest() = %q, want %q", defaultServiceName, "Service-1")
 	}
+	defaultFrameSize := servicetest.DefaultFrameSizeForTest()
 	if defaultFrameSize != 1518 {
-		t.Errorf("defaultFrameSize = %d, want 1518", defaultFrameSize)
+		t.Errorf("DefaultFrameSizeForTest() = %d, want 1518", defaultFrameSize)
 	}
-	if defaultCIRMbps != 100.0 {
-		t.Errorf("defaultCIRMbps = %f, want 100.0", defaultCIRMbps)
+	defaultCIR := servicetest.DefaultCIRMbpsForTest()
+	if defaultCIR != 100.0 {
+		t.Errorf("DefaultCIRMbpsForTest() = %f, want 100.0", defaultCIR)
 	}
-	if defaultPerfDurationSec != 900 {
-		t.Errorf("defaultPerfDurationSec = %d, want 900", defaultPerfDurationSec)
+	defaultPerfDuration := servicetest.DefaultPerfDurationSecForTest()
+	if defaultPerfDuration != 900 {
+		t.Errorf("DefaultPerfDurationSecForTest() = %d, want 900", defaultPerfDuration)
 	}
+	maxUint32 := servicetest.MaxUint32ForTest()
 	if maxUint32 != 4294967295 {
-		t.Errorf("maxUint32 = %d, want 4294967295", maxUint32)
+		t.Errorf("MaxUint32ForTest() = %d, want 4294967295", maxUint32)
 	}
 }
 
 // TestRunY1564InvalidTestType tests runY1564 with invalid test type.
 func TestRunY1564InvalidTestType(t *testing.T) {
-	exec := &Executor{
-		Module: New(),
-		ctx:    &dataplane.Context{},
-	}
+	exec := servicetest.NewExecutorWithContext(&dataplane.Context{})
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -856,7 +945,7 @@ func TestRunY1564InvalidTestType(t *testing.T) {
 	}
 
 	// This should return ErrTestNotImplemented.
-	_, err := exec.runY1564("invalid_y1564_test", cfg)
+	_, err := servicetest.RunY1564ForTest(exec, "invalid_y1564_test", cfg)
 	if !errors.Is(err, modtypes.ErrTestNotImplemented) {
 		t.Errorf("runY1564 with invalid type returned wrong error: %v", err)
 	}
@@ -864,10 +953,7 @@ func TestRunY1564InvalidTestType(t *testing.T) {
 
 // TestRunMEFInvalidTestType tests runMEF with invalid test type.
 func TestRunMEFInvalidTestType(t *testing.T) {
-	exec := &Executor{
-		Module: New(),
-		ctx:    &dataplane.Context{},
-	}
+	exec := servicetest.NewExecutorWithContext(&dataplane.Context{})
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -877,7 +963,7 @@ func TestRunMEFInvalidTestType(t *testing.T) {
 	}
 
 	// This should return ErrTestNotImplemented.
-	_, err := exec.runMEF("invalid_mef_test", cfg)
+	_, err := servicetest.RunMEFForTest(exec, "invalid_mef_test", cfg)
 	if !errors.Is(err, modtypes.ErrTestNotImplemented) {
 		t.Errorf("runMEF with invalid type returned wrong error: %v", err)
 	}
@@ -887,10 +973,7 @@ func TestRunMEFInvalidTestType(t *testing.T) {
 // On non-Linux/non-CGO builds, the stub returns ErrNotSupported for all dataplane operations.
 func TestRunY1564WithStubContext(t *testing.T) {
 	// Create executor with a stub context (not nil, so we don't panic).
-	exec := &Executor{
-		Module: New(),
-		ctx:    &dataplane.Context{},
-	}
+	exec := servicetest.NewExecutorWithContext(&dataplane.Context{})
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -900,21 +983,21 @@ func TestRunY1564WithStubContext(t *testing.T) {
 	}
 
 	t.Run("y1564_config returns error on stub", func(t *testing.T) {
-		_, err := exec.runY1564("y1564_config", cfg)
+		_, err := servicetest.RunY1564ForTest(exec, "y1564_config", cfg)
 		if err == nil {
 			t.Error("runY1564(y1564_config) should return error on stub build")
 		}
 	})
 
 	t.Run("y1564_perf returns error on stub", func(t *testing.T) {
-		_, err := exec.runY1564("y1564_perf", cfg)
+		_, err := servicetest.RunY1564ForTest(exec, "y1564_perf", cfg)
 		if err == nil {
 			t.Error("runY1564(y1564_perf) should return error on stub build")
 		}
 	})
 
 	t.Run("y1564 (full test) returns error on stub", func(t *testing.T) {
-		_, err := exec.runY1564("y1564", cfg)
+		_, err := servicetest.RunY1564ForTest(exec, "y1564", cfg)
 		if err == nil {
 			t.Error("runY1564(y1564) should return error on stub build")
 		}
@@ -923,10 +1006,7 @@ func TestRunY1564WithStubContext(t *testing.T) {
 
 // TestRunMEFWithStubContext tests runMEF with a stub dataplane context.
 func TestRunMEFWithStubContext(t *testing.T) {
-	exec := &Executor{
-		Module: New(),
-		ctx:    &dataplane.Context{},
-	}
+	exec := servicetest.NewExecutorWithContext(&dataplane.Context{})
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -936,21 +1016,21 @@ func TestRunMEFWithStubContext(t *testing.T) {
 	}
 
 	t.Run("mef_config returns error on stub", func(t *testing.T) {
-		_, err := exec.runMEF("mef_config", cfg)
+		_, err := servicetest.RunMEFForTest(exec, "mef_config", cfg)
 		if err == nil {
 			t.Error("runMEF(mef_config) should return error on stub build")
 		}
 	})
 
 	t.Run("mef_perf returns error on stub", func(t *testing.T) {
-		_, err := exec.runMEF("mef_perf", cfg)
+		_, err := servicetest.RunMEFForTest(exec, "mef_perf", cfg)
 		if err == nil {
 			t.Error("runMEF(mef_perf) should return error on stub build")
 		}
 	})
 
 	t.Run("mef (full test) returns error on stub", func(t *testing.T) {
-		_, err := exec.runMEF("mef", cfg)
+		_, err := servicetest.RunMEFForTest(exec, "mef", cfg)
 		if err == nil {
 			t.Error("runMEF(mef) should return error on stub build")
 		}
@@ -961,10 +1041,7 @@ func TestRunMEFWithStubContext(t *testing.T) {
 // On stub builds, configureContext fails with ErrNotSupported, so Execute returns
 // nil result and an error. This tests the early exit path.
 func TestExecuteWithStubContext(t *testing.T) {
-	exec := &Executor{
-		Module: New(),
-		ctx:    &dataplane.Context{},
-	}
+	exec := servicetest.NewExecutorWithContext(&dataplane.Context{})
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -1011,17 +1088,14 @@ func TestExecuteWithStubContext(t *testing.T) {
 
 // TestConfigureContextWithStubContext tests configureContext with a stub context.
 func TestConfigureContextWithStubContext(t *testing.T) {
-	exec := &Executor{
-		Module: New(),
-		ctx:    &dataplane.Context{},
-	}
+	exec := servicetest.NewExecutorWithContext(&dataplane.Context{})
 
 	t.Run("with duration", func(t *testing.T) {
 		cfg := &modtypes.TestConfig{
 			Interface: "eth0",
 			Duration:  120,
 		}
-		err := exec.configureContext(cfg)
+		err := servicetest.ConfigureContextForTest(exec, cfg)
 		// On stub build, this returns ErrNotSupported.
 		if err == nil {
 			t.Error("configureContext should return error on stub build")
@@ -1033,7 +1107,7 @@ func TestConfigureContextWithStubContext(t *testing.T) {
 			Interface: "eth0",
 			Duration:  0,
 		}
-		err := exec.configureContext(cfg)
+		err := servicetest.ConfigureContextForTest(exec, cfg)
 		// On stub build, this returns ErrNotSupported.
 		if err == nil {
 			t.Error("configureContext should return error on stub build")
@@ -1043,7 +1117,7 @@ func TestConfigureContextWithStubContext(t *testing.T) {
 
 // TestBuildMEFConfigDurationEdgeCases tests edge cases for duration conversion.
 func TestBuildMEFConfigDurationEdgeCases(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	t.Run("negative duration uses default", func(t *testing.T) {
 		cfg := &modtypes.TestConfig{
@@ -1051,11 +1125,12 @@ func TestBuildMEFConfigDurationEdgeCases(t *testing.T) {
 			Duration:  -100,
 			Params:    nil,
 		}
-		mefCfg := exec.buildMEFConfig(cfg)
+		mefCfg := servicetest.BuildMEFConfigForTest(exec, cfg)
 
 		// Negative duration should not override default.
-		if mefCfg.PerfDurationMin != defaultMEFPerfDurationMin {
-			t.Errorf("PerfDurationMin = %d, want %d (default)", mefCfg.PerfDurationMin, defaultMEFPerfDurationMin)
+		defaultPerfDuration := servicetest.DefaultMEFPerfDurationMinForTest()
+		if mefCfg.PerfDurationMin != defaultPerfDuration {
+			t.Errorf("PerfDurationMin = %d, want %d (default)", mefCfg.PerfDurationMin, defaultPerfDuration)
 		}
 	})
 
@@ -1065,10 +1140,11 @@ func TestBuildMEFConfigDurationEdgeCases(t *testing.T) {
 			Duration:  0,
 			Params:    nil,
 		}
-		mefCfg := exec.buildMEFConfig(cfg)
+		mefCfg := servicetest.BuildMEFConfigForTest(exec, cfg)
 
-		if mefCfg.PerfDurationMin != defaultMEFPerfDurationMin {
-			t.Errorf("PerfDurationMin = %d, want %d (default)", mefCfg.PerfDurationMin, defaultMEFPerfDurationMin)
+		defaultPerfDuration := servicetest.DefaultMEFPerfDurationMinForTest()
+		if mefCfg.PerfDurationMin != defaultPerfDuration {
+			t.Errorf("PerfDurationMin = %d, want %d (default)", mefCfg.PerfDurationMin, defaultPerfDuration)
 		}
 	})
 
@@ -1078,7 +1154,7 @@ func TestBuildMEFConfigDurationEdgeCases(t *testing.T) {
 			Duration:  60, // Exactly 1 minute.
 			Params:    nil,
 		}
-		mefCfg := exec.buildMEFConfig(cfg)
+		mefCfg := servicetest.BuildMEFConfigForTest(exec, cfg)
 
 		// 60 / 60 = 1 minute.
 		if mefCfg.PerfDurationMin != 1 {
@@ -1090,10 +1166,7 @@ func TestBuildMEFConfigDurationEdgeCases(t *testing.T) {
 // TestExecuteResultFields tests that Execute returns proper errors on stub build.
 // On stub builds, configureContext fails early and returns nil result.
 func TestExecuteResultFields(t *testing.T) {
-	exec := &Executor{
-		Module: New(),
-		ctx:    &dataplane.Context{},
-	}
+	exec := servicetest.NewExecutorWithContext(&dataplane.Context{})
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -1116,8 +1189,8 @@ func TestExecuteResultFields(t *testing.T) {
 		if result.TestType != "y1564_config" {
 			t.Errorf("result.TestType = %q, want %q", result.TestType, "y1564_config")
 		}
-		if result.ModuleName != ModuleName {
-			t.Errorf("result.ModuleName = %q, want %q", result.ModuleName, ModuleName)
+		if result.ModuleName != servicetest.ModuleName {
+			t.Errorf("result.ModuleName = %q, want %q", result.ModuleName, servicetest.ModuleName)
 		}
 	}
 
@@ -1130,7 +1203,7 @@ func TestExecuteResultFields(t *testing.T) {
 
 // TestY1564ServiceFrameSizeOverride tests frame size priority.
 func TestY1564ServiceFrameSizeOverride(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	t.Run("config.FrameSize takes precedence over default", func(t *testing.T) {
 		cfg := &modtypes.TestConfig{
@@ -1138,7 +1211,7 @@ func TestY1564ServiceFrameSizeOverride(t *testing.T) {
 			FrameSize: 256,
 			Params:    nil,
 		}
-		service := exec.buildY1564Service(cfg)
+		service := servicetest.BuildY1564ServiceForTest(exec, cfg)
 
 		if service.FrameSize != 256 {
 			t.Errorf("FrameSize = %d, want 256", service.FrameSize)
@@ -1153,7 +1226,7 @@ func TestY1564ServiceFrameSizeOverride(t *testing.T) {
 				"frame_size": uint32(9000),
 			},
 		}
-		service := exec.buildY1564Service(cfg)
+		service := servicetest.BuildY1564ServiceForTest(exec, cfg)
 
 		// Note: The current implementation applies config.FrameSize first,
 		// then extractY1564Params overwrites with params.frame_size.
@@ -1168,17 +1241,17 @@ func TestY1564ServiceFrameSizeOverride(t *testing.T) {
 			FrameSize: 0,
 			Params:    nil,
 		}
-		service := exec.buildY1564Service(cfg)
+		service := servicetest.BuildY1564ServiceForTest(exec, cfg)
 
-		if service.FrameSize != defaultFrameSize {
-			t.Errorf("FrameSize = %d, want %d (default)", service.FrameSize, defaultFrameSize)
+		if service.FrameSize != servicetest.DefaultFrameSizeForTest() {
+			t.Errorf("FrameSize = %d, want %d (default)", service.FrameSize, servicetest.DefaultFrameSizeForTest())
 		}
 	})
 }
 
 // TestMEFConfigServiceID tests service ID handling.
 func TestMEFConfigServiceID(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	t.Run("with string service_id", func(t *testing.T) {
 		cfg := &modtypes.TestConfig{
@@ -1187,7 +1260,7 @@ func TestMEFConfigServiceID(t *testing.T) {
 				"service_id": "my-service-123",
 			},
 		}
-		mefCfg := exec.buildMEFConfig(cfg)
+		mefCfg := servicetest.BuildMEFConfigForTest(exec, cfg)
 
 		if mefCfg.ServiceID != "my-service-123" {
 			t.Errorf("ServiceID = %q, want %q", mefCfg.ServiceID, "my-service-123")
@@ -1201,7 +1274,7 @@ func TestMEFConfigServiceID(t *testing.T) {
 				"service_id": 123, // Integer, not string.
 			},
 		}
-		mefCfg := exec.buildMEFConfig(cfg)
+		mefCfg := servicetest.BuildMEFConfigForTest(exec, cfg)
 
 		// Should remain empty because type assertion fails.
 		if mefCfg.ServiceID != "" {
@@ -1212,17 +1285,18 @@ func TestMEFConfigServiceID(t *testing.T) {
 
 // TestSafeDurationEdgeCases tests edge cases for safeDuration.
 func TestSafeDurationEdgeCases(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	t.Run("exactly 1 second", func(t *testing.T) {
-		result := exec.safeDuration(1, 100)
+		result := servicetest.SafeDurationForTest(exec, 1, 100)
 		if result != 1 {
 			t.Errorf("safeDuration(1, 100) = %d, want 1", result)
 		}
 	})
 
 	t.Run("large fallback with zero duration", func(t *testing.T) {
-		result := exec.safeDuration(0, maxUint32)
+		maxUint32 := servicetest.MaxUint32ForTest()
+		result := servicetest.SafeDurationForTest(exec, 0, maxUint32)
 		if result != maxUint32 {
 			t.Errorf("safeDuration(0, %d) = %d, want %d", maxUint32, result, maxUint32)
 		}
@@ -1233,7 +1307,7 @@ func TestSafeDurationEdgeCases(t *testing.T) {
 // is reached for test types that pass CanRun but aren't handled.
 // This shouldn't normally happen since CanRun filters valid types.
 func TestExecuteDefaultCaseNotReached(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	// Test that all valid test types are properly handled (no default case).
 	validTypes := []string{"y1564_config", "y1564_perf", "y1564", "mef_config", "mef_perf", "mef"}
@@ -1257,7 +1331,7 @@ func TestExecuteDefaultCaseNotReached(t *testing.T) {
 // TestNewExecutorSuccess tests NewExecutor on supported platforms.
 // This is a no-op on stub builds but ensures the code path is exercised.
 func TestNewExecutorSuccess(t *testing.T) {
-	exec, err := NewExecutor("lo")
+	exec, err := servicetest.NewExecutor("lo")
 	if err != nil {
 		// Expected on stub builds.
 		t.Logf("NewExecutor failed (expected on stub): %v", err)
@@ -1271,7 +1345,7 @@ func TestNewExecutorSuccess(t *testing.T) {
 	if exec.Module == nil {
 		t.Error("NewExecutor returned executor with nil Module")
 	}
-	if exec.ctx == nil {
+	if servicetest.ContextForTest(exec) == nil {
 		t.Error("NewExecutor returned executor with nil context")
 	}
 
@@ -1281,7 +1355,7 @@ func TestNewExecutorSuccess(t *testing.T) {
 
 // TestExtractY1564ParamsWithTrue tests the enabled=true case.
 func TestExtractY1564ParamsWithTrue(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	service := &dataplane.Y1564Service{
 		Enabled: false, // Start with false.
@@ -1291,7 +1365,7 @@ func TestExtractY1564ParamsWithTrue(t *testing.T) {
 			"enabled": true, // Set to true.
 		},
 	}
-	exec.extractY1564Params(cfg, service)
+	servicetest.ExtractY1564ParamsForTest(exec, cfg, service)
 
 	if !service.Enabled {
 		t.Error("Enabled should be true after extractY1564Params")
@@ -1300,17 +1374,17 @@ func TestExtractY1564ParamsWithTrue(t *testing.T) {
 
 // TestBuildMEFConfigNilParams tests buildMEFConfig with nil Params.
 func TestBuildMEFConfigNilParams(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
 		Params:    nil, // Explicitly nil.
 	}
-	mefCfg := exec.buildMEFConfig(cfg)
+	mefCfg := servicetest.BuildMEFConfigForTest(exec, cfg)
 
 	// Should use all defaults.
-	if mefCfg.CIRMbps != defaultCIRMbps {
-		t.Errorf("CIRMbps = %f, want %f", mefCfg.CIRMbps, defaultCIRMbps)
+	if mefCfg.CIRMbps != servicetest.DefaultCIRMbpsForTest() {
+		t.Errorf("CIRMbps = %f, want %f", mefCfg.CIRMbps, servicetest.DefaultCIRMbpsForTest())
 	}
 	if mefCfg.ServiceID != "" {
 		t.Errorf("ServiceID = %q, want empty", mefCfg.ServiceID)
@@ -1319,7 +1393,7 @@ func TestBuildMEFConfigNilParams(t *testing.T) {
 
 // TestExecuteCanRunCheck tests that Execute properly checks CanRun.
 func TestExecuteCanRunCheck(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	// These are test types from other modules - should fail CanRun check.
 	otherModuleTests := []string{
@@ -1363,7 +1437,7 @@ func containsSubstr(str, substr string) bool {
 
 // TestExecuteNilConfigVariants tests Execute with nil config variants.
 func TestExecuteNilConfigVariants(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	nilConfigTestTypes := []string{"y1564_config", "y1564_perf", "y1564", "mef_config", "mef_perf", "mef"}
 	for _, testType := range nilConfigTestTypes {
@@ -1381,7 +1455,7 @@ func TestExecuteNilConfigVariants(t *testing.T) {
 
 // TestBuildY1564ServiceCoS tests CoS value handling.
 func TestBuildY1564ServiceCoS(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	// Test various CoS values.
 	testCases := []struct {
@@ -1393,8 +1467,8 @@ func TestBuildY1564ServiceCoS(t *testing.T) {
 		{"normal", uint32(5), 5},
 		{"max valid", uint32(7), 7},
 		{"max uint8", uint32(255), 255},
-		{"overflow fallback", uint32(256), 0},  // Out of uint8 range returns default.
-		{"large overflow fallback", uint32(1000), 0},  // Out of uint8 range returns default.
+		{"overflow fallback", uint32(256), 0},        // Out of uint8 range returns default.
+		{"large overflow fallback", uint32(1000), 0}, // Out of uint8 range returns default.
 		// JSON-decoded numbers come as float64.
 		{"float64 zero", 0.0, 0},
 		{"float64 normal", 5.0, 5},
@@ -1408,7 +1482,7 @@ func TestBuildY1564ServiceCoS(t *testing.T) {
 					"cos": tc.cosValue,
 				},
 			}
-			service := exec.buildY1564Service(cfg)
+			service := servicetest.BuildY1564ServiceForTest(exec, cfg)
 
 			if service.CoS != tc.expected {
 				t.Errorf("CoS = %d, want %d", service.CoS, tc.expected)
@@ -1419,7 +1493,7 @@ func TestBuildY1564ServiceCoS(t *testing.T) {
 
 // TestModuleDescription verifies module description content.
 func TestModuleDescriptionContent(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	desc := exec.Description()
 
@@ -1436,10 +1510,7 @@ func TestModuleDescriptionContent(t *testing.T) {
 // This tests the code after configureContext succeeds but actual test execution fails.
 // We use a stub context to ensure we hit all the conditional paths in Execute.
 func TestExecuteSuccessPathsWithMockContext(t *testing.T) {
-	exec := &Executor{
-		Module: New(),
-		ctx:    &dataplane.Context{},
-	}
+	exec := servicetest.NewExecutorWithContext(&dataplane.Context{})
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -1453,7 +1524,6 @@ func TestExecuteSuccessPathsWithMockContext(t *testing.T) {
 	// For stub context, even successful config results in dataplane errors.
 	// This ensures Execute reaches line 110-117 where it wraps errors.
 	result, err := exec.Execute("y1564_config", cfg)
-
 	// On stub, we expect error from dataplane operations.
 	// The result variable assignment and error handling are tested here.
 	if err != nil {
@@ -1461,8 +1531,12 @@ func TestExecuteSuccessPathsWithMockContext(t *testing.T) {
 		if result != nil {
 			// On stub, configureContext fails first, but if we somehow passed that,
 			// the result creation at line 90-96 is covered by this test.
-			if result.TestType != "y1564_config" || result.ModuleName != ModuleName {
-				t.Errorf("Result fields incorrect: TestType=%q, ModuleName=%q", result.TestType, result.ModuleName)
+			if result.TestType != "y1564_config" || result.ModuleName != servicetest.ModuleName {
+				t.Errorf(
+					"Result fields incorrect: TestType=%q, ModuleName=%q",
+					result.TestType,
+					result.ModuleName,
+				)
 			}
 		}
 	}
@@ -1471,10 +1545,7 @@ func TestExecuteSuccessPathsWithMockContext(t *testing.T) {
 // TestExecuteDefaultCaseInSwitch tests that the Execute switch statement default case.
 // Although CanRun filters these, we test the switch structure itself for coverage.
 func TestExecuteInternalSwitchCases(t *testing.T) {
-	exec := &Executor{
-		Module: New(),
-		ctx:    &dataplane.Context{},
-	}
+	exec := servicetest.NewExecutorWithContext(&dataplane.Context{})
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -1507,8 +1578,7 @@ func TestExecuteInternalSwitchCases(t *testing.T) {
 func TestNewExecutorErrorHandling(t *testing.T) {
 	// On Linux with CGO, this might succeed.
 	// On non-Linux or stub, it should fail.
-	_, err := NewExecutor("nonexistent-interface-xyz")
-
+	_, err := servicetest.NewExecutor("nonexistent-interface-xyz")
 	// Either the interface doesn't exist (error), or we're on an unsupported platform.
 	// This ensures the error path at executor.go:43-44 is tested.
 	if err != nil {
@@ -1520,10 +1590,7 @@ func TestNewExecutorErrorHandling(t *testing.T) {
 // TestRunY1564ConfigOnlyPath tests just the config phase.
 // This isolates the y1564_config case in runY1564.
 func TestRunY1564ConfigOnlyPath(t *testing.T) {
-	exec := &Executor{
-		Module: New(),
-		ctx:    &dataplane.Context{},
-	}
+	exec := servicetest.NewExecutorWithContext(&dataplane.Context{})
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -1533,7 +1600,7 @@ func TestRunY1564ConfigOnlyPath(t *testing.T) {
 	}
 
 	// Test y1564_config directly - this is the first branch in runY1564.
-	_, err := exec.runY1564("y1564_config", cfg)
+	_, err := servicetest.RunY1564ForTest(exec, "y1564_config", cfg)
 
 	// On stub, this fails with error from dataplane.
 	// The path at executor.go:124-127 is covered.
@@ -1545,10 +1612,7 @@ func TestRunY1564ConfigOnlyPath(t *testing.T) {
 // TestRunY1564PerfOnlyPath tests just the perf phase.
 // This isolates the y1564_perf case in runY1564.
 func TestRunY1564PerfOnlyPath(t *testing.T) {
-	exec := &Executor{
-		Module: New(),
-		ctx:    &dataplane.Context{},
-	}
+	exec := servicetest.NewExecutorWithContext(&dataplane.Context{})
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -1558,7 +1622,7 @@ func TestRunY1564PerfOnlyPath(t *testing.T) {
 	}
 
 	// Test y1564_perf - this is the second branch in runY1564.
-	_, err := exec.runY1564("y1564_perf", cfg)
+	_, err := servicetest.RunY1564ForTest(exec, "y1564_perf", cfg)
 
 	// The path at executor.go:130-135 is covered.
 	if err == nil {
@@ -1569,10 +1633,7 @@ func TestRunY1564PerfOnlyPath(t *testing.T) {
 // TestRunMEFConfigOnlyPath tests just MEF config phase.
 // This isolates the mef_config case in runMEF.
 func TestRunMEFConfigOnlyPath(t *testing.T) {
-	exec := &Executor{
-		Module: New(),
-		ctx:    &dataplane.Context{},
-	}
+	exec := servicetest.NewExecutorWithContext(&dataplane.Context{})
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -1582,7 +1643,7 @@ func TestRunMEFConfigOnlyPath(t *testing.T) {
 	}
 
 	// Test mef_config - first branch in runMEF.
-	_, err := exec.runMEF("mef_config", cfg)
+	_, err := servicetest.RunMEFForTest(exec, "mef_config", cfg)
 
 	// The path at executor.go:164-167 is covered.
 	if err == nil {
@@ -1593,10 +1654,7 @@ func TestRunMEFConfigOnlyPath(t *testing.T) {
 // TestRunMEFPerfOnlyPath tests just MEF perf phase.
 // This isolates the mef_perf case in runMEF.
 func TestRunMEFPerfOnlyPath(t *testing.T) {
-	exec := &Executor{
-		Module: New(),
-		ctx:    &dataplane.Context{},
-	}
+	exec := servicetest.NewExecutorWithContext(&dataplane.Context{})
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -1606,7 +1664,7 @@ func TestRunMEFPerfOnlyPath(t *testing.T) {
 	}
 
 	// Test mef_perf - second branch in runMEF.
-	_, err := exec.runMEF("mef_perf", cfg)
+	_, err := servicetest.RunMEFForTest(exec, "mef_perf", cfg)
 
 	// The path at executor.go:170-173 is covered.
 	if err == nil {
@@ -1617,10 +1675,7 @@ func TestRunMEFPerfOnlyPath(t *testing.T) {
 // TestConfigureContextWithZeroDuration tests configureContext without duration.
 // This tests the conditional at executor.go:212-214.
 func TestConfigureContextWithZeroDuration(t *testing.T) {
-	exec := &Executor{
-		Module: New(),
-		ctx:    &dataplane.Context{},
-	}
+	exec := servicetest.NewExecutorWithContext(&dataplane.Context{})
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -1628,7 +1683,7 @@ func TestConfigureContextWithZeroDuration(t *testing.T) {
 	}
 
 	// Call configureContext to test line 212 (duration <= 0 path).
-	err := exec.configureContext(cfg)
+	err := servicetest.ConfigureContextForTest(exec, cfg)
 
 	// On stub, Configure itself fails.
 	// But we've tested the Duration==0 path at line 212.
@@ -1640,17 +1695,14 @@ func TestConfigureContextWithZeroDuration(t *testing.T) {
 // TestConfigureContextWithPositiveDuration tests configureContext with duration.
 // This tests the conditional at executor.go:212-214 with positive duration.
 func TestConfigureContextWithPositiveDuration(t *testing.T) {
-	exec := &Executor{
-		Module: New(),
-		ctx:    &dataplane.Context{},
-	}
+	exec := servicetest.NewExecutorWithContext(&dataplane.Context{})
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
 		Duration:  120, // Positive duration triggers line 213.
 	}
 
-	err := exec.configureContext(cfg)
+	err := servicetest.ConfigureContextForTest(exec, cfg)
 
 	// The Duration > 0 path is covered by this test.
 	if err == nil {
@@ -1660,7 +1712,7 @@ func TestConfigureContextWithPositiveDuration(t *testing.T) {
 
 // TestBuildMEFConfigWithFrameSizes tests that frame sizes are handled correctly.
 func TestBuildMEFConfigWithFrameSizes(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -1668,7 +1720,7 @@ func TestBuildMEFConfigWithFrameSizes(t *testing.T) {
 		Duration:  0,
 		Params:    nil,
 	}
-	mefCfg := exec.buildMEFConfig(cfg)
+	mefCfg := servicetest.BuildMEFConfigForTest(exec, cfg)
 
 	// Line 304 should be covered - setting FrameSizes from FrameSize.
 	if len(mefCfg.FrameSizes) != 1 || mefCfg.FrameSizes[0] != 256 {
@@ -1678,7 +1730,7 @@ func TestBuildMEFConfigWithFrameSizes(t *testing.T) {
 
 // TestBuildMEFConfigDurationConversion tests line 293-301 duration conversion paths.
 func TestBuildMEFConfigDurationConversion(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	t.Run("duration dividable by 60", func(t *testing.T) {
 		cfg := &modtypes.TestConfig{
@@ -1686,7 +1738,7 @@ func TestBuildMEFConfigDurationConversion(t *testing.T) {
 			Duration:  3600, // 1 hour
 			Params:    nil,
 		}
-		mefCfg := exec.buildMEFConfig(cfg)
+		mefCfg := servicetest.BuildMEFConfigForTest(exec, cfg)
 
 		// 3600 / 60 = 60 minutes
 		if mefCfg.PerfDurationMin != 60 {
@@ -1700,7 +1752,7 @@ func TestBuildMEFConfigDurationConversion(t *testing.T) {
 			Duration:  1, // 1 second
 			Params:    nil,
 		}
-		mefCfg := exec.buildMEFConfig(cfg)
+		mefCfg := servicetest.BuildMEFConfigForTest(exec, cfg)
 
 		// 1 / 60 = 0, so it should use 1 directly (line 296)
 		if mefCfg.PerfDurationMin != 1 {
@@ -1711,7 +1763,7 @@ func TestBuildMEFConfigDurationConversion(t *testing.T) {
 
 // TestBuildY1564ServiceWithAllParams tests all parameter extraction paths.
 func TestBuildY1564ServiceWithAllParams(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -1730,7 +1782,7 @@ func TestBuildY1564ServiceWithAllParams(t *testing.T) {
 			"enabled":           false,
 		},
 	}
-	service := exec.buildY1564Service(cfg)
+	service := servicetest.BuildY1564ServiceForTest(exec, cfg)
 
 	// Verify all parameters were applied (lines 322-367 coverage)
 	if service.SLA.CIRMbps != 150.0 {
@@ -1761,18 +1813,18 @@ func TestBuildY1564ServiceWithAllParams(t *testing.T) {
 
 // TestSafeDurationBoundary tests boundary values for safeDuration.
 func TestSafeDurationBoundary(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	// Test boundary at max uint32
-	result := exec.safeDuration(int(maxUint32), 0)
-	if result != maxUint32 {
-		t.Errorf("safeDuration at max uint32 = %d, want %d", result, maxUint32)
+	result := servicetest.SafeDurationForTest(exec, int(servicetest.MaxUint32ForTest()), 0)
+	if result != servicetest.MaxUint32ForTest() {
+		t.Errorf("safeDuration at max uint32 = %d, want %d", result, servicetest.MaxUint32ForTest())
 	}
 
 	// Test one above max uint32
-	result = exec.safeDuration(int(maxUint32)+1, 100)
-	if result != maxUint32 {
-		t.Errorf("safeDuration above max uint32 = %d, want %d", result, maxUint32)
+	result = servicetest.SafeDurationForTest(exec, int(servicetest.MaxUint32ForTest())+1, 100)
+	if result != servicetest.MaxUint32ForTest() {
+		t.Errorf("safeDuration above max uint32 = %d, want %d", result, servicetest.MaxUint32ForTest())
 	}
 }
 
@@ -1817,7 +1869,7 @@ func TestModtypesGetUint8ParamBoundaries(t *testing.T) {
 
 // TestBuildMEFConfigServiceIDNonString tests service_id parameter handling with non-string values.
 func TestBuildMEFConfigServiceIDNonString(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -1825,7 +1877,7 @@ func TestBuildMEFConfigServiceIDNonString(t *testing.T) {
 			"service_id": 42, // Not a string
 		},
 	}
-	mefCfg := exec.buildMEFConfig(cfg)
+	mefCfg := servicetest.BuildMEFConfigForTest(exec, cfg)
 
 	// Should remain empty because type assertion fails
 	if mefCfg.ServiceID != "" {
@@ -1835,7 +1887,7 @@ func TestBuildMEFConfigServiceIDNonString(t *testing.T) {
 
 // TestBuildY1564ServicePartialFrameSizeParams tests frame_size parameter.
 func TestBuildY1564ServicePartialFrameSizeParams(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -1844,7 +1896,7 @@ func TestBuildY1564ServicePartialFrameSizeParams(t *testing.T) {
 			"frame_size": uint32(2048), // params takes precedence
 		},
 	}
-	service := exec.buildY1564Service(cfg)
+	service := servicetest.BuildY1564ServiceForTest(exec, cfg)
 
 	if service.FrameSize != 2048 {
 		t.Errorf("FrameSize = %d, want 2048 (params precedence)", service.FrameSize)
@@ -1853,7 +1905,7 @@ func TestBuildY1564ServicePartialFrameSizeParams(t *testing.T) {
 
 // TestBuildMEFConfigAllDefaults checks all defaults are correctly applied.
 func TestBuildMEFConfigAllDefaults(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -1861,29 +1913,38 @@ func TestBuildMEFConfigAllDefaults(t *testing.T) {
 		Duration:  0,
 		Params:    make(map[string]any), // Empty params
 	}
-	mefCfg := exec.buildMEFConfig(cfg)
+	mefCfg := servicetest.BuildMEFConfigForTest(exec, cfg)
 
 	// Verify defaults
-	if mefCfg.CIRMbps != defaultCIRMbps {
-		t.Errorf("CIRMbps = %f, want %f", mefCfg.CIRMbps, defaultCIRMbps)
+	defaultCIR := servicetest.DefaultCIRMbpsForTest()
+	if mefCfg.CIRMbps != defaultCIR {
+		t.Errorf("CIRMbps = %f, want %f", mefCfg.CIRMbps, defaultCIR)
 	}
-	if mefCfg.EIRMbps != defaultEIRMbps {
-		t.Errorf("EIRMbps = %f, want %f", mefCfg.EIRMbps, defaultEIRMbps)
+
+	defaultEIR := servicetest.DefaultEIRMbpsForTest()
+	if mefCfg.EIRMbps != defaultEIR {
+		t.Errorf("EIRMbps = %f, want %f", mefCfg.EIRMbps, defaultEIR)
 	}
-	if mefCfg.AvailabilityPct != defaultAvailabilityPct {
-		t.Errorf("AvailabilityPct = %f, want %f", mefCfg.AvailabilityPct, defaultAvailabilityPct)
+
+	defaultAvailability := servicetest.DefaultAvailabilityPctForTest()
+	if mefCfg.AvailabilityPct != defaultAvailability {
+		t.Errorf("AvailabilityPct = %f, want %f", mefCfg.AvailabilityPct, defaultAvailability)
 	}
-	if mefCfg.ConfigDurationSec != defaultMEFConfigDurationSec {
-		t.Errorf("ConfigDurationSec = %d, want %d", mefCfg.ConfigDurationSec, defaultMEFConfigDurationSec)
+
+	defaultConfigDuration := servicetest.DefaultMEFConfigDurationSecForTest()
+	if mefCfg.ConfigDurationSec != defaultConfigDuration {
+		t.Errorf("ConfigDurationSec = %d, want %d", mefCfg.ConfigDurationSec, defaultConfigDuration)
 	}
-	if mefCfg.PerfDurationMin != defaultMEFPerfDurationMin {
-		t.Errorf("PerfDurationMin = %d, want %d", mefCfg.PerfDurationMin, defaultMEFPerfDurationMin)
+
+	defaultPerfDuration := servicetest.DefaultMEFPerfDurationMinForTest()
+	if mefCfg.PerfDurationMin != defaultPerfDuration {
+		t.Errorf("PerfDurationMin = %d, want %d", mefCfg.PerfDurationMin, defaultPerfDuration)
 	}
 }
 
 // TestBuildY1564ServiceEnabledParam tests both true and false enabled values.
 func TestBuildY1564ServiceEnabledParam(t *testing.T) {
-	exec := NewExecutorWithContext(nil)
+	exec := servicetest.NewExecutorWithContext(nil)
 
 	t.Run("enabled=true", func(t *testing.T) {
 		cfg := &modtypes.TestConfig{
@@ -1892,7 +1953,7 @@ func TestBuildY1564ServiceEnabledParam(t *testing.T) {
 				"enabled": true,
 			},
 		}
-		service := exec.buildY1564Service(cfg)
+		service := servicetest.BuildY1564ServiceForTest(exec, cfg)
 		if !service.Enabled {
 			t.Error("Enabled should be true")
 		}
@@ -1905,7 +1966,7 @@ func TestBuildY1564ServiceEnabledParam(t *testing.T) {
 				"enabled": false,
 			},
 		}
-		service := exec.buildY1564Service(cfg)
+		service := servicetest.BuildY1564ServiceForTest(exec, cfg)
 		if service.Enabled {
 			t.Error("Enabled should be false")
 		}
@@ -1918,7 +1979,7 @@ func TestBuildY1564ServiceEnabledParam(t *testing.T) {
 				"enabled": "yes", // Not a bool
 			},
 		}
-		service := exec.buildY1564Service(cfg)
+		service := servicetest.BuildY1564ServiceForTest(exec, cfg)
 		// Should keep default (true)
 		if !service.Enabled {
 			t.Error("Enabled should remain true when param is non-bool")
@@ -1928,10 +1989,7 @@ func TestBuildY1564ServiceEnabledParam(t *testing.T) {
 
 // TestConfigureContextBuildsConfig verifies dpCfg is built correctly.
 func TestConfigureContextBuildsConfig(_ *testing.T) {
-	exec := &Executor{
-		Module: New(),
-		ctx:    &dataplane.Context{},
-	}
+	exec := servicetest.NewExecutorWithContext(&dataplane.Context{})
 
 	cfg := &modtypes.TestConfig{
 		Interface: "eth0",
@@ -1939,7 +1997,7 @@ func TestConfigureContextBuildsConfig(_ *testing.T) {
 	}
 
 	// This will fail at ctx.Configure() but the dpCfg building should happen first.
-	_ = exec.configureContext(cfg)
+	_ = servicetest.ConfigureContextForTest(exec, cfg)
 
 	// The test verifies that configureContext attempts to build and configure.
 	// Even though Configure fails, the code path is exercised.

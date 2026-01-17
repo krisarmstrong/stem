@@ -7,7 +7,6 @@ import (
 	"errors"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/krisarmstrong/stem/internal/database"
 )
@@ -111,509 +110,201 @@ func TestPing(t *testing.T) {
 }
 
 func TestTestRunRepository(t *testing.T) {
-	t.Run("create and get test run", func(t *testing.T) {
-		db := newTestDB(t)
-		ctx := context.Background()
+	t.Run("create and get test run", testCreateAndGetTestRun)
+	t.Run("update status", testUpdateTestRunStatus)
+	t.Run("complete test run", testCompleteTestRun)
+	t.Run("list test runs", testListTestRuns)
+	t.Run("get not found", testGetTestRunNotFound)
+}
 
-		run := &database.TestRun{
-			Module:        "benchmark",
-			TestType:      "throughput",
-			Status:        database.TestRunStatusPending,
-			InterfaceName: "eth0",
-			TargetAddress: "192.168.1.1",
-		}
+func testCreateAndGetTestRun(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
 
-		id, err := db.TestRuns().Create(ctx, run)
-		if err != nil {
-			t.Fatalf("Create failed: %v", err)
-		}
-		if id == "" {
-			t.Error("expected non-empty ID")
-		}
+	run := &database.TestRun{
+		Module:        "benchmark",
+		TestType:      "throughput",
+		Status:        database.TestRunStatusPending,
+		InterfaceName: "eth0",
+		TargetAddress: "192.168.1.1",
+	}
 
-		retrieved, err := db.TestRuns().Get(ctx, id)
-		if err != nil {
-			t.Fatalf("Get failed: %v", err)
-		}
+	id, err := db.TestRuns().Create(ctx, run)
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+	if id == "" {
+		t.Error("expected non-empty ID")
+	}
 
-		if retrieved.Module != run.Module {
-			t.Errorf("Module = %q, want %q", retrieved.Module, run.Module)
-		}
-		if retrieved.TestType != run.TestType {
-			t.Errorf("TestType = %q, want %q", retrieved.TestType, run.TestType)
-		}
-	})
+	retrieved, err := db.TestRuns().Get(ctx, id)
+	if err != nil {
+		t.Fatalf("Get failed: %v", err)
+	}
 
-	t.Run("update status", func(t *testing.T) {
-		db := newTestDB(t)
-		ctx := context.Background()
+	if retrieved.Module != run.Module {
+		t.Errorf("Module = %q, want %q", retrieved.Module, run.Module)
+	}
+	if retrieved.TestType != run.TestType {
+		t.Errorf("TestType = %q, want %q", retrieved.TestType, run.TestType)
+	}
+}
 
-		run := &database.TestRun{
-			Module:   "benchmark",
-			TestType: "latency",
-		}
+func testUpdateTestRunStatus(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
 
-		id, _ := db.TestRuns().Create(ctx, run)
+	run := &database.TestRun{
+		Module:   "benchmark",
+		TestType: "latency",
+	}
 
-		err := db.TestRuns().UpdateStatus(ctx, id, database.TestRunStatusRunning)
-		if err != nil {
-			t.Fatalf("UpdateStatus failed: %v", err)
-		}
+	id, _ := db.TestRuns().Create(ctx, run)
 
-		retrieved, _ := db.TestRuns().Get(ctx, id)
-		if retrieved.Status != database.TestRunStatusRunning {
-			t.Errorf("Status = %q, want %q", retrieved.Status, database.TestRunStatusRunning)
-		}
-	})
+	err := db.TestRuns().UpdateStatus(ctx, id, database.TestRunStatusRunning)
+	if err != nil {
+		t.Fatalf("UpdateStatus failed: %v", err)
+	}
 
-	t.Run("complete test run", func(t *testing.T) {
-		db := newTestDB(t)
-		ctx := context.Background()
+	retrieved, _ := db.TestRuns().Get(ctx, id)
+	if retrieved.Status != database.TestRunStatusRunning {
+		t.Errorf("Status = %q, want %q", retrieved.Status, database.TestRunStatusRunning)
+	}
+}
 
+func testCompleteTestRun(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+
+	run := &database.TestRun{
+		Module:   "benchmark",
+		TestType: "throughput",
+	}
+
+	id, _ := db.TestRuns().Create(ctx, run)
+
+	err := db.TestRuns().Complete(ctx, id, database.TestRunStatusCompleted, "")
+	if err != nil {
+		t.Fatalf("Complete failed: %v", err)
+	}
+
+	retrieved, _ := db.TestRuns().Get(ctx, id)
+	if retrieved.Status != database.TestRunStatusCompleted {
+		t.Errorf("Status = %q, want %q", retrieved.Status, database.TestRunStatusCompleted)
+	}
+	if retrieved.CompletedAt == nil {
+		t.Error("expected CompletedAt to be set")
+	}
+}
+
+func testListTestRuns(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+
+	for range 3 {
 		run := &database.TestRun{
 			Module:   "benchmark",
 			TestType: "throughput",
 		}
+		_, _ = db.TestRuns().Create(ctx, run)
+	}
 
-		id, _ := db.TestRuns().Create(ctx, run)
+	runs, err := db.TestRuns().List(ctx, database.TestRunQueryOptions{})
+	if err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
 
-		err := db.TestRuns().Complete(ctx, id, database.TestRunStatusCompleted, "")
-		if err != nil {
-			t.Fatalf("Complete failed: %v", err)
-		}
+	if len(runs) != 3 {
+		t.Errorf("got %d runs, want 3", len(runs))
+	}
+}
 
-		retrieved, _ := db.TestRuns().Get(ctx, id)
-		if retrieved.Status != database.TestRunStatusCompleted {
-			t.Errorf("Status = %q, want %q", retrieved.Status, database.TestRunStatusCompleted)
-		}
-		if retrieved.CompletedAt == nil {
-			t.Error("expected CompletedAt to be set")
-		}
-	})
+func testGetTestRunNotFound(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
 
-	t.Run("list test runs", func(t *testing.T) {
-		db := newTestDB(t)
-		ctx := context.Background()
-
-		for i := 0; i < 3; i++ {
-			run := &database.TestRun{
-				Module:   "benchmark",
-				TestType: "throughput",
-			}
-			_, _ = db.TestRuns().Create(ctx, run)
-		}
-
-		runs, err := db.TestRuns().List(ctx, database.TestRunQueryOptions{})
-		if err != nil {
-			t.Fatalf("List failed: %v", err)
-		}
-
-		if len(runs) != 3 {
-			t.Errorf("got %d runs, want 3", len(runs))
-		}
-	})
-
-	t.Run("get not found", func(t *testing.T) {
-		db := newTestDB(t)
-		ctx := context.Background()
-
-		_, err := db.TestRuns().Get(ctx, "nonexistent-id")
-		if !errors.Is(err, database.ErrNotFound) {
-			t.Errorf("expected ErrNotFound, got %v", err)
-		}
-	})
+	_, err := db.TestRuns().Get(ctx, "nonexistent-id")
+	if !errors.Is(err, database.ErrNotFound) {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
 }
 
 func TestTestResultRepository(t *testing.T) {
-	t.Run("create and list results", func(t *testing.T) {
-		db := newTestDB(t)
-		ctx := context.Background()
-
-		// First create a test run
-		run := &database.TestRun{Module: "benchmark", TestType: "throughput"}
-		runID, _ := db.TestRuns().Create(ctx, run)
-
-		result := &database.TestResult{
-			RunID:      runID,
-			MetricType: database.MetricTypeThroughput,
-			Value:      1000.5,
-			Unit:       "Mbps",
-		}
-
-		id, err := db.TestResults().Create(ctx, result)
-		if err != nil {
-			t.Fatalf("Create failed: %v", err)
-		}
-		if id == 0 {
-			t.Error("expected non-zero ID")
-		}
-
-		results, err := db.TestResults().ListByRun(ctx, runID)
-		if err != nil {
-			t.Fatalf("ListByRun failed: %v", err)
-		}
-
-		if len(results) != 1 {
-			t.Errorf("got %d results, want 1", len(results))
-		}
-	})
-
-	t.Run("create batch", func(t *testing.T) {
-		db := newTestDB(t)
-		ctx := context.Background()
-
-		run := &database.TestRun{Module: "benchmark", TestType: "throughput"}
-		runID, _ := db.TestRuns().Create(ctx, run)
-
-		results := []database.TestResult{
-			{RunID: runID, MetricType: database.MetricTypeThroughput, Value: 100},
-			{RunID: runID, MetricType: database.MetricTypeThroughput, Value: 200},
-			{RunID: runID, MetricType: database.MetricTypeThroughput, Value: 300},
-		}
-
-		err := db.TestResults().CreateBatch(ctx, results)
-		if err != nil {
-			t.Fatalf("CreateBatch failed: %v", err)
-		}
-
-		retrieved, _ := db.TestResults().ListByRun(ctx, runID)
-		if len(retrieved) != 3 {
-			t.Errorf("got %d results, want 3", len(retrieved))
-		}
-	})
-
-	t.Run("get aggregates", func(t *testing.T) {
-		db := newTestDB(t)
-		ctx := context.Background()
-
-		run := &database.TestRun{Module: "benchmark", TestType: "throughput"}
-		runID, _ := db.TestRuns().Create(ctx, run)
-
-		results := []database.TestResult{
-			{RunID: runID, MetricType: database.MetricTypeThroughput, Value: 100},
-			{RunID: runID, MetricType: database.MetricTypeThroughput, Value: 200},
-			{RunID: runID, MetricType: database.MetricTypeThroughput, Value: 300},
-		}
-		_ = db.TestResults().CreateBatch(ctx, results)
-
-		agg, err := db.TestResults().GetAggregates(ctx, runID, database.MetricTypeThroughput)
-		if err != nil {
-			t.Fatalf("GetAggregates failed: %v", err)
-		}
-
-		if agg.Count != 3 {
-			t.Errorf("Count = %d, want 3", agg.Count)
-		}
-		if agg.Min != 100 {
-			t.Errorf("Min = %f, want 100", agg.Min)
-		}
-		if agg.Max != 300 {
-			t.Errorf("Max = %f, want 300", agg.Max)
-		}
-		if agg.Avg != 200 {
-			t.Errorf("Avg = %f, want 200", agg.Avg)
-		}
-	})
+	t.Run("create and list results", testCreateAndListResults)
+	t.Run("list results for missing run", testListResultsMissingRun)
+	t.Run("create result with missing run", testCreateResultMissingRun)
+	t.Run("get results by invalid run", testGetResultsByInvalidRun)
 }
 
-func TestSettingsRepository(t *testing.T) {
-	t.Run("set and get", func(t *testing.T) {
-		db := newTestDB(t)
-		ctx := context.Background()
-
-		err := db.Settings().Set(ctx, "test_key", "test_value")
-		if err != nil {
-			t.Fatalf("Set failed: %v", err)
-		}
-
-		value, err := db.Settings().Get(ctx, "test_key")
-		if err != nil {
-			t.Fatalf("Get failed: %v", err)
-		}
-
-		if value != "test_value" {
-			t.Errorf("value = %q, want %q", value, "test_value")
-		}
-	})
-
-	t.Run("get with default", func(t *testing.T) {
-		db := newTestDB(t)
-		ctx := context.Background()
-
-		value, err := db.Settings().GetWithDefault(ctx, "nonexistent", "default")
-		if err != nil {
-			t.Fatalf("GetWithDefault failed: %v", err)
-		}
-
-		if value != "default" {
-			t.Errorf("value = %q, want %q", value, "default")
-		}
-	})
-
-	t.Run("list settings", func(t *testing.T) {
-		db := newTestDB(t)
-		ctx := context.Background()
-
-		_ = db.Settings().Set(ctx, "key1", "value1")
-		_ = db.Settings().Set(ctx, "key2", "value2")
-
-		settings, err := db.Settings().List(ctx)
-		if err != nil {
-			t.Fatalf("List failed: %v", err)
-		}
-
-		if len(settings) != 2 {
-			t.Errorf("got %d settings, want 2", len(settings))
-		}
-	})
-
-	t.Run("delete setting", func(t *testing.T) {
-		db := newTestDB(t)
-		ctx := context.Background()
-
-		_ = db.Settings().Set(ctx, "to_delete", "value")
-
-		err := db.Settings().Delete(ctx, "to_delete")
-		if err != nil {
-			t.Fatalf("Delete failed: %v", err)
-		}
-
-		_, err = db.Settings().Get(ctx, "to_delete")
-		if !errors.Is(err, database.ErrNotFound) {
-			t.Errorf("expected ErrNotFound, got %v", err)
-		}
-	})
-}
-
-func TestAuditLogRepository(t *testing.T) {
-	t.Run("log and list", func(t *testing.T) {
-		db := newTestDB(t)
-		ctx := context.Background()
-
-		entry := &database.AuditLogEntry{
-			Action:    database.AuditActionLogin,
-			User:      "admin",
-			IPAddress: "192.168.1.1",
-		}
-
-		id, err := db.AuditLog().Log(ctx, entry)
-		if err != nil {
-			t.Fatalf("Log failed: %v", err)
-		}
-		if id == 0 {
-			t.Error("expected non-zero ID")
-		}
-
-		entries, err := db.AuditLog().List(ctx, database.AuditLogQueryOptions{})
-		if err != nil {
-			t.Fatalf("List failed: %v", err)
-		}
-
-		if len(entries) != 1 {
-			t.Errorf("got %d entries, want 1", len(entries))
-		}
-	})
-
-	t.Run("list by user", func(t *testing.T) {
-		db := newTestDB(t)
-		ctx := context.Background()
-
-		_ = db.AuditLog().LogAction(ctx, database.AuditActionLogin, "user1", "1.1.1.1")
-		_ = db.AuditLog().LogAction(ctx, database.AuditActionLogin, "user2", "2.2.2.2")
-		_ = db.AuditLog().LogAction(ctx, database.AuditActionLogout, "user1", "1.1.1.1")
-
-		entries, err := db.AuditLog().ListByUser(ctx, "user1", 10)
-		if err != nil {
-			t.Fatalf("ListByUser failed: %v", err)
-		}
-
-		if len(entries) != 2 {
-			t.Errorf("got %d entries, want 2", len(entries))
-		}
-	})
-
-	t.Run("delete older than", func(t *testing.T) {
-		db := newTestDB(t)
-		ctx := context.Background()
-
-		_ = db.AuditLog().LogAction(ctx, "test", "user", "1.1.1.1")
-
-		// Verify entry exists
-		entries, _ := db.AuditLog().List(ctx, database.AuditLogQueryOptions{})
-		if len(entries) != 1 {
-			t.Fatalf("expected 1 entry, got %d", len(entries))
-		}
-
-		// Delete entries older than 1 hour ago (should delete nothing since entry is new)
-		deleted, err := db.AuditLog().DeleteOlderThan(ctx, time.Now().Add(-time.Hour))
-		if err != nil {
-			t.Fatalf("DeleteOlderThan failed: %v", err)
-		}
-		if deleted != 0 {
-			t.Errorf("deleted = %d, want 0", deleted)
-		}
-
-		// Verify entry still exists
-		entries, _ = db.AuditLog().List(ctx, database.AuditLogQueryOptions{})
-		if len(entries) != 1 {
-			t.Errorf("entry should still exist, got %d entries", len(entries))
-		}
-	})
-}
-
-func TestSessionRepository(t *testing.T) {
-	t.Run("blacklist and check", func(t *testing.T) {
-		db := newTestDB(t)
-		ctx := context.Background()
-
-		session := &database.Session{
-			TokenID:   "token-123",
-			Username:  "admin",
-			Reason:    database.SessionReasonLogout,
-			ExpiresAt: time.Now().Add(time.Hour).UTC(),
-		}
-
-		_, err := db.Sessions().Blacklist(ctx, session)
-		if err != nil {
-			t.Fatalf("Blacklist failed: %v", err)
-		}
-
-		blacklisted, err := db.Sessions().IsBlacklisted(ctx, "token-123")
-		if err != nil {
-			t.Fatalf("IsBlacklisted failed: %v", err)
-		}
-		if !blacklisted {
-			t.Error("expected token to be blacklisted")
-		}
-	})
-
-	t.Run("not blacklisted", func(t *testing.T) {
-		db := newTestDB(t)
-		ctx := context.Background()
-
-		blacklisted, err := db.Sessions().IsBlacklisted(ctx, "unknown-token")
-		if err != nil {
-			t.Fatalf("IsBlacklisted failed: %v", err)
-		}
-		if blacklisted {
-			t.Error("expected token to not be blacklisted")
-		}
-	})
-
-	t.Run("cleanup expired", func(t *testing.T) {
-		db := newTestDB(t)
-		ctx := context.Background()
-
-		// Create expired session
-		expired := &database.Session{
-			TokenID:   "expired-token",
-			Username:  "admin",
-			Reason:    database.SessionReasonLogout,
-			ExpiresAt: time.Now().Add(-time.Hour).UTC(),
-		}
-		_, _ = db.Sessions().Blacklist(ctx, expired)
-
-		// Create valid session
-		valid := &database.Session{
-			TokenID:   "valid-token",
-			Username:  "admin",
-			Reason:    database.SessionReasonLogout,
-			ExpiresAt: time.Now().Add(time.Hour).UTC(),
-		}
-		_, _ = db.Sessions().Blacklist(ctx, valid)
-
-		deleted, err := db.Sessions().CleanupExpired(ctx)
-		if err != nil {
-			t.Fatalf("CleanupExpired failed: %v", err)
-		}
-		if deleted != 1 {
-			t.Errorf("deleted = %d, want 1", deleted)
-		}
-
-		// Valid should still be blacklisted
-		blacklisted, _ := db.Sessions().IsBlacklisted(ctx, "valid-token")
-		if !blacklisted {
-			t.Error("valid session should still be blacklisted")
-		}
-	})
-}
-
-func TestSchemaVersion(t *testing.T) {
+func testCreateAndListResults(t *testing.T) {
 	db := newTestDB(t)
 	ctx := context.Background()
 
-	version, err := db.SchemaVersion(ctx)
+	// First create a test run
+	run := &database.TestRun{Module: "benchmark", TestType: "throughput"}
+	runID, _ := db.TestRuns().Create(ctx, run)
+
+	result := &database.TestResult{
+		RunID:      runID,
+		MetricType: database.MetricTypeThroughput,
+		Value:      1000.5,
+		Unit:       "Mbps",
+	}
+
+	id, err := db.TestResults().Create(ctx, result)
 	if err != nil {
-		t.Fatalf("SchemaVersion failed: %v", err)
+		t.Fatalf("Create failed: %v", err)
+	}
+	if id == 0 {
+		t.Error("expected non-zero ID")
 	}
 
-	// Should be >= 1 since migrations run automatically
-	if version < 1 {
-		t.Errorf("version = %d, expected >= 1", version)
-	}
-}
-
-func TestMigrationStatus(t *testing.T) {
-	db := newTestDB(t)
-	ctx := context.Background()
-
-	migrations, err := db.MigrationStatus(ctx)
+	results, err := db.TestResults().ListByRun(ctx, runID)
 	if err != nil {
-		t.Fatalf("MigrationStatus failed: %v", err)
+		t.Fatalf("ListByRun failed: %v", err)
 	}
 
-	if len(migrations) == 0 {
-		t.Error("expected at least one migration")
-	}
-
-	// All migrations should be applied
-	for _, m := range migrations {
-		if !m.Applied {
-			t.Errorf("migration %d (%s) not applied", m.Version, m.Description)
-		}
+	if len(results) != 1 {
+		t.Errorf("got %d results, want 1", len(results))
 	}
 }
 
-func TestConcurrentAccess(t *testing.T) {
+func testListResultsMissingRun(t *testing.T) {
 	db := newTestDB(t)
 	ctx := context.Background()
 
-	done := make(chan bool)
-	iterations := 10
+	run := &database.TestRun{Module: "benchmark", TestType: "throughput"}
+	runID, _ := db.TestRuns().Create(ctx, run)
 
-	// Concurrent writers
-	go func() {
-		for i := 0; i < iterations; i++ {
-			run := &database.TestRun{Module: "benchmark", TestType: "throughput"}
-			_, _ = db.TestRuns().Create(ctx, run)
-		}
-		done <- true
-	}()
+	_, err := db.TestResults().ListByRun(ctx, runID)
+	if err != nil {
+		t.Fatalf("ListByRun failed: %v", err)
+	}
+}
 
-	go func() {
-		for i := 0; i < iterations; i++ {
-			_ = db.Settings().Set(ctx, "concurrent_key", "value")
-		}
-		done <- true
-	}()
+func testCreateResultMissingRun(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
 
-	// Concurrent readers
-	go func() {
-		for i := 0; i < iterations; i++ {
-			_, _ = db.TestRuns().List(ctx, database.TestRunQueryOptions{})
-		}
-		done <- true
-	}()
+	result := &database.TestResult{
+		RunID:      "missing-run",
+		MetricType: database.MetricTypeThroughput,
+		Value:      1000.5,
+		Unit:       "Mbps",
+	}
 
-	go func() {
-		for i := 0; i < iterations; i++ {
-			_, _ = db.Settings().List(ctx)
-		}
-		done <- true
-	}()
+	_, err := db.TestResults().Create(ctx, result)
+	if !errors.Is(err, database.ErrNotFound) {
+		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}
 
-	// Wait for all goroutines
-	for i := 0; i < 4; i++ {
-		<-done
+func testGetResultsByInvalidRun(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+
+	_, err := db.TestResults().ListByRun(ctx, "invalid-id")
+	if !errors.Is(err, database.ErrNotFound) {
+		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }

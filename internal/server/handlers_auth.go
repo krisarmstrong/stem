@@ -11,7 +11,7 @@ import (
 )
 
 // handleAuthLogin issues JWT tokens for valid credentials.
-// Sets httpOnly cookies for secure browser auth and returns tokens in response for API clients.
+// Sets httpOnly cookies for browser auth and returns tokens for API clients.
 func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		WriteMethodNotAllowed(w)
@@ -19,7 +19,7 @@ func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req AuthLoginRequest
-	if !decodeJSONStrict(w, r, &req, maxRequestBodySize) {
+	if !decodeJSONStrict(w, r, &req) {
 		return
 	}
 
@@ -39,7 +39,7 @@ func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	// Audit log the successful login.
 	logging.AuditLoginSuccess(r.Context(), r, req.Username, req.Username)
 
-	// Also return tokens in response body for API client compatibility.
+	// Also return tokens in response body for API clients.
 	writeJSON(w, AuthLoginResponse{
 		Token:        accessToken,
 		RefreshToken: refreshToken,
@@ -122,7 +122,7 @@ func (s *Server) handleAuthRefresh(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Fallback to request body for API clients.
 		var req AuthRefreshRequest
-		if !decodeJSONStrict(w, r, &req, maxRequestBodySize) {
+		if !decodeJSONStrict(w, r, &req) {
 			return // Error already written.
 		}
 		if req.RefreshToken == "" {

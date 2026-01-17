@@ -18,8 +18,8 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, HealthResponse{
 		Status:  "healthy",
-		Version: version.Version,
-		Commit:  version.Commit,
+		Version: version.Version(),
+		Commit:  version.Commit(),
 		Product: "The Stem",
 		Company: "Mustard Seed Networks",
 		Uptime:  int64(time.Since(s.startTime).Seconds()),

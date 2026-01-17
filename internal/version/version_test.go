@@ -1,9 +1,21 @@
-//nolint:testpackage,paralleltest // Tests internal state; tests modify globals so cannot run in parallel.
-package version
+// Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
+
+// Black-box testing of version package.
+//
+// Tests verify public API behavior. SetForTesting is exported specifically
+// to allow tests to modify version info for testing purposes.
+//
+// Tests CANNOT run in parallel (no t.Parallel()) because they:
+//   - Modify shared package-level variables via SetForTesting
+//   - Rely on defer to restore original values
+//   - Would race if run concurrently (e.g., TestInfoReflectsModifiedVersion)
+package version_test
 
 import (
 	"slices"
 	"testing"
+
+	"github.com/krisarmstrong/stem/internal/version"
 )
 
 // ============================================================================
@@ -12,21 +24,21 @@ import (
 
 func TestDefaultVersionValue(t *testing.T) {
 	// Version should have a default value (either "dev" or set via ldflags)
-	if Version == "" {
+	if version.Version() == "" {
 		t.Error("Version is empty, expected a default value")
 	}
 }
 
 func TestDefaultCommitValue(t *testing.T) {
 	// Commit should have a default value (either "unknown" or set via ldflags)
-	if Commit == "" {
+	if version.Commit() == "" {
 		t.Error("Commit is empty, expected a default value")
 	}
 }
 
 func TestDefaultBuildTimeValue(t *testing.T) {
 	// BuildTime should have a default value (either "unknown" or set via ldflags)
-	if BuildTime == "" {
+	if version.BuildTime() == "" {
 		t.Error("BuildTime is empty, expected a default value")
 	}
 }
@@ -36,7 +48,7 @@ func TestDefaultBuildTimeValue(t *testing.T) {
 // ============================================================================
 
 func TestInfoReturnsMap(t *testing.T) {
-	info := Info()
+	info := version.Info()
 
 	if info == nil {
 		t.Fatal("Info() returned nil")
@@ -44,19 +56,19 @@ func TestInfoReturnsMap(t *testing.T) {
 }
 
 func TestInfoContainsVersionKey(t *testing.T) {
-	info := Info()
+	info := version.Info()
 
-	version, ok := info["version"]
+	v, ok := info["version"]
 	if !ok {
 		t.Error("Info() map missing 'version' key")
 	}
-	if version == "" {
+	if v == "" {
 		t.Error("Info() 'version' value is empty")
 	}
 }
 
 func TestInfoContainsCommitKey(t *testing.T) {
-	info := Info()
+	info := version.Info()
 
 	commit, ok := info["commit"]
 	if !ok {
@@ -68,7 +80,7 @@ func TestInfoContainsCommitKey(t *testing.T) {
 }
 
 func TestInfoContainsBuildTimeKey(t *testing.T) {
-	info := Info()
+	info := version.Info()
 
 	buildTime, ok := info["buildTime"]
 	if !ok {
@@ -80,7 +92,7 @@ func TestInfoContainsBuildTimeKey(t *testing.T) {
 }
 
 func TestInfoMapSize(t *testing.T) {
-	info := Info()
+	info := version.Info()
 
 	expectedSize := 3
 	if len(info) != expectedSize {
@@ -89,16 +101,16 @@ func TestInfoMapSize(t *testing.T) {
 }
 
 func TestInfoMatchesGlobalVariables(t *testing.T) {
-	info := Info()
+	info := version.Info()
 
-	if info["version"] != Version {
-		t.Errorf("Info()['version'] = %q, want %q (Version variable)", info["version"], Version)
+	if info["version"] != version.Version() {
+		t.Errorf("Info()['version'] = %q, want %q (Version())", info["version"], version.Version())
 	}
-	if info["commit"] != Commit {
-		t.Errorf("Info()['commit'] = %q, want %q (Commit variable)", info["commit"], Commit)
+	if info["commit"] != version.Commit() {
+		t.Errorf("Info()['commit'] = %q, want %q (Commit())", info["commit"], version.Commit())
 	}
-	if info["buildTime"] != BuildTime {
-		t.Errorf("Info()['buildTime'] = %q, want %q (BuildTime variable)", info["buildTime"], BuildTime)
+	if info["buildTime"] != version.BuildTime() {
+		t.Errorf("Info()['buildTime'] = %q, want %q (BuildTime())", info["buildTime"], version.BuildTime())
 	}
 }
 
@@ -107,24 +119,11 @@ func TestInfoMatchesGlobalVariables(t *testing.T) {
 // ============================================================================
 
 func TestInfoReflectsModifiedVersion(t *testing.T) {
-	// Save original values
-	origVersion := Version
-	origCommit := Commit
-	origBuildTime := BuildTime
-
 	// Restore after test
-	defer func() {
-		Version = origVersion
-		Commit = origCommit
-		BuildTime = origBuildTime
-	}()
+	restore := version.SetForTesting("v1.2.3", "abc123def456", "2025-01-10T12:00:00Z")
+	defer restore()
 
-	// Simulate ldflags injection
-	Version = "v1.2.3"
-	Commit = "abc123def456"
-	BuildTime = "2025-01-10T12:00:00Z"
-
-	info := Info()
+	info := version.Info()
 
 	if info["version"] != "v1.2.3" {
 		t.Errorf("Info()['version'] = %q, want %q", info["version"], "v1.2.3")
@@ -138,9 +137,6 @@ func TestInfoReflectsModifiedVersion(t *testing.T) {
 }
 
 func TestInfoWithSemanticVersion(t *testing.T) {
-	origVersion := Version
-	defer func() { Version = origVersion }()
-
 	testCases := []struct {
 		name    string
 		version string
@@ -158,8 +154,10 @@ func TestInfoWithSemanticVersion(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			Version = tc.version
-			info := Info()
+			restore := version.SetForTesting(tc.version, "unknown", "unknown")
+			defer restore()
+
+			info := version.Info()
 
 			if info["version"] != tc.version {
 				t.Errorf("Info()['version'] = %q, want %q", info["version"], tc.version)
@@ -169,9 +167,6 @@ func TestInfoWithSemanticVersion(t *testing.T) {
 }
 
 func TestInfoWithGitCommitFormats(t *testing.T) {
-	origCommit := Commit
-	defer func() { Commit = origCommit }()
-
 	testCases := []struct {
 		name   string
 		commit string
@@ -185,8 +180,10 @@ func TestInfoWithGitCommitFormats(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			Commit = tc.commit
-			info := Info()
+			restore := version.SetForTesting("dev", tc.commit, "unknown")
+			defer restore()
+
+			info := version.Info()
 
 			if info["commit"] != tc.commit {
 				t.Errorf("Info()['commit'] = %q, want %q", info["commit"], tc.commit)
@@ -196,9 +193,6 @@ func TestInfoWithGitCommitFormats(t *testing.T) {
 }
 
 func TestInfoWithBuildTimeFormats(t *testing.T) {
-	origBuildTime := BuildTime
-	defer func() { BuildTime = origBuildTime }()
-
 	testCases := []struct {
 		name      string
 		buildTime string
@@ -214,8 +208,10 @@ func TestInfoWithBuildTimeFormats(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			BuildTime = tc.buildTime
-			info := Info()
+			restore := version.SetForTesting("dev", "unknown", tc.buildTime)
+			defer restore()
+
+			info := version.Info()
 
 			if info["buildTime"] != tc.buildTime {
 				t.Errorf("Info()['buildTime'] = %q, want %q", info["buildTime"], tc.buildTime)
@@ -229,8 +225,8 @@ func TestInfoWithBuildTimeFormats(t *testing.T) {
 // ============================================================================
 
 func TestInfoReturnsNewMapEachCall(t *testing.T) {
-	info1 := Info()
-	info2 := Info()
+	info1 := version.Info()
+	info2 := version.Info()
 
 	// Modify info1
 	info1["version"] = "modified"
@@ -242,8 +238,8 @@ func TestInfoReturnsNewMapEachCall(t *testing.T) {
 }
 
 func TestInfoMapIsNotShared(t *testing.T) {
-	info1 := Info()
-	info2 := Info()
+	info1 := version.Info()
+	info2 := version.Info()
 
 	// Add extra key to info1
 	info1["extra"] = "value"
@@ -259,22 +255,10 @@ func TestInfoMapIsNotShared(t *testing.T) {
 // ============================================================================
 
 func TestInfoWithEmptyValues(t *testing.T) {
-	origVersion := Version
-	origCommit := Commit
-	origBuildTime := BuildTime
+	restore := version.SetForTesting("", "", "")
+	defer restore()
 
-	defer func() {
-		Version = origVersion
-		Commit = origCommit
-		BuildTime = origBuildTime
-	}()
-
-	// Set empty values
-	Version = ""
-	Commit = ""
-	BuildTime = ""
-
-	info := Info()
+	info := version.Info()
 
 	// Should still return a map with empty strings
 	if info["version"] != "" {
@@ -289,64 +273,46 @@ func TestInfoWithEmptyValues(t *testing.T) {
 }
 
 func TestInfoWithSpecialCharacters(t *testing.T) {
-	origVersion := Version
-	origCommit := Commit
-	origBuildTime := BuildTime
+	testVersion := "v1.0.0-beta+build.123"
+	testCommit := "abc123/feature-branch"
+	testBuildTime := "2025-01-10T12:00:00+00:00"
 
-	defer func() {
-		Version = origVersion
-		Commit = origCommit
-		BuildTime = origBuildTime
-	}()
+	restore := version.SetForTesting(testVersion, testCommit, testBuildTime)
+	defer restore()
 
-	// Test with special characters that might appear in build info
-	Version = "v1.0.0-beta+build.123"
-	Commit = "abc123/feature-branch"
-	BuildTime = "2025-01-10T12:00:00+00:00"
+	info := version.Info()
 
-	info := Info()
-
-	if info["version"] != Version {
-		t.Errorf("Info()['version'] = %q, want %q", info["version"], Version)
+	if info["version"] != testVersion {
+		t.Errorf("Info()['version'] = %q, want %q", info["version"], testVersion)
 	}
-	if info["commit"] != Commit {
-		t.Errorf("Info()['commit'] = %q, want %q", info["commit"], Commit)
+	if info["commit"] != testCommit {
+		t.Errorf("Info()['commit'] = %q, want %q", info["commit"], testCommit)
 	}
-	if info["buildTime"] != BuildTime {
-		t.Errorf("Info()['buildTime'] = %q, want %q", info["buildTime"], BuildTime)
+	if info["buildTime"] != testBuildTime {
+		t.Errorf("Info()['buildTime'] = %q, want %q", info["buildTime"], testBuildTime)
 	}
 }
 
 func TestInfoWithUnicodeCharacters(t *testing.T) {
-	origVersion := Version
-	defer func() { Version = origVersion }()
+	testVersion := "v1.0.0-测试"
+	restore := version.SetForTesting(testVersion, "unknown", "unknown")
+	defer restore()
 
-	// Edge case: unicode in version (unlikely but should not panic)
-	Version = "v1.0.0-测试"
-	info := Info()
+	info := version.Info()
 
-	if info["version"] != "v1.0.0-测试" {
-		t.Errorf("Info()['version'] = %q, want %q", info["version"], "v1.0.0-测试")
+	if info["version"] != testVersion {
+		t.Errorf("Info()['version'] = %q, want %q", info["version"], testVersion)
 	}
 }
 
 func TestInfoWithLongValues(t *testing.T) {
-	origVersion := Version
-	origCommit := Commit
-
-	defer func() {
-		Version = origVersion
-		Commit = origCommit
-	}()
-
-	// Test with unusually long values
 	longVersion := "v1.0.0-alpha.beta.gamma.delta.epsilon.zeta.eta.theta.iota.kappa"
 	longCommit := "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
 
-	Version = longVersion
-	Commit = longCommit
+	restore := version.SetForTesting(longVersion, longCommit, "unknown")
+	defer restore()
 
-	info := Info()
+	info := version.Info()
 
 	if info["version"] != longVersion {
 		t.Errorf("Info()['version'] = %q, want %q", info["version"], longVersion)
@@ -361,7 +327,7 @@ func TestInfoWithLongValues(t *testing.T) {
 // ============================================================================
 
 func TestInfoKeysAreJSONSafe(t *testing.T) {
-	info := Info()
+	info := version.Info()
 
 	// Verify all keys are valid JSON keys (no special characters)
 	expectedKeys := []string{"version", "commit", "buildTime"}
@@ -397,7 +363,7 @@ func TestInfoConcurrentCalls(t *testing.T) {
 				done <- true
 			}()
 
-			info := Info()
+			info := version.Info()
 			_ = info["version"]
 			_ = info["commit"]
 			_ = info["buildTime"]
@@ -416,13 +382,13 @@ func TestInfoConcurrentCalls(t *testing.T) {
 
 func BenchmarkInfo(b *testing.B) {
 	for b.Loop() {
-		_ = Info()
+		_ = version.Info()
 	}
 }
 
 func BenchmarkInfoAccess(b *testing.B) {
 	for b.Loop() {
-		info := Info()
+		info := version.Info()
 		_ = info["version"]
 		_ = info["commit"]
 		_ = info["buildTime"]

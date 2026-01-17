@@ -607,9 +607,11 @@ func TestHandleKeyEventAllFilterVariants(t *testing.T) {
 
 // TestHandleKeyEventUnhandledRunes tests various unhandled key runes.
 func TestHandleKeyEventUnhandledRunes(t *testing.T) {
-	unhandledKeys := []rune{'a', 'b', 'c', 'd', 'e', 'g', 'i', 'j', 'k', 'l',
+	unhandledKeys := []rune{
+		'a', 'b', 'c', 'd', 'e', 'g', 'i', 'j', 'k', 'l',
 		'm', 'n', 'o', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-		'0', '7', '8', '9', '@', '#', '$', '%', '^', '&', '*'}
+		'0', '7', '8', '9', '@', '#', '$', '%', '^', '&', '*',
+	}
 
 	for _, key := range unhandledKeys {
 		t.Run(string(key), func(t *testing.T) {

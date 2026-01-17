@@ -601,7 +601,7 @@ func FormatBytes(n uint64) string {
 	return strconv.FormatUint(n, 10) + " B"
 }
 
-// FormatDuration formats a time.Duration as a human-readable string (e.g., "1h 5m 30s").
+// FormatDuration formats a [time.Duration] as a human-readable string (e.g., "1h 5m 30s").
 func FormatDuration(d time.Duration) string {
 	hours := int(d.Hours())
 	minutes := int(d.Minutes()) % secondsPerMinute

@@ -23,8 +23,8 @@ func getCounterValue(t *testing.T, counter *prometheus.CounterVec, labels ...str
 	if err != nil {
 		t.Fatalf("Failed to get metric with labels %v: %v", labels, err)
 	}
-	m := &dto.Metric{} //nolint:exhaustruct // Only need Counter field populated by Write
-	writeErr := metric.Write(m)
+	var m dto.Metric
+	writeErr := metric.Write(&m)
 	if writeErr != nil {
 		t.Fatalf("Failed to write metric: %v", writeErr)
 	}
@@ -43,8 +43,8 @@ func getHistogramCount(t *testing.T, histogram *prometheus.HistogramVec, labels 
 	if !ok {
 		t.Fatalf("Failed to cast observer to Histogram")
 	}
-	m := &dto.Metric{} //nolint:exhaustruct // Only need Histogram field populated by Write
-	writeErr := hist.Write(m)
+	var m dto.Metric
+	writeErr := hist.Write(&m)
 	if writeErr != nil {
 		t.Fatalf("Failed to write metric: %v", writeErr)
 	}
@@ -54,8 +54,8 @@ func getHistogramCount(t *testing.T, histogram *prometheus.HistogramVec, labels 
 // getGaugeValue extracts the value from a Gauge.
 func getGaugeValue(t *testing.T, gauge prometheus.Gauge) float64 {
 	t.Helper()
-	m := &dto.Metric{} //nolint:exhaustruct // Only need Gauge field populated by Write
-	writeErr := gauge.Write(m)
+	var m dto.Metric
+	writeErr := gauge.Write(&m)
 	if writeErr != nil {
 		t.Fatalf("Failed to write metric: %v", writeErr)
 	}
@@ -70,13 +70,13 @@ func TestRecordHTTPRequest_IncreasesCounter(t *testing.T) {
 	t.Parallel()
 
 	// Get initial value.
-	initialValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", "/test/record", "200")
+	initialValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", "/test/record", "200")
 
 	// Record a request.
 	metrics.RecordHTTPRequest("GET", "/test/record", "200")
 
 	// Verify counter increased.
-	newValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", "/test/record", "200")
+	newValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", "/test/record", "200")
 	if newValue != initialValue+1 {
 		t.Errorf("Expected counter to increase by 1, got %f -> %f", initialValue, newValue)
 	}
@@ -86,7 +86,7 @@ func TestRecordHTTPRequest_MultipleCalls(t *testing.T) {
 	t.Parallel()
 
 	// Get initial value.
-	initialValue := getCounterValue(t, metrics.HTTPRequestsTotal, "POST", "/test/multi", "201")
+	initialValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "POST", "/test/multi", "201")
 
 	// Record multiple requests.
 	const numRequests = 5
@@ -95,7 +95,7 @@ func TestRecordHTTPRequest_MultipleCalls(t *testing.T) {
 	}
 
 	// Verify counter increased by numRequests.
-	newValue := getCounterValue(t, metrics.HTTPRequestsTotal, "POST", "/test/multi", "201")
+	newValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "POST", "/test/multi", "201")
 	if newValue != initialValue+numRequests {
 		t.Errorf("Expected counter to increase by %d, got %f -> %f", numRequests, initialValue, newValue)
 	}
@@ -110,11 +110,11 @@ func TestRecordHTTPRequest_DifferentMethods(t *testing.T) {
 		t.Run(method, func(t *testing.T) {
 			t.Parallel()
 			path := "/test/methods/" + strings.ToLower(method)
-			initialValue := getCounterValue(t, metrics.HTTPRequestsTotal, method, path, "200")
+			initialValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, method, path, "200")
 
 			metrics.RecordHTTPRequest(method, path, "200")
 
-			newValue := getCounterValue(t, metrics.HTTPRequestsTotal, method, path, "200")
+			newValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, method, path, "200")
 			if newValue != initialValue+1 {
 				t.Errorf("Expected counter to increase by 1 for %s, got %f -> %f", method, initialValue, newValue)
 			}
@@ -131,11 +131,11 @@ func TestRecordHTTPRequest_DifferentStatusCodes(t *testing.T) {
 		t.Run("status_"+status, func(t *testing.T) {
 			t.Parallel()
 			path := "/test/status/" + status
-			initialValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", path, status)
+			initialValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", path, status)
 
 			metrics.RecordHTTPRequest("GET", path, status)
 
-			newValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", path, status)
+			newValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", path, status)
 			if newValue != initialValue+1 {
 				t.Errorf(
 					"Expected counter to increase by 1 for status %s, got %f -> %f",
@@ -161,11 +161,11 @@ func TestRecordHTTPRequest_DifferentPaths(t *testing.T) {
 	for _, path := range paths {
 		t.Run(strings.ReplaceAll(path, "/", "_"), func(t *testing.T) {
 			t.Parallel()
-			initialValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", path, "200")
+			initialValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", path, "200")
 
 			metrics.RecordHTTPRequest("GET", path, "200")
 
-			newValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", path, "200")
+			newValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", path, "200")
 			if newValue != initialValue+1 {
 				t.Errorf("Expected counter to increase by 1 for path %s, got %f -> %f", path, initialValue, newValue)
 			}
@@ -177,27 +177,27 @@ func TestRecordHTTPRequest_EmptyLabels(t *testing.T) {
 	t.Parallel()
 
 	// Record with empty method.
-	initialValue := getCounterValue(t, metrics.HTTPRequestsTotal, "", "/test/empty", "200")
+	initialValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "", "/test/empty", "200")
 	metrics.RecordHTTPRequest("", "/test/empty", "200")
-	newValue := getCounterValue(t, metrics.HTTPRequestsTotal, "", "/test/empty", "200")
+	newValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "", "/test/empty", "200")
 
 	if newValue != initialValue+1 {
 		t.Errorf("Expected counter to increase by 1 with empty method")
 	}
 
 	// Record with empty path.
-	initialValue2 := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", "", "200")
+	initialValue2 := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", "", "200")
 	metrics.RecordHTTPRequest("GET", "", "200")
-	newValue2 := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", "", "200")
+	newValue2 := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", "", "200")
 
 	if newValue2 != initialValue2+1 {
 		t.Errorf("Expected counter to increase by 1 with empty path")
 	}
 
 	// Record with empty status.
-	initialValue3 := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", "/test/emptystatus", "")
+	initialValue3 := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", "/test/emptystatus", "")
 	metrics.RecordHTTPRequest("GET", "/test/emptystatus", "")
-	newValue3 := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", "/test/emptystatus", "")
+	newValue3 := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", "/test/emptystatus", "")
 
 	if newValue3 != initialValue3+1 {
 		t.Errorf("Expected counter to increase by 1 with empty status")
@@ -212,13 +212,13 @@ func TestObserveHTTPDuration_RecordsDuration(t *testing.T) {
 	t.Parallel()
 
 	// Get initial count.
-	initialCount := getHistogramCount(t, metrics.HTTPRequestDuration, "GET", "/test/duration")
+	initialCount := getHistogramCount(t, metrics.GetMetrics().HTTPRequestDuration, "GET", "/test/duration")
 
 	// Record a duration.
 	metrics.ObserveHTTPDuration("GET", "/test/duration", 0.5)
 
 	// Verify sample count increased.
-	newCount := getHistogramCount(t, metrics.HTTPRequestDuration, "GET", "/test/duration")
+	newCount := getHistogramCount(t, metrics.GetMetrics().HTTPRequestDuration, "GET", "/test/duration")
 	if newCount != initialCount+1 {
 		t.Errorf("Expected histogram count to increase by 1, got %d -> %d", initialCount, newCount)
 	}
@@ -228,7 +228,7 @@ func TestObserveHTTPDuration_MultipleDurations(t *testing.T) {
 	t.Parallel()
 
 	// Get initial count.
-	initialCount := getHistogramCount(t, metrics.HTTPRequestDuration, "POST", "/test/multiduration")
+	initialCount := getHistogramCount(t, metrics.GetMetrics().HTTPRequestDuration, "POST", "/test/multiduration")
 
 	// Record multiple durations.
 	durations := []float64{0.001, 0.01, 0.1, 0.5, 1.0, 2.5}
@@ -237,7 +237,7 @@ func TestObserveHTTPDuration_MultipleDurations(t *testing.T) {
 	}
 
 	// Verify sample count increased by len(durations).
-	newCount := getHistogramCount(t, metrics.HTTPRequestDuration, "POST", "/test/multiduration")
+	newCount := getHistogramCount(t, metrics.GetMetrics().HTTPRequestDuration, "POST", "/test/multiduration")
 	if newCount != initialCount+uint64(len(durations)) {
 		t.Errorf("Expected histogram count to increase by %d, got %d -> %d", len(durations), initialCount, newCount)
 	}
@@ -246,11 +246,11 @@ func TestObserveHTTPDuration_MultipleDurations(t *testing.T) {
 func TestObserveHTTPDuration_ZeroDuration(t *testing.T) {
 	t.Parallel()
 
-	initialCount := getHistogramCount(t, metrics.HTTPRequestDuration, "GET", "/test/zeroduration")
+	initialCount := getHistogramCount(t, metrics.GetMetrics().HTTPRequestDuration, "GET", "/test/zeroduration")
 
 	metrics.ObserveHTTPDuration("GET", "/test/zeroduration", 0.0)
 
-	newCount := getHistogramCount(t, metrics.HTTPRequestDuration, "GET", "/test/zeroduration")
+	newCount := getHistogramCount(t, metrics.GetMetrics().HTTPRequestDuration, "GET", "/test/zeroduration")
 	if newCount != initialCount+1 {
 		t.Errorf("Expected histogram count to increase by 1 for zero duration")
 	}
@@ -259,11 +259,11 @@ func TestObserveHTTPDuration_ZeroDuration(t *testing.T) {
 func TestObserveHTTPDuration_VerySmallDuration(t *testing.T) {
 	t.Parallel()
 
-	initialCount := getHistogramCount(t, metrics.HTTPRequestDuration, "GET", "/test/smallduration")
+	initialCount := getHistogramCount(t, metrics.GetMetrics().HTTPRequestDuration, "GET", "/test/smallduration")
 
 	metrics.ObserveHTTPDuration("GET", "/test/smallduration", 0.000001) // 1 microsecond
 
-	newCount := getHistogramCount(t, metrics.HTTPRequestDuration, "GET", "/test/smallduration")
+	newCount := getHistogramCount(t, metrics.GetMetrics().HTTPRequestDuration, "GET", "/test/smallduration")
 	if newCount != initialCount+1 {
 		t.Errorf("Expected histogram count to increase by 1 for very small duration")
 	}
@@ -272,11 +272,11 @@ func TestObserveHTTPDuration_VerySmallDuration(t *testing.T) {
 func TestObserveHTTPDuration_LargeDuration(t *testing.T) {
 	t.Parallel()
 
-	initialCount := getHistogramCount(t, metrics.HTTPRequestDuration, "GET", "/test/largeduration")
+	initialCount := getHistogramCount(t, metrics.GetMetrics().HTTPRequestDuration, "GET", "/test/largeduration")
 
 	metrics.ObserveHTTPDuration("GET", "/test/largeduration", 60.0) // 60 seconds
 
-	newCount := getHistogramCount(t, metrics.HTTPRequestDuration, "GET", "/test/largeduration")
+	newCount := getHistogramCount(t, metrics.GetMetrics().HTTPRequestDuration, "GET", "/test/largeduration")
 	if newCount != initialCount+1 {
 		t.Errorf("Expected histogram count to increase by 1 for large duration")
 	}
@@ -291,11 +291,11 @@ func TestObserveHTTPDuration_DifferentMethods(t *testing.T) {
 		t.Run(method, func(t *testing.T) {
 			t.Parallel()
 			path := "/test/methods/duration/" + strings.ToLower(method)
-			initialCount := getHistogramCount(t, metrics.HTTPRequestDuration, method, path)
+			initialCount := getHistogramCount(t, metrics.GetMetrics().HTTPRequestDuration, method, path)
 
 			metrics.ObserveHTTPDuration(method, path, 0.1)
 
-			newCount := getHistogramCount(t, metrics.HTTPRequestDuration, method, path)
+			newCount := getHistogramCount(t, metrics.GetMetrics().HTTPRequestDuration, method, path)
 			if newCount != initialCount+1 {
 				t.Errorf("Expected histogram count to increase for %s", method)
 			}
@@ -310,11 +310,11 @@ func TestObserveHTTPDuration_DifferentMethods(t *testing.T) {
 func TestRecordTestExecution_IncreasesCounter(t *testing.T) {
 	t.Parallel()
 
-	initialValue := getCounterValue(t, metrics.TestExecutionsTotal, "throughput", "benchmark", "success")
+	initialValue := getCounterValue(t, metrics.GetMetrics().TestExecutionsTotal, "throughput", "benchmark", "success")
 
 	metrics.RecordTestExecution("throughput", "benchmark", "success")
 
-	newValue := getCounterValue(t, metrics.TestExecutionsTotal, "throughput", "benchmark", "success")
+	newValue := getCounterValue(t, metrics.GetMetrics().TestExecutionsTotal, "throughput", "benchmark", "success")
 	if newValue != initialValue+1 {
 		t.Errorf("Expected counter to increase by 1, got %f -> %f", initialValue, newValue)
 	}
@@ -328,11 +328,11 @@ func TestRecordTestExecution_DifferentTestTypes(t *testing.T) {
 	for _, testType := range testTypes {
 		t.Run(testType, func(t *testing.T) {
 			t.Parallel()
-			initialValue := getCounterValue(t, metrics.TestExecutionsTotal, testType, "module", "success")
+			initialValue := getCounterValue(t, metrics.GetMetrics().TestExecutionsTotal, testType, "module", "success")
 
 			metrics.RecordTestExecution(testType, "module", "success")
 
-			newValue := getCounterValue(t, metrics.TestExecutionsTotal, testType, "module", "success")
+			newValue := getCounterValue(t, metrics.GetMetrics().TestExecutionsTotal, testType, "module", "success")
 			if newValue != initialValue+1 {
 				t.Errorf("Expected counter to increase by 1 for %s", testType)
 			}
@@ -348,11 +348,11 @@ func TestRecordTestExecution_DifferentModules(t *testing.T) {
 	for _, module := range modules {
 		t.Run(module, func(t *testing.T) {
 			t.Parallel()
-			initialValue := getCounterValue(t, metrics.TestExecutionsTotal, "test", module, "success")
+			initialValue := getCounterValue(t, metrics.GetMetrics().TestExecutionsTotal, "test", module, "success")
 
 			metrics.RecordTestExecution("test", module, "success")
 
-			newValue := getCounterValue(t, metrics.TestExecutionsTotal, "test", module, "success")
+			newValue := getCounterValue(t, metrics.GetMetrics().TestExecutionsTotal, "test", module, "success")
 			if newValue != initialValue+1 {
 				t.Errorf("Expected counter to increase by 1 for %s", module)
 			}
@@ -368,11 +368,11 @@ func TestRecordTestExecution_DifferentStatuses(t *testing.T) {
 	for _, status := range statuses {
 		t.Run(status, func(t *testing.T) {
 			t.Parallel()
-			initialValue := getCounterValue(t, metrics.TestExecutionsTotal, "test", "module", status)
+			initialValue := getCounterValue(t, metrics.GetMetrics().TestExecutionsTotal, "test", "module", status)
 
 			metrics.RecordTestExecution("test", "module", status)
 
-			newValue := getCounterValue(t, metrics.TestExecutionsTotal, "test", "module", status)
+			newValue := getCounterValue(t, metrics.GetMetrics().TestExecutionsTotal, "test", "module", status)
 			if newValue != initialValue+1 {
 				t.Errorf("Expected counter to increase by 1 for status %s", status)
 			}
@@ -383,14 +383,15 @@ func TestRecordTestExecution_DifferentStatuses(t *testing.T) {
 func TestRecordTestExecution_MultipleCalls(t *testing.T) {
 	t.Parallel()
 
-	initialValue := getCounterValue(t, metrics.TestExecutionsTotal, "multi_test", "multi_module", "success")
+	initialValue := getCounterValue(
+		t, metrics.GetMetrics().TestExecutionsTotal, "multi_test", "multi_module", "success")
 
 	const numExecutions = 10
 	for range numExecutions {
 		metrics.RecordTestExecution("multi_test", "multi_module", "success")
 	}
 
-	newValue := getCounterValue(t, metrics.TestExecutionsTotal, "multi_test", "multi_module", "success")
+	newValue := getCounterValue(t, metrics.GetMetrics().TestExecutionsTotal, "multi_test", "multi_module", "success")
 	if newValue != initialValue+numExecutions {
 		t.Errorf("Expected counter to increase by %d, got %f -> %f", numExecutions, initialValue, newValue)
 	}
@@ -405,11 +406,11 @@ func TestIncrementWebSocketConnections(t *testing.T) {
 
 	// Instead of checking exact values (which is flaky with parallel tests),
 	// verify that the function doesn't panic and the gauge increases.
-	beforeValue := getGaugeValue(t, metrics.WebSocketConnectionsActive)
+	beforeValue := getGaugeValue(t, metrics.GetMetrics().WebSocketConnectionsActive)
 
 	metrics.IncrementWebSocketConnections()
 
-	afterValue := getGaugeValue(t, metrics.WebSocketConnectionsActive)
+	afterValue := getGaugeValue(t, metrics.GetMetrics().WebSocketConnectionsActive)
 	if afterValue <= beforeValue {
 		t.Errorf("Expected gauge to increase, got %f -> %f", beforeValue, afterValue)
 	}
@@ -455,14 +456,14 @@ func TestWebSocketConnections_IncrementDecrement(t *testing.T) {
 func TestWebSocketConnections_MultipleIncrements(t *testing.T) {
 	t.Parallel()
 
-	initialValue := getGaugeValue(t, metrics.WebSocketConnectionsActive)
+	initialValue := getGaugeValue(t, metrics.GetMetrics().WebSocketConnectionsActive)
 
 	const numConnections = 100
 	for range numConnections {
 		metrics.IncrementWebSocketConnections()
 	}
 
-	newValue := getGaugeValue(t, metrics.WebSocketConnectionsActive)
+	newValue := getGaugeValue(t, metrics.GetMetrics().WebSocketConnectionsActive)
 	// With parallel tests, we might have interference, so just check it increased significantly.
 	if newValue <= initialValue {
 		t.Errorf("Expected gauge to increase significantly, got %f -> %f", initialValue, newValue)
@@ -481,11 +482,11 @@ func TestWebSocketConnections_MultipleIncrements(t *testing.T) {
 func TestRecordLicenseValidation_IncreasesCounter(t *testing.T) {
 	t.Parallel()
 
-	initialValue := getCounterValue(t, metrics.LicenseValidationsTotal, "success")
+	initialValue := getCounterValue(t, metrics.GetMetrics().LicenseValidationsTotal, "success")
 
 	metrics.RecordLicenseValidation("success")
 
-	newValue := getCounterValue(t, metrics.LicenseValidationsTotal, "success")
+	newValue := getCounterValue(t, metrics.GetMetrics().LicenseValidationsTotal, "success")
 	if newValue != initialValue+1 {
 		t.Errorf("Expected counter to increase by 1, got %f -> %f", initialValue, newValue)
 	}
@@ -499,11 +500,11 @@ func TestRecordLicenseValidation_DifferentResults(t *testing.T) {
 	for _, result := range results {
 		t.Run(result, func(t *testing.T) {
 			t.Parallel()
-			initialValue := getCounterValue(t, metrics.LicenseValidationsTotal, result)
+			initialValue := getCounterValue(t, metrics.GetMetrics().LicenseValidationsTotal, result)
 
 			metrics.RecordLicenseValidation(result)
 
-			newValue := getCounterValue(t, metrics.LicenseValidationsTotal, result)
+			newValue := getCounterValue(t, metrics.GetMetrics().LicenseValidationsTotal, result)
 			if newValue != initialValue+1 {
 				t.Errorf("Expected counter to increase by 1 for result %s", result)
 			}
@@ -514,14 +515,14 @@ func TestRecordLicenseValidation_DifferentResults(t *testing.T) {
 func TestRecordLicenseValidation_MultipleCalls(t *testing.T) {
 	t.Parallel()
 
-	initialValue := getCounterValue(t, metrics.LicenseValidationsTotal, "multi_test")
+	initialValue := getCounterValue(t, metrics.GetMetrics().LicenseValidationsTotal, "multi_test")
 
 	const numValidations = 15
 	for range numValidations {
 		metrics.RecordLicenseValidation("multi_test")
 	}
 
-	newValue := getCounterValue(t, metrics.LicenseValidationsTotal, "multi_test")
+	newValue := getCounterValue(t, metrics.GetMetrics().LicenseValidationsTotal, "multi_test")
 	if newValue != initialValue+numValidations {
 		t.Errorf("Expected counter to increase by %d, got %f -> %f", numValidations, initialValue, newValue)
 	}
@@ -530,11 +531,11 @@ func TestRecordLicenseValidation_MultipleCalls(t *testing.T) {
 func TestRecordLicenseValidation_EmptyResult(t *testing.T) {
 	t.Parallel()
 
-	initialValue := getCounterValue(t, metrics.LicenseValidationsTotal, "")
+	initialValue := getCounterValue(t, metrics.GetMetrics().LicenseValidationsTotal, "")
 
 	metrics.RecordLicenseValidation("")
 
-	newValue := getCounterValue(t, metrics.LicenseValidationsTotal, "")
+	newValue := getCounterValue(t, metrics.GetMetrics().LicenseValidationsTotal, "")
 	if newValue != initialValue+1 {
 		t.Errorf("Expected counter to increase by 1 with empty result")
 	}
@@ -547,7 +548,7 @@ func TestRecordLicenseValidation_EmptyResult(t *testing.T) {
 func TestHTTPRequestsTotal_IsNotNil(t *testing.T) {
 	t.Parallel()
 
-	if metrics.HTTPRequestsTotal == nil {
+	if metrics.GetMetrics().HTTPRequestsTotal == nil {
 		t.Error("HTTPRequestsTotal should not be nil")
 	}
 }
@@ -555,7 +556,7 @@ func TestHTTPRequestsTotal_IsNotNil(t *testing.T) {
 func TestHTTPRequestDuration_IsNotNil(t *testing.T) {
 	t.Parallel()
 
-	if metrics.HTTPRequestDuration == nil {
+	if metrics.GetMetrics().HTTPRequestDuration == nil {
 		t.Error("HTTPRequestDuration should not be nil")
 	}
 }
@@ -563,7 +564,7 @@ func TestHTTPRequestDuration_IsNotNil(t *testing.T) {
 func TestTestExecutionsTotal_IsNotNil(t *testing.T) {
 	t.Parallel()
 
-	if metrics.TestExecutionsTotal == nil {
+	if metrics.GetMetrics().TestExecutionsTotal == nil {
 		t.Error("TestExecutionsTotal should not be nil")
 	}
 }
@@ -571,7 +572,7 @@ func TestTestExecutionsTotal_IsNotNil(t *testing.T) {
 func TestWebSocketConnectionsActive_IsNotNil(t *testing.T) {
 	t.Parallel()
 
-	if metrics.WebSocketConnectionsActive == nil {
+	if metrics.GetMetrics().WebSocketConnectionsActive == nil {
 		t.Error("WebSocketConnectionsActive should not be nil")
 	}
 }
@@ -579,7 +580,7 @@ func TestWebSocketConnectionsActive_IsNotNil(t *testing.T) {
 func TestLicenseValidationsTotal_IsNotNil(t *testing.T) {
 	t.Parallel()
 
-	if metrics.LicenseValidationsTotal == nil {
+	if metrics.GetMetrics().LicenseValidationsTotal == nil {
 		t.Error("LicenseValidationsTotal should not be nil")
 	}
 }
@@ -594,7 +595,7 @@ func TestRecordHTTPRequest_Concurrency(t *testing.T) {
 	const numGoroutines = 100
 	done := make(chan bool, numGoroutines)
 
-	initialValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", "/concurrent/test", "200")
+	initialValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", "/concurrent/test", "200")
 
 	for range numGoroutines {
 		go func() {
@@ -607,7 +608,7 @@ func TestRecordHTTPRequest_Concurrency(t *testing.T) {
 		<-done
 	}
 
-	newValue := getCounterValue(t, metrics.HTTPRequestsTotal, "GET", "/concurrent/test", "200")
+	newValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", "/concurrent/test", "200")
 	if newValue != initialValue+numGoroutines {
 		t.Errorf("Expected counter to be %f, got %f", initialValue+numGoroutines, newValue)
 	}
@@ -619,7 +620,7 @@ func TestObserveHTTPDuration_Concurrency(t *testing.T) {
 	const numGoroutines = 100
 	done := make(chan bool, numGoroutines)
 
-	initialCount := getHistogramCount(t, metrics.HTTPRequestDuration, "GET", "/concurrent/duration")
+	initialCount := getHistogramCount(t, metrics.GetMetrics().HTTPRequestDuration, "GET", "/concurrent/duration")
 
 	for i := range numGoroutines {
 		go func(id int) {
@@ -632,7 +633,7 @@ func TestObserveHTTPDuration_Concurrency(t *testing.T) {
 		<-done
 	}
 
-	newCount := getHistogramCount(t, metrics.HTTPRequestDuration, "GET", "/concurrent/duration")
+	newCount := getHistogramCount(t, metrics.GetMetrics().HTTPRequestDuration, "GET", "/concurrent/duration")
 	if newCount != initialCount+numGoroutines {
 		t.Errorf("Expected histogram count to be %d, got %d", initialCount+numGoroutines, newCount)
 	}
@@ -644,7 +645,7 @@ func TestRecordTestExecution_Concurrency(t *testing.T) {
 	const numGoroutines = 100
 	done := make(chan bool, numGoroutines)
 
-	initialValue := getCounterValue(t, metrics.TestExecutionsTotal, "concurrent", "test", "success")
+	initialValue := getCounterValue(t, metrics.GetMetrics().TestExecutionsTotal, "concurrent", "test", "success")
 
 	for range numGoroutines {
 		go func() {
@@ -657,7 +658,7 @@ func TestRecordTestExecution_Concurrency(t *testing.T) {
 		<-done
 	}
 
-	newValue := getCounterValue(t, metrics.TestExecutionsTotal, "concurrent", "test", "success")
+	newValue := getCounterValue(t, metrics.GetMetrics().TestExecutionsTotal, "concurrent", "test", "success")
 	if newValue != initialValue+numGoroutines {
 		t.Errorf("Expected counter to be %f, got %f", initialValue+numGoroutines, newValue)
 	}
@@ -671,7 +672,7 @@ func TestWebSocketConnections_Concurrency(t *testing.T) {
 
 	// Track the delta we apply (should be 0 after equal increments and decrements).
 	// We can't check absolute values due to parallel test interference.
-	beforeValue := getGaugeValue(t, metrics.WebSocketConnectionsActive)
+	beforeValue := getGaugeValue(t, metrics.GetMetrics().WebSocketConnectionsActive)
 
 	// Concurrent increments.
 	for range numGoroutines {
@@ -687,7 +688,7 @@ func TestWebSocketConnections_Concurrency(t *testing.T) {
 	}
 
 	// Verify gauge increased.
-	afterIncrement := getGaugeValue(t, metrics.WebSocketConnectionsActive)
+	afterIncrement := getGaugeValue(t, metrics.GetMetrics().WebSocketConnectionsActive)
 	if afterIncrement <= beforeValue {
 		t.Errorf("Expected gauge to increase after increments, got %f -> %f", beforeValue, afterIncrement)
 	}
@@ -705,7 +706,7 @@ func TestWebSocketConnections_Concurrency(t *testing.T) {
 	}
 
 	// Verify gauge decreased after decrements.
-	afterDecrement := getGaugeValue(t, metrics.WebSocketConnectionsActive)
+	afterDecrement := getGaugeValue(t, metrics.GetMetrics().WebSocketConnectionsActive)
 	if afterDecrement >= afterIncrement {
 		t.Errorf("Expected gauge to decrease after decrements, got %f -> %f", afterIncrement, afterDecrement)
 	}
@@ -717,7 +718,7 @@ func TestRecordLicenseValidation_Concurrency(t *testing.T) {
 	const numGoroutines = 100
 	done := make(chan bool, numGoroutines)
 
-	initialValue := getCounterValue(t, metrics.LicenseValidationsTotal, "concurrent")
+	initialValue := getCounterValue(t, metrics.GetMetrics().LicenseValidationsTotal, "concurrent")
 
 	for range numGoroutines {
 		go func() {
@@ -730,7 +731,7 @@ func TestRecordLicenseValidation_Concurrency(t *testing.T) {
 		<-done
 	}
 
-	newValue := getCounterValue(t, metrics.LicenseValidationsTotal, "concurrent")
+	newValue := getCounterValue(t, metrics.GetMetrics().LicenseValidationsTotal, "concurrent")
 	if newValue != initialValue+numGoroutines {
 		t.Errorf("Expected counter to be %f, got %f", initialValue+numGoroutines, newValue)
 	}
@@ -766,7 +767,7 @@ func BenchmarkIncrementWebSocketConnections(b *testing.B) {
 
 func BenchmarkDecrementWebSocketConnections(b *testing.B) {
 	// Pre-increment to avoid negative values (setup phase, not the benchmark itself).
-	for range b.N { //nolint:modernize // This is setup before ResetTimer, not the benchmark
+	for range make([]struct{}, b.N) {
 		metrics.IncrementWebSocketConnections()
 	}
 	b.ResetTimer()

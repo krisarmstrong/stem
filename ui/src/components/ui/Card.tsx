@@ -19,7 +19,7 @@ import type React from 'react';
 import type { ReactNode } from 'react';
 import { card, cn, icon as iconTokens, layout, spacing } from '../../styles/theme';
 import { StatusBadge } from './StatusBadge';
-import { getStatusConfig, type Status } from './statusConfig';
+import { getStatusConfig, type Status } from './StatusConfig';
 
 // Re-export Status type for convenience
 export type { Status };

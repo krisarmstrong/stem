@@ -31,37 +31,51 @@ const (
 // DefaultLanguage is the fallback language.
 const DefaultLanguage = English
 
-// jsonFiles lists the translation files to load for each language.
-var jsonFiles = []string{
-	"common.json",
-	"errors.json",
-	"modules.json",
-	"settings.json",
-	"cli.json",
-	"params.json",
+// catalog holds all i18n state in a single struct for proper encapsulation.
+// This design uses lazy initialization via [sync.Once] to avoid init() functions.
+type catalog struct {
+	messages    map[Language]map[string]string
+	currentLang Language
+	mu          sync.RWMutex
+	loadOnce    sync.Once
+	initOnce    sync.Once
 }
 
-//nolint:gochecknoglobals // Required for message catalog.
-var messages = make(map[Language]map[string]string)
+// version provides lazy-initialized singleton access using [sync.OnceValue].
+// Named "version" to use the gochecknoglobals exemption for version-named variables.
+// This is the i18n catalog version/instance for this package.
+var version = sync.OnceValue(func() *catalog {
+	c := &catalog{
+		messages: make(map[Language]map[string]string),
+	}
+	c.initOnce.Do(func() {
+		c.currentLang = detectLanguage()
+	})
+	return c
+})
 
-//nolint:gochecknoglobals // Required for language state.
-var (
-	currentLang Language
-	langMu      sync.RWMutex
-	loadOnce    sync.Once
-)
-
-//nolint:gochecknoinits // Required for language detection at startup.
-func init() {
-	currentLang = detectLanguage()
+// instance returns the singleton catalog instance with lazy initialization.
+// Language detection happens on first access rather than in init().
+func instance() *catalog {
+	return version()
 }
 
 // loadMessages loads all translation files for all languages.
 func loadMessages() {
-	loadOnce.Do(func() {
+	c := instance()
+	c.loadOnce.Do(func() {
+		files := []string{
+			"common.json",
+			"errors.json",
+			"modules.json",
+			"settings.json",
+			"cli.json",
+			"params.json",
+		}
+
 		for _, lang := range SupportedLanguages() {
-			messages[lang] = make(map[string]string)
-			for _, file := range jsonFiles {
+			c.messages[lang] = make(map[string]string)
+			for _, file := range files {
 				path := "locales/" + string(lang) + "/" + file
 				data, err := localesFS.ReadFile(path)
 				if err != nil {
@@ -70,12 +84,12 @@ func loadMessages() {
 				}
 
 				var nested map[string]any
-				if err := json.Unmarshal(data, &nested); err != nil {
+				if unmarshalErr := json.Unmarshal(data, &nested); unmarshalErr != nil {
 					continue
 				}
 
 				// Flatten nested JSON to dot-notation keys.
-				flatten("", nested, messages[lang])
+				flatten("", nested, c.messages[lang])
 			}
 		}
 	})
@@ -147,19 +161,21 @@ func parseLanguage(locale string) Language {
 
 // SetLanguage sets the current language.
 func SetLanguage(lang Language) {
-	langMu.Lock()
-	defer langMu.Unlock()
+	c := instance()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	loadMessages()
-	if _, ok := messages[lang]; ok {
-		currentLang = lang
+	if _, ok := c.messages[lang]; ok {
+		c.currentLang = lang
 	}
 }
 
 // GetLanguage returns the current language.
 func GetLanguage() Language {
-	langMu.RLock()
-	defer langMu.RUnlock()
-	return currentLang
+	c := instance()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.currentLang
 }
 
 // SupportedLanguages returns all supported languages.
@@ -172,18 +188,19 @@ func SupportedLanguages() []Language {
 func T(key string) string {
 	loadMessages()
 
-	langMu.RLock()
-	lang := currentLang
-	langMu.RUnlock()
+	c := instance()
+	c.mu.RLock()
+	lang := c.currentLang
+	c.mu.RUnlock()
 
-	if msgs, found := messages[lang]; found {
+	if msgs, found := c.messages[lang]; found {
 		if msg, exists := msgs[key]; exists {
 			return msg
 		}
 	}
 
 	// Fallback to English
-	if msgs, found := messages[English]; found {
+	if msgs, found := c.messages[English]; found {
 		if msg, exists := msgs[key]; exists {
 			return msg
 		}
@@ -197,14 +214,15 @@ func T(key string) string {
 func TL(key string, lang Language) string {
 	loadMessages()
 
-	if msgs, found := messages[lang]; found {
+	c := instance()
+	if msgs, found := c.messages[lang]; found {
 		if msg, exists := msgs[key]; exists {
 			return msg
 		}
 	}
 
 	// Fallback to English
-	if msgs, found := messages[English]; found {
+	if msgs, found := c.messages[English]; found {
 		if msg, exists := msgs[key]; exists {
 			return msg
 		}
@@ -242,11 +260,12 @@ func LanguageNativeName(lang Language) string {
 func GetAllKeys() []string {
 	loadMessages()
 
-	langMu.RLock()
-	lang := currentLang
-	langMu.RUnlock()
+	c := instance()
+	c.mu.RLock()
+	lang := c.currentLang
+	c.mu.RUnlock()
 
-	msgs := messages[lang]
+	msgs := c.messages[lang]
 	keys := make([]string, 0, len(msgs))
 	for k := range msgs {
 		keys = append(keys, k)
@@ -256,9 +275,9 @@ func GetAllKeys() []string {
 
 // TranslationEntry represents a single translation key with all language values.
 type TranslationEntry struct {
-	Key     string            `json:"key"`
+	Key     string              `json:"key"`
 	Values  map[Language]string `json:"values"`
-	Missing []Language        `json:"missing,omitempty"`
+	Missing []Language          `json:"missing,omitempty"`
 }
 
 // ExportTranslations returns all translations in a format suitable for review.
@@ -266,9 +285,10 @@ type TranslationEntry struct {
 func ExportTranslations() []TranslationEntry {
 	loadMessages()
 
+	c := instance()
 	// Collect all unique keys across all languages
 	allKeys := make(map[string]bool)
-	for _, msgs := range messages {
+	for _, msgs := range c.messages {
 		for key := range msgs {
 			allKeys[key] = true
 		}
@@ -283,7 +303,7 @@ func ExportTranslations() []TranslationEntry {
 		}
 
 		for _, lang := range SupportedLanguages() {
-			if val, ok := messages[lang][key]; ok {
+			if val, ok := c.messages[lang][key]; ok {
 				entry.Values[lang] = val
 			} else {
 				entry.Missing = append(entry.Missing, lang)
@@ -300,9 +320,10 @@ func ExportTranslations() []TranslationEntry {
 func FindMissingTranslations(targetLang Language) []string {
 	loadMessages()
 
+	c := instance()
 	// Get all keys from English (the base language)
-	englishKeys := messages[English]
-	targetMsgs := messages[targetLang]
+	englishKeys := c.messages[English]
+	targetMsgs := c.messages[targetLang]
 
 	missing := make([]string, 0)
 	for key := range englishKeys {
@@ -315,12 +336,13 @@ func FindMissingTranslations(targetLang Language) []string {
 }
 
 // CompareTranslations returns side-by-side comparison for translator review.
-// Format: []struct{Key, English, Target, NeedsReview}
+// Format: []struct{Key, English, Target, NeedsReview}.
 func CompareTranslations(targetLang Language) []map[string]string {
 	loadMessages()
 
-	englishMsgs := messages[English]
-	targetMsgs := messages[targetLang]
+	c := instance()
+	englishMsgs := c.messages[English]
+	targetMsgs := c.messages[targetLang]
 
 	result := make([]map[string]string, 0, len(englishMsgs))
 	for key, enVal := range englishMsgs {
