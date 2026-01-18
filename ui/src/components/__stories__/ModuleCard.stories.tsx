@@ -52,9 +52,24 @@ const benchmarkConfig: ModuleConfig = {
   enabled: true,
   autoStart: false,
   tests: [
-    { id: 'throughput', name: 'Throughput', description: 'Max rate with 0% loss', enabled: true },
-    { id: 'latency', name: 'Latency', description: 'Round-trip time measurement', enabled: true },
-    { id: 'frame_loss', name: 'Frame Loss', description: 'Loss vs offered load', enabled: false },
+    {
+      id: 'throughput',
+      name: 'Throughput',
+      description: 'Max rate with 0% loss',
+      enabled: true,
+    },
+    {
+      id: 'latency',
+      name: 'Latency',
+      description: 'Round-trip time measurement',
+      enabled: true,
+    },
+    {
+      id: 'frame_loss',
+      name: 'Frame Loss',
+      description: 'Loss vs offered load',
+      enabled: false,
+    },
     {
       id: 'back_to_back',
       name: 'Back-to-Back',
@@ -79,8 +94,18 @@ const serviceTestConfig: ModuleConfig = {
       description: 'Service config validation',
       enabled: true,
     },
-    { id: 'perf', name: 'Performance Test', description: 'Sustained 15+ min test', enabled: true },
-    { id: 'full', name: 'Full Test', description: 'Both config and perf', enabled: false },
+    {
+      id: 'perf',
+      name: 'Performance Test',
+      description: 'Sustained 15+ min test',
+      enabled: true,
+    },
+    {
+      id: 'full',
+      name: 'Full Test',
+      description: 'Both config and perf',
+      enabled: false,
+    },
   ],
 };
 
@@ -93,9 +118,24 @@ const measureConfig: ModuleConfig = {
   enabled: true,
   autoStart: false,
   tests: [
-    { id: 'delay', name: 'Delay (DMM/DMR)', description: 'Frame delay measurement', enabled: true },
-    { id: 'loss', name: 'Loss (LMM/LMR)', description: 'Frame loss measurement', enabled: true },
-    { id: 'slm', name: 'Synthetic Loss', description: 'SLM measurement', enabled: false },
+    {
+      id: 'delay',
+      name: 'Delay (DMM/DMR)',
+      description: 'Frame delay measurement',
+      enabled: true,
+    },
+    {
+      id: 'loss',
+      name: 'Loss (LMM/LMR)',
+      description: 'Frame loss measurement',
+      enabled: true,
+    },
+    {
+      id: 'slm',
+      name: 'Synthetic Loss',
+      description: 'SLM measurement',
+      enabled: false,
+    },
   ],
 };
 
@@ -273,7 +313,11 @@ export const Disabled: Story = {
 export const ServiceTestWithFlows: Story = {
   args: {
     config: serviceTestConfig,
-    status: { status: 'running', currentTest: 'Configuration Test', progress: 60 },
+    status: {
+      status: 'running',
+      currentTest: 'Configuration Test',
+      progress: 60,
+    },
     results: {
       testType: 'Configuration Test',
       startedAt: new Date().toISOString(),
@@ -320,7 +364,12 @@ export const OamMeasurements: Story = {
           delayMax: 2100,
           jitter: 150,
         },
-        { measurementType: 'Loss (LMM)', status: 'running', lossNear: 0.01, lossFar: 0.02 },
+        {
+          measurementType: 'Loss (LMM)',
+          status: 'running',
+          lossNear: 0.01,
+          lossFar: 0.02,
+        },
         { measurementType: 'Synthetic Loss (SLM)', status: 'pending' },
       ],
     } as ModuleTestResults,

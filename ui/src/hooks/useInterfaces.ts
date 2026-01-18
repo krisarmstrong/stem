@@ -43,7 +43,6 @@ export function useInterfaces({
   const [selectedInterface, setSelectedInterface] = useState<string>('');
 
   // Fetch available interfaces
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Interface fetch with validation and auto-selection
   const fetchInterfaces = useCallback(async () => {
     if (!isAuthenticated) {
       return;

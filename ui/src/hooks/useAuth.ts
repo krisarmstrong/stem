@@ -127,7 +127,6 @@ export function useAuth(): UseAuthResult {
 
   // Authenticated fetch wrapper with CSRF protection
   const authFetch = useCallback(
-    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Auth logic with retry and CSRF requires branching
     async (input: RequestInfo, init: RequestInit = {}): Promise<Response> => {
       if (!isAuthenticated) {
         throw new Error('Not authenticated');
@@ -148,7 +147,11 @@ export function useAuth(): UseAuthResult {
         }
       }
 
-      let response = await fetch(input, { ...init, headers, credentials: 'include' });
+      let response = await fetch(input, {
+        ...init,
+        headers,
+        credentials: 'include',
+      });
 
       if (response.status === 401) {
         const refreshed = await refreshAccessToken();
@@ -160,7 +163,11 @@ export function useAuth(): UseAuthResult {
               headers.set(CSRF_HEADER_NAME, newCsrfToken);
             }
           }
-          response = await fetch(input, { ...init, headers, credentials: 'include' });
+          response = await fetch(input, {
+            ...init,
+            headers,
+            credentials: 'include',
+          });
           if (response.ok) {
             return response;
           }
@@ -177,7 +184,11 @@ export function useAuth(): UseAuthResult {
           const newCsrfToken = await getCsrfToken();
           if (newCsrfToken) {
             headers.set(CSRF_HEADER_NAME, newCsrfToken);
-            response = await fetch(input, { ...init, headers, credentials: 'include' });
+            response = await fetch(input, {
+              ...init,
+              headers,
+              credentials: 'include',
+            });
             if (response.ok) {
               return response;
             }
@@ -243,7 +254,9 @@ export function useAuth(): UseAuthResult {
       logWarn('Logout API call failed', {
         component: 'useAuth',
         action: 'handleLogout',
-        additionalData: { error: error instanceof Error ? error.message : String(error) },
+        additionalData: {
+          error: error instanceof Error ? error.message : String(error),
+        },
       });
     }
     csrfTokenRef.current = null;

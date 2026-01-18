@@ -80,7 +80,9 @@ export function RFC2544ConfigForm({
     if (config.frameSizes.includes(size)) {
       updateConfig({ frameSizes: config.frameSizes.filter((s) => s !== size) });
     } else {
-      updateConfig({ frameSizes: [...config.frameSizes, size].sort((a, b) => a - b) });
+      updateConfig({
+        frameSizes: [...config.frameSizes, size].sort((a, b) => a - b),
+      });
     }
   };
 

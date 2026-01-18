@@ -134,7 +134,10 @@ export const useProfileStore = create<ProfileStore>()(
               const mergedConfig = mergeWithDefaults(activeProfile.config, backendDefaults);
 
               set((state) => {
-                state.activeProfile = { ...activeProfile, config: mergedConfig };
+                state.activeProfile = {
+                  ...activeProfile,
+                  config: mergedConfig,
+                };
                 state.isLoading = false;
               });
             } catch (error) {

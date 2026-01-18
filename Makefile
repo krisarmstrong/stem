@@ -406,8 +406,8 @@ packages: deb rpm ## Build all packages (deb + rpm)
 install-service: build
 	@echo "Installing systemd service..."
 	install -D -m 0755 bin/stem-linux /usr/bin/stem
-	install -D -m 0644 packaging/systemd/stem.service /lib/systemd/system/stem.service
-	install -D -m 0640 packaging/config/stem.yaml /etc/stem/config.yaml
+	install -D -m 0644 deploy/systemd/stem.service /lib/systemd/system/stem.service
+	install -D -m 0640 deploy/config/stem.yaml /etc/stem/config.yaml
 	@if ! getent group stem >/dev/null; then groupadd -r stem; fi
 	@if ! getent passwd stem >/dev/null; then \
 		useradd -r -g stem -d /var/lib/stem -s /sbin/nologin stem; \

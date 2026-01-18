@@ -40,7 +40,6 @@ interface RecoveryInstructions {
  * Form for recovering admin password using filesystem access.
  * User must have SSH/filesystem access to read the recovery token.
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Form component with multiple UI states
 export function RecoveryForm({
   onRecoveryComplete,
   onBackToLogin,

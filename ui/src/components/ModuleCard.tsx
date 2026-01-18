@@ -150,7 +150,6 @@ function FrameSizeResultsTable({
           </tr>
         </thead>
         <tbody>
-          {/* biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Results table requires conditional rendering */}
           {results.map((result) => (
             <tr
               key={result.frameSize}
@@ -198,7 +197,10 @@ function FrameSizeResultsTable({
                 {result.status === 'running' && (
                   <div
                     className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin inline-block"
-                    style={{ borderColor: color, borderTopColor: 'transparent' }}
+                    style={{
+                      borderColor: color,
+                      borderTopColor: 'transparent',
+                    }}
                   />
                 )}
                 {result.status === 'error' && (
@@ -343,7 +345,6 @@ function OamResultsTable({ results }: { results: OamMeasurementResult[] }): Reac
   );
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex component with many states
 export function ModuleCard({
   config,
   status,

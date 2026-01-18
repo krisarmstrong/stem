@@ -28,16 +28,16 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/krisarmstrong/stem/internal/api"
 	"github.com/krisarmstrong/stem/internal/help"
 	"github.com/krisarmstrong/stem/internal/license"
 	"github.com/krisarmstrong/stem/internal/logging"
-	"github.com/krisarmstrong/stem/internal/modules"
 	reflectorConfig "github.com/krisarmstrong/stem/internal/reflector/config"
 	reflectorDP "github.com/krisarmstrong/stem/internal/reflector/dataplane"
 	reflectorTUI "github.com/krisarmstrong/stem/internal/reflector/tui"
-	"github.com/krisarmstrong/stem/internal/server"
-	testmasterDP "github.com/krisarmstrong/stem/internal/testmaster/dataplane"
-	testmasterTUI "github.com/krisarmstrong/stem/internal/testmaster/tui"
+	modules "github.com/krisarmstrong/stem/internal/services"
+	testmasterDP "github.com/krisarmstrong/stem/internal/services/orchestrator/dataplane"
+	testmasterTUI "github.com/krisarmstrong/stem/internal/services/orchestrator/tui"
 	"github.com/krisarmstrong/stem/internal/version"
 )
 
@@ -1129,7 +1129,7 @@ func webCmd(args []string) {
 	_, _ = fmt.Fprintf(os.Stdout, "%s %s - WebUI Server\n", ProductName, version.Version())
 	_, _ = fmt.Fprintf(os.Stdout, "Starting on http://%s:%d\n", *host, *port)
 
-	srv, err := server.NewServer(*port)
+	srv, err := api.NewServer(*port)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		_, _ = fmt.Fprintf(

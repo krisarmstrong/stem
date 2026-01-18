@@ -296,7 +296,8 @@ function TestsTab({
     return (
       <div className="space-y-2">
         <p className="text-xs text-[var(--color-text-muted)] mb-3">
-          Found {filteredTests.length} test{filteredTests.length !== 1 ? 's' : ''}
+          Found {filteredTests.length} test
+          {filteredTests.length !== 1 ? 's' : ''}
         </p>
         {filteredTests.map((test) => (
           <TestCard
@@ -749,7 +750,8 @@ function GlossaryTab({
       </p>
       {searchQuery && (
         <p className="caption">
-          Found {glossaryEntries.length} term{glossaryEntries.length !== 1 ? 's' : ''}
+          Found {glossaryEntries.length} term
+          {glossaryEntries.length !== 1 ? 's' : ''}
         </p>
       )}
       {categoryNames.map((category) => (

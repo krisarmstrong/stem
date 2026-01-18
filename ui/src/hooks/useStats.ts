@@ -100,13 +100,14 @@ export function useStats({
       logWarn('Failed to fetch test result', {
         component: 'useStats',
         action: 'fetchTestResult',
-        additionalData: { error: error instanceof Error ? error.message : String(error) },
+        additionalData: {
+          error: error instanceof Error ? error.message : String(error),
+        },
       });
     }
   }, [authFetch]);
 
   // Fetch stats
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Stats fetch with validation and status transitions
   const fetchStats = useCallback(async () => {
     try {
       const response = await authFetch('/api/v1/stats');
@@ -137,7 +138,9 @@ export function useStats({
       logWarn('Stats polling failed', {
         component: 'useStats',
         action: 'fetchStats',
-        additionalData: { error: error instanceof Error ? error.message : String(error) },
+        additionalData: {
+          error: error instanceof Error ? error.message : String(error),
+        },
       });
     }
   }, [authFetch, fetchTestResult]);

@@ -41,7 +41,7 @@ import { defaultTrafficGenConfig, type TrafficGenConfig } from './components/Tra
 import { defaultTSNConfig, type TSNConfig } from './components/TsnConfigForm';
 import { defaultY1564Config, type Y1564Config } from './components/Y1564ConfigForm';
 import { defaultY1731Config, type Y1731Config } from './components/Y1731ConfigForm';
-import { ModuleSettingsProvider, useModuleSettings } from './context/ModuleSettingsContext';
+import { ModuleSettingsProvider, useModuleSettings } from './contexts/ModuleSettingsContext';
 import { useFocusTrap } from './hooks/useFocusTrap';
 import {
   type InterfaceInfo,
@@ -345,7 +345,6 @@ function mapStatsPayload(payload: Partial<Stats>): Stats {
   };
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Main app component with many states
 function AppContent(): ReactElement {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -468,7 +467,6 @@ function AppContent(): ReactElement {
   }, []);
 
   const authFetch = useCallback(
-    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Auth logic with retry requires branching
     async (input: RequestInfo, init: RequestInit = {}) => {
       if (!isAuthenticated) {
         throw new Error('Not authenticated');
@@ -478,14 +476,22 @@ function AppContent(): ReactElement {
         headers.set('Content-Type', 'application/json');
       }
       // Include cookies in request (auth token is in httpOnly cookie)
-      let response = await fetch(input, { ...init, headers, credentials: 'include' });
+      let response = await fetch(input, {
+        ...init,
+        headers,
+        credentials: 'include',
+      });
 
       // On 401, attempt token refresh before expiring session
       if (response.status === 401) {
         const refreshed = await refreshAccessToken();
         if (refreshed) {
           // Retry request with new cookie (set by refresh endpoint)
-          response = await fetch(input, { ...init, headers, credentials: 'include' });
+          response = await fetch(input, {
+            ...init,
+            headers,
+            credentials: 'include',
+          });
           if (response.ok) {
             return response;
           }
@@ -503,43 +509,39 @@ function AppContent(): ReactElement {
     [expireSession, isAuthenticated, refreshAccessToken],
   );
 
-  const fetchInterfaces = useCallback(
-    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Interface fetch with validation
-    async () => {
-      if (!isAuthenticated) {
+  const fetchInterfaces = useCallback(async () => {
+    if (!isAuthenticated) {
+      return;
+    }
+    try {
+      const response = await authFetch('/api/v1/interfaces');
+      if (!response.ok) {
+        throw new Error('Failed to load interfaces');
+      }
+      const data: unknown = await response.json();
+      if (!isValidInterfaceArray(data)) {
+        throw new Error('Invalid interface data received from server');
+      }
+      setInterfaces(data);
+      // Auto-select highest scored interface
+      if (data.length > 0) {
+        setSelectedInterface((prev) => {
+          if (prev) return prev;
+          const best = data.reduce((a: InterfaceInfo, b: InterfaceInfo) =>
+            a.score > b.score ? a : b,
+          );
+          return best.name;
+        });
+      }
+      setConnected(true);
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error('Unknown error');
+      if (err.message === 'Unauthorized') {
         return;
       }
-      try {
-        const response = await authFetch('/api/v1/interfaces');
-        if (!response.ok) {
-          throw new Error('Failed to load interfaces');
-        }
-        const data: unknown = await response.json();
-        if (!isValidInterfaceArray(data)) {
-          throw new Error('Invalid interface data received from server');
-        }
-        setInterfaces(data);
-        // Auto-select highest scored interface
-        if (data.length > 0) {
-          setSelectedInterface((prev) => {
-            if (prev) return prev;
-            const best = data.reduce((a: InterfaceInfo, b: InterfaceInfo) =>
-              a.score > b.score ? a : b,
-            );
-            return best.name;
-          });
-        }
-        setConnected(true);
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error('Unknown error');
-        if (err.message === 'Unauthorized') {
-          return;
-        }
-        setConnected(false);
-      }
-    },
-    [authFetch, isAuthenticated],
-  );
+      setConnected(false);
+    }
+  }, [authFetch, isAuthenticated]);
 
   // Fetch test result when test completes
   const fetchTestResult = useCallback(async () => {
@@ -555,7 +557,9 @@ function AppContent(): ReactElement {
       logWarn('Failed to fetch test result', {
         component: 'App',
         action: 'fetchTestResult',
-        additionalData: { error: error instanceof Error ? error.message : String(error) },
+        additionalData: {
+          error: error instanceof Error ? error.message : String(error),
+        },
       });
     }
   }, [authFetch]);
@@ -563,7 +567,6 @@ function AppContent(): ReactElement {
   // Track previous test status to detect transitions
   const prevTestStatus = useRef<string>('idle');
 
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Stats fetch with validation and status transitions
   const fetchStats = useCallback(async () => {
     try {
       const response = await authFetch('/api/v1/stats');
@@ -596,7 +599,9 @@ function AppContent(): ReactElement {
       logWarn('Stats polling failed', {
         component: 'App',
         action: 'fetchStats',
-        additionalData: { error: error instanceof Error ? error.message : String(error) },
+        additionalData: {
+          error: error instanceof Error ? error.message : String(error),
+        },
       });
     }
   }, [authFetch, fetchTestResult]);
@@ -641,80 +646,76 @@ function AppContent(): ReactElement {
     [password, username],
   );
 
-  const handleStartTest = useCallback(
-    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Test config selection requires many branches
-    async (): Promise<void> => {
-      if (!isAuthenticated) return;
-      setIsStartingTest(true);
-      setTestStartError(null);
+  const handleStartTest = useCallback(async (): Promise<void> => {
+    if (!isAuthenticated) return;
+    setIsStartingTest(true);
+    setTestStartError(null);
 
-      try {
-        // Determine test type based on mode
-        const testType =
-          mode === 'reflector' ? 'reflect' : (selectedTests[0] ?? 'rfc2544_throughput');
+    try {
+      // Determine test type based on mode
+      const testType =
+        mode === 'reflector' ? 'reflect' : (selectedTests[0] ?? 'rfc2544_throughput');
 
-        // Build test configuration based on test type
-        let config: Record<string, unknown> | undefined;
-        if (testType.startsWith('rfc2544')) {
-          config = { rfc2544: rfc2544Config };
-        } else if (testType.startsWith('rfc2889')) {
-          config = { rfc2889: rfc2889Config };
-        } else if (testType.startsWith('rfc6349')) {
-          config = { rfc6349: rfc6349Config };
-        } else if (testType.startsWith('y1564')) {
-          config = { y1564: y1564Config };
-        } else if (testType.startsWith('y1731')) {
-          config = { y1731: y1731Config };
-        } else if (testType.startsWith('tsn')) {
-          config = { tsn: tsnConfig };
-        } else if (testType === 'custom_stream') {
-          config = { trafficGen: trafficGenConfig };
-        }
-
-        const response = await authFetch('/api/v1/test/start', {
-          method: 'POST',
-          body: JSON.stringify({
-            interface: selectedInterface,
-            testType,
-            mode,
-            profile: mode === 'reflector' ? reflectorProfile : undefined,
-            tests: selectedTests,
-            config,
-          }),
-        });
-
-        // Check for validation errors in response
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => null);
-          const errorMessage = (errorData as { error?: string })?.error || 'Failed to start test';
-          setTestStartError(errorMessage);
-          return;
-        }
-
-        // Status updates will come from polling - don't update optimistically
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to start test';
-        setTestStartError(message);
-      } finally {
-        setIsStartingTest(false);
+      // Build test configuration based on test type
+      let config: Record<string, unknown> | undefined;
+      if (testType.startsWith('rfc2544')) {
+        config = { rfc2544: rfc2544Config };
+      } else if (testType.startsWith('rfc2889')) {
+        config = { rfc2889: rfc2889Config };
+      } else if (testType.startsWith('rfc6349')) {
+        config = { rfc6349: rfc6349Config };
+      } else if (testType.startsWith('y1564')) {
+        config = { y1564: y1564Config };
+      } else if (testType.startsWith('y1731')) {
+        config = { y1731: y1731Config };
+      } else if (testType.startsWith('tsn')) {
+        config = { tsn: tsnConfig };
+      } else if (testType === 'custom_stream') {
+        config = { trafficGen: trafficGenConfig };
       }
-    },
-    [
-      authFetch,
-      mode,
-      reflectorProfile,
-      isAuthenticated,
-      rfc2544Config,
-      rfc2889Config,
-      rfc6349Config,
-      selectedInterface,
-      selectedTests,
-      trafficGenConfig,
-      tsnConfig,
-      y1564Config,
-      y1731Config,
-    ],
-  );
+
+      const response = await authFetch('/api/v1/test/start', {
+        method: 'POST',
+        body: JSON.stringify({
+          interface: selectedInterface,
+          testType,
+          mode,
+          profile: mode === 'reflector' ? reflectorProfile : undefined,
+          tests: selectedTests,
+          config,
+        }),
+      });
+
+      // Check for validation errors in response
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        const errorMessage = (errorData as { error?: string })?.error || 'Failed to start test';
+        setTestStartError(errorMessage);
+        return;
+      }
+
+      // Status updates will come from polling - don't update optimistically
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to start test';
+      setTestStartError(message);
+    } finally {
+      setIsStartingTest(false);
+    }
+  }, [
+    authFetch,
+    mode,
+    reflectorProfile,
+    isAuthenticated,
+    rfc2544Config,
+    rfc2889Config,
+    rfc6349Config,
+    selectedInterface,
+    selectedTests,
+    trafficGenConfig,
+    tsnConfig,
+    y1564Config,
+    y1731Config,
+  ]);
 
   const handleStopTest = useCallback(async (): Promise<void> => {
     if (!isAuthenticated) return;
@@ -765,7 +766,10 @@ function AppContent(): ReactElement {
       }
 
       // Update module status
-      setModuleStatus(moduleName, { status: 'starting', currentTest: testType });
+      setModuleStatus(moduleName, {
+        status: 'starting',
+        currentTest: testType,
+      });
 
       try {
         await authFetch('/api/v1/test/start', {
@@ -778,7 +782,10 @@ function AppContent(): ReactElement {
           }),
         });
 
-        setModuleStatus(moduleName, { status: 'running', currentTest: testType });
+        setModuleStatus(moduleName, {
+          status: 'running',
+          currentTest: testType,
+        });
         setStats((prev) => ({
           ...prev,
           testStatus: 'running',
@@ -840,7 +847,9 @@ function AppContent(): ReactElement {
       logWarn('Logout API call failed', {
         component: 'App',
         action: 'handleLogout',
-        additionalData: { error: error instanceof Error ? error.message : String(error) },
+        additionalData: {
+          error: error instanceof Error ? error.message : String(error),
+        },
       });
     }
     // Clear auth state
@@ -890,7 +899,9 @@ function AppContent(): ReactElement {
         logWarn('Failed to check status', {
           component: 'App',
           action: 'checkStatuses',
-          additionalData: { error: error instanceof Error ? error.message : String(error) },
+          additionalData: {
+            error: error instanceof Error ? error.message : String(error),
+          },
         });
       } finally {
         setSetupChecked(true);
@@ -907,7 +918,10 @@ function AppContent(): ReactElement {
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: loginUsername, password: loginPassword }),
+          body: JSON.stringify({
+            username: loginUsername,
+            password: loginPassword,
+          }),
         });
         if (!response.ok) {
           return false;
@@ -1253,7 +1267,12 @@ function AppContent(): ReactElement {
               <ModuleCard
                 key={moduleConfig.name}
                 config={moduleConfig}
-                status={moduleStatuses[moduleConfig.name] ?? { status: 'idle', currentTest: null }}
+                status={
+                  moduleStatuses[moduleConfig.name] ?? {
+                    status: 'idle',
+                    currentTest: null,
+                  }
+                }
                 results={moduleResults[moduleConfig.name]}
                 onToggleModule={(enabled) => toggleModule(moduleConfig.name, enabled)}
                 onToggleAutoStart={(enabled) => toggleAutoStart(moduleConfig.name, enabled)}

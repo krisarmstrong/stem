@@ -15,7 +15,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/krisarmstrong/stem/internal/modules"
+	modules "github.com/krisarmstrong/stem/internal/services"
 )
 
 const (

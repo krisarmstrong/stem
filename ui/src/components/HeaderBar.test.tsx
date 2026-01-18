@@ -71,7 +71,9 @@ describe('HeaderBar', () => {
         <HeaderBar {...defaultProps} connectionStatus="disconnected" onReconnect={onReconnect} />,
       );
 
-      const reconnectButton = screen.getByRole('button', { name: /click to reconnect/i });
+      const reconnectButton = screen.getByRole('button', {
+        name: /click to reconnect/i,
+      });
       fireEvent.click(reconnectButton);
       expect(onReconnect).toHaveBeenCalled();
     });

@@ -23,6 +23,6 @@
     }
   },
   "include": ["src", "../internal/i18n/locales"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**/*"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**/*", "src/**/*.stories.tsx", "src/**/__stories__/**/*"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

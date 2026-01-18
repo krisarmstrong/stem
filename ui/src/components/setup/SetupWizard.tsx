@@ -106,7 +106,10 @@ export function SetupWizard({
       });
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string; message?: string };
+        const data = (await response.json()) as {
+          error?: string;
+          message?: string;
+        };
         setError(data.error ?? data.message ?? t('errors.setupFailed'));
         return;
       }

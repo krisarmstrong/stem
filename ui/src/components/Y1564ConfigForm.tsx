@@ -96,7 +96,9 @@ export function Y1564ConfigForm({
     if (config.frameSizes.includes(size)) {
       updateConfig({ frameSizes: config.frameSizes.filter((s) => s !== size) });
     } else {
-      updateConfig({ frameSizes: [...config.frameSizes, size].sort((a, b) => a - b) });
+      updateConfig({
+        frameSizes: [...config.frameSizes, size].sort((a, b) => a - b),
+      });
     }
   };
 
@@ -452,7 +454,8 @@ export function Y1564ConfigForm({
             </div>
             <div>Frame sizes: {config.frameSizes.join(', ')} bytes</div>
             <div>
-              SLA: FLR≤{config.flrThreshold}%, FD≤{config.fdThreshold}ms, FDV≤{config.fdvThreshold}
+              SLA: FLR≤{config.flrThreshold}%, FD≤{config.fdThreshold}ms, FDV≤
+              {config.fdvThreshold}
               ms
             </div>
             {config.vlanId > 0 && (
