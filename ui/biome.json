@@ -1,60 +1,61 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.3.11/schema.json",
-	"linter": {
-		"enabled": true,
-		"rules": {
-			"recommended": true,
-			"a11y": {
-				"useButtonType": "error",
-				"useKeyWithClickEvents": "error"
-			},
-			"complexity": {
-				"noExcessiveCognitiveComplexity": {
-					"level": "error",
-					"options": {
-						"maxAllowedComplexity": 25
-					}
-				}
-			},
-			"correctness": {
-				"noUnusedVariables": "error",
-				"noUnusedImports": "error",
-				"useExhaustiveDependencies": "error"
-			},
-			"style": {
-				"noNonNullAssertion": "error",
-				"useConst": "error",
-				"useTemplate": "error"
-			},
-			"suspicious": {
-				"noExplicitAny": "error",
-				"noConsole": "error"
-			}
-		}
-	},
-	"formatter": {
-		"enabled": true,
-		"indentStyle": "space",
-		"indentWidth": 2,
-		"lineWidth": 100
-	},
-	"javascript": {
-		"formatter": {
-			"quoteStyle": "single",
-			"semicolons": "always",
-			"trailingCommas": "all"
-		}
-	},
-	"files": {
-		"includes": ["**", "!**/*.css", "!**/*.svg"],
-		"ignoreUnknown": true
-	},
-	"css": {
-		"formatter": {
-			"enabled": false
-		},
-		"linter": {
-			"enabled": false
-		}
-	}
+  "root": false,
+  "$schema": "https://biomejs.dev/schemas/2.3.11/schema.json",
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "a11y": {
+        "useButtonType": "error",
+        "useKeyWithClickEvents": "error"
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": {
+          "level": "error",
+          "options": {
+            "maxAllowedComplexity": 25
+          }
+        }
+      },
+      "correctness": {
+        "noUnusedVariables": "error",
+        "noUnusedImports": "error",
+        "useExhaustiveDependencies": "error"
+      },
+      "style": {
+        "noNonNullAssertion": "error",
+        "useConst": "error",
+        "useTemplate": "error"
+      },
+      "suspicious": {
+        "noExplicitAny": "error",
+        "noConsole": "error"
+      }
+    }
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "always",
+      "trailingCommas": "all"
+    }
+  },
+  "files": {
+    "includes": ["**", "!**/*.css", "!**/*.svg"],
+    "ignoreUnknown": true
+  },
+  "css": {
+    "formatter": {
+      "enabled": false
+    },
+    "linter": {
+      "enabled": false
+    }
+  }
 }
