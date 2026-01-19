@@ -125,6 +125,66 @@ export function useAuth(): UseAuthResult {
     }
   }, [fetchCsrfToken]);
 
+  // Helper: Add CSRF token to headers if needed
+  const addCsrfTokenIfNeeded = useCallback(
+    async (headers: Headers, method: string): Promise<void> => {
+      if (!STATE_CHANGING_METHODS.includes(method)) return;
+      const token = await getCsrfToken();
+      if (token) {
+        headers.set(CSRF_HEADER_NAME, token);
+      }
+    },
+    [getCsrfToken],
+  );
+
+  // Helper: Make authenticated request
+  const makeRequest = useCallback(
+    async (input: RequestInfo, init: RequestInit, headers: Headers): Promise<Response> => {
+      return fetch(input, { ...init, headers, credentials: 'include' });
+    },
+    [],
+  );
+
+  // Helper: Handle 401 unauthorized - attempt token refresh and retry
+  const handle401 = useCallback(
+    async (
+      input: RequestInfo,
+      init: RequestInit,
+      headers: Headers,
+      method: string,
+    ): Promise<Response | null> => {
+      const refreshed = await refreshAccessToken();
+      if (!refreshed) return null;
+
+      await addCsrfTokenIfNeeded(headers, method);
+      const retryResponse = await makeRequest(input, init, headers);
+      return retryResponse.ok ? retryResponse : null;
+    },
+    [addCsrfTokenIfNeeded, makeRequest, refreshAccessToken],
+  );
+
+  // Helper: Handle 403 forbidden - check for CSRF error and retry
+  const handle403 = useCallback(
+    async (
+      response: Response,
+      input: RequestInfo,
+      init: RequestInit,
+      headers: Headers,
+    ): Promise<Response | null> => {
+      const text = await response.text();
+      if (!text.includes('CSRF')) return null;
+
+      csrfTokenRef.current = null;
+      const newToken = await getCsrfToken();
+      if (!newToken) return null;
+
+      headers.set(CSRF_HEADER_NAME, newToken);
+      const retryResponse = await makeRequest(input, init, headers);
+      return retryResponse.ok ? retryResponse : null;
+    },
+    [getCsrfToken, makeRequest],
+  );
+
   // Authenticated fetch wrapper with CSRF protection
   const authFetch = useCallback(
     async (input: RequestInfo, init: RequestInit = {}): Promise<Response> => {
@@ -139,67 +199,26 @@ export function useAuth(): UseAuthResult {
         headers.set('Content-Type', 'application/json');
       }
 
-      // Add CSRF token for state-changing requests
-      if (STATE_CHANGING_METHODS.includes(method)) {
-        const csrfToken = await getCsrfToken();
-        if (csrfToken) {
-          headers.set(CSRF_HEADER_NAME, csrfToken);
-        }
-      }
-
-      let response = await fetch(input, {
-        ...init,
-        headers,
-        credentials: 'include',
-      });
+      await addCsrfTokenIfNeeded(headers, method);
+      const response = await makeRequest(input, init, headers);
 
       if (response.status === 401) {
-        const refreshed = await refreshAccessToken();
-        if (refreshed) {
-          // Retry with new CSRF token
-          if (STATE_CHANGING_METHODS.includes(method)) {
-            const newCsrfToken = await getCsrfToken();
-            if (newCsrfToken) {
-              headers.set(CSRF_HEADER_NAME, newCsrfToken);
-            }
-          }
-          response = await fetch(input, {
-            ...init,
-            headers,
-            credentials: 'include',
-          });
-          if (response.ok) {
-            return response;
-          }
-        }
+        const retryResponse = await handle401(input, init, headers, method);
+        if (retryResponse) return retryResponse;
         expireSession();
         throw new Error('Unauthorized');
       }
 
       if (response.status === 403) {
-        // Check if it's a CSRF error - try to refresh token and retry
-        const text = await response.text();
-        if (text.includes('CSRF')) {
-          csrfTokenRef.current = null; // Clear cached token
-          const newCsrfToken = await getCsrfToken();
-          if (newCsrfToken) {
-            headers.set(CSRF_HEADER_NAME, newCsrfToken);
-            response = await fetch(input, {
-              ...init,
-              headers,
-              credentials: 'include',
-            });
-            if (response.ok) {
-              return response;
-            }
-          }
-        }
+        const retryResponse = await handle403(response, input, init, headers);
+        if (retryResponse) return retryResponse;
         expireSession('Access forbidden. Please sign in again.');
         throw new Error('Forbidden');
       }
+
       return response;
     },
-    [expireSession, getCsrfToken, isAuthenticated, refreshAccessToken],
+    [addCsrfTokenIfNeeded, expireSession, handle401, handle403, isAuthenticated, makeRequest],
   );
 
   // Login handler

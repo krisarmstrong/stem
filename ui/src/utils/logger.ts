@@ -37,7 +37,6 @@ export function logError(error: unknown, context?: ErrorContext): void {
   const errorStack = error instanceof Error ? error.stack : undefined;
 
   // In development, use console.error for visibility
-  // biome-ignore lint/suspicious/noConsole: Development-only logging
   console.error('[STEM Error]', {
     message: errorMessage,
     stack: errorStack,
@@ -56,7 +55,6 @@ export function logError(error: unknown, context?: ErrorContext): void {
 export function logWarn(message: string, context?: ErrorContext): void {
   if (!isDev) return;
 
-  // biome-ignore lint/suspicious/noConsole: Development-only logging
   console.warn('[STEM Warning]', {
     message,
     ...context,

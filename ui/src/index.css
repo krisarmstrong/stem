@@ -172,7 +172,14 @@ body {
 
 /* Dark mode gradient - Stem green undertones visible on dark */
 .dark body {
-  background: linear-gradient(135deg, #1a1a1a 0%, #1c3320 25%, #1a2e1c 50%, #1c2823 75%, #1a1a1a 100%);
+  background: linear-gradient(
+    135deg,
+    #1a1a1a 0%,
+    #1c3320 25%,
+    #1a2e1c 50%,
+    #1c2823 75%,
+    #1a1a1a 100%
+  );
 }
 
 /* ============================================================================
