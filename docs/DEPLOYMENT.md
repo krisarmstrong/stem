@@ -279,12 +279,13 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # WebSocket support
-    location /api/ws/ {
+    # SSE support (long-lived connections for real-time updates)
+    location /api/v1/events {
         proxy_pass http://127.0.0.1:8080;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_cache off;
         proxy_read_timeout 86400;
     }
 }
@@ -455,10 +456,10 @@ sudo lsof -i :8080
 sudo kill -9 <PID>
 ```
 
-#### WebSocket Connection Failed
+#### SSE Connection Failed
 
-1. Check firewall allows WebSocket upgrades
-2. Verify nginx/proxy WebSocket configuration
+1. Check firewall allows long-lived HTTP connections
+2. Verify nginx/proxy SSE configuration (buffering disabled)
 3. Check browser console for errors
 
 #### Authentication Failed

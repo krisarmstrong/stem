@@ -50,7 +50,7 @@ make
 
 ## Realtime Updates
 
-The WebUI supports real-time test result streaming via WebSocket at `/api/ws/test-results`.
+The WebUI supports real-time test result streaming via Server-Sent Events (SSE) at `/api/v1/events`.
 
 ## Build
 
@@ -128,7 +128,7 @@ stem/
 | `/api/test/stop` | POST | Stop test (requires auth) |
 | `/api/test/result` | GET | Get test results (requires auth) |
 | `/api/auth/login` | POST | Authenticate and get JWT |
-| `/api/ws/test-results` | WS | WebSocket for live results |
+| `/api/v1/events` | GET | SSE for live results |
 | `/api/modules` | GET | List test modules |
 | `/api/modules/{name}` | GET | Get module details |
 | `/api/license` | GET | License status |

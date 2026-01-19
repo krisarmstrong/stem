@@ -168,8 +168,8 @@ func (w *responseWriter) Unwrap() http.ResponseWriter {
 	return w.ResponseWriter
 }
 
-// Hijack implements [http.Hijacker] for WebSocket support.
-// This allows the logging middleware to be used with WebSocket endpoints.
+// Hijack implements [http.Hijacker] for connection upgrades.
+// This allows the logging middleware to be used with SSE and other streaming endpoints.
 func (w *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	if h, ok := w.ResponseWriter.(http.Hijacker); ok {
 		conn, rw, err := h.Hijack()

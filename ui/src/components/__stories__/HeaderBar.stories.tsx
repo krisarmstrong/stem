@@ -25,7 +25,7 @@ const meta: Meta<typeof HeaderBar> = {
     connectionStatus: {
       control: 'select',
       options: ['connected', 'disconnected', 'reconnecting'],
-      description: 'WebSocket connection status',
+      description: 'SSE connection status',
     },
     theme: {
       control: 'radio',

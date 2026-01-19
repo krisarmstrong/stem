@@ -5,7 +5,7 @@ import type React from 'react';
  * Test Setup and Utilities
  *
  * Purpose: Shared test configuration and mock utilities for Vitest.
- * Provides mock implementations of browser APIs (localStorage, fetch, WebSocket, etc.)
+ * Provides mock implementations of browser APIs (localStorage, fetch, etc.)
  * and common test helpers used across the test suite.
  *
  * Dependencies: vitest, @testing-library/jest-dom
@@ -133,74 +133,6 @@ export function createMockErrorResponse(status = 500, message = 'Error') {
 }
 
 // ============================================================
-// Mock WebSocket
-// ============================================================
-export class MockWebSocket {
-  static instances: MockWebSocket[] = [];
-  static CONNECTING = 0;
-  static OPEN = 1;
-  static CLOSING = 2;
-  static CLOSED = 3;
-
-  url: string;
-  readyState: number = MockWebSocket.CONNECTING;
-  onopen: ((event: Event) => void) | null = null;
-  onclose: ((event: CloseEvent) => void) | null = null;
-  onerror: ((event: Event) => void) | null = null;
-  onmessage: ((event: MessageEvent) => void) | null = null;
-  closeWasCalled = false;
-  sentMessages: string[] = [];
-
-  constructor(url: string) {
-    this.url = url;
-    MockWebSocket.instances.push(this);
-  }
-
-  send(data: string) {
-    this.sentMessages.push(data);
-  }
-
-  close() {
-    this.closeWasCalled = true;
-    this.readyState = MockWebSocket.CLOSED;
-    if (this.onclose) {
-      this.onclose(new CloseEvent('close'));
-    }
-  }
-
-  // Test helpers
-  simulateOpen() {
-    this.readyState = MockWebSocket.OPEN;
-    if (this.onopen) {
-      this.onopen(new Event('open'));
-    }
-  }
-
-  simulateClose(code = 1000, reason = '') {
-    this.readyState = MockWebSocket.CLOSED;
-    if (this.onclose) {
-      this.onclose({ code, reason, wasClean: true } as CloseEvent);
-    }
-  }
-
-  simulateError() {
-    if (this.onerror) {
-      this.onerror(new Event('error'));
-    }
-  }
-
-  simulateMessage(data: object) {
-    if (this.onmessage) {
-      this.onmessage({ data: JSON.stringify(data) } as MessageEvent);
-    }
-  }
-
-  static resetInstances() {
-    MockWebSocket.instances = [];
-  }
-}
-
-// ============================================================
 // Mock window.location
 // ============================================================
 export function mockWindowLocation(overrides: Partial<Location> = {}) {
@@ -230,7 +162,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockLocalStorage.clear();
   mockFetch.mockReset();
-  MockWebSocket.resetInstances();
 });
 
 afterEach(() => {

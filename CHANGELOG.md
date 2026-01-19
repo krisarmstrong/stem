@@ -28,7 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
-- Document the current REST-only UI transport and note WebSocket streaming as planned.
+- Document the SSE-based UI transport for real-time updates.
 
 ## [0.1.10] - 2026-01-04
 

@@ -1663,7 +1663,7 @@ func TestContains(t *testing.T) {
 	}
 }
 
-// TestHijack verifies the Hijack implementation for WebSocket support.
+// TestHijack verifies the Hijack implementation for connection upgrades (SSE, streaming).
 func TestHijack(t *testing.T) {
 	t.Run("underlying supports hijack", func(t *testing.T) {
 		// Create a hijackable server.

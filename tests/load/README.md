@@ -38,7 +38,6 @@ stem web -p 8080
 |--------|---------|----------|-----|
 | `auth.js` | Authentication flow testing | ~7 min | 100 |
 | `api.js` | API endpoint stress testing | ~9 min | 100 |
-| `websocket.js` | WebSocket connection testing | ~7 min | 50 |
 | `full.js` | Combined production simulation | ~10 min | 100+ |
 
 ## Running Tests
@@ -54,7 +53,6 @@ export STEM_PASS=your-password
 # Run individual tests
 k6 run auth.js
 k6 run api.js
-k6 run websocket.js
 
 # Run full test suite
 k6 run full.js
@@ -96,12 +94,9 @@ k6 run --out influxdb=http://localhost:8086/k6 auth.js
 - Overall: p95 < 200ms, p99 < 500ms
 - Error rate: < 1%
 
-### WebSocket (`websocket.js`)
-- Connection time: p95 < 1s, p99 < 2s
-- Error rate: < 5%
-
 ### Full Suite (`full.js`)
 - Overall: p95 < 300ms, p99 < 1s
+- SSE connection: p99 < 2s
 - Error rate: < 2%
 
 ## Test Scenarios
@@ -116,15 +111,10 @@ k6 run --out influxdb=http://localhost:8086/k6 auth.js
 1. **API Load Test**: Ramps up to 100 users hitting various API endpoints
 2. **Throughput Test**: Constant 100 req/s for 1 minute
 
-### websocket.js
-
-1. **WS Load Test**: Ramps up to 50 concurrent WebSocket connections
-2. **Connection Churn**: Rapid connect/disconnect cycles
-
 ### full.js
 
 1. **API Users**: Simulates typical web dashboard usage
-2. **WS Users**: Long-running WebSocket connections (dashboard monitors)
+2. **SSE Users**: Long-running SSE connections (dashboard monitors)
 3. **Auth Stress**: Continuous authentication operations
 
 ## Interpreting Results
@@ -172,11 +162,11 @@ WARN[0030] Request rate limited
 ```
 Expected during rate limit testing. Not an error in normal operation.
 
-### WebSocket Connection Failed
+### SSE Connection Failed
 ```
-ERRO[0010] WebSocket connection successful: false
+ERRO[0010] SSE connection failed
 ```
-Check firewall settings and ensure WebSocket endpoint is accessible.
+Check firewall settings and ensure the SSE endpoint is accessible.
 
 ## Continuous Integration
 

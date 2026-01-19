@@ -37,7 +37,6 @@ Result: No vulnerabilities found
 ### Dependency Analysis
 All dependencies are from trusted sources with no known CVEs:
 - `github.com/golang-jwt/jwt/v5` - JWT handling
-- `github.com/gorilla/websocket` - WebSocket support
 - `golang.org/x/crypto/bcrypt` - Password hashing
 - `golang.org/x/time/rate` - Rate limiting
 

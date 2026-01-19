@@ -63,7 +63,7 @@ export interface TestResult {
   data?: Record<string, unknown>;
 }
 
-/** WebSocket test event payload */
+/** SSE test event payload */
 export interface TestEventPayload {
   status?: string;
   testType?: string | null;

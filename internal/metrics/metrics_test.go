@@ -398,42 +398,42 @@ func TestRecordTestExecution_MultipleCalls(t *testing.T) {
 }
 
 // -----------------------------------------------------------------------------
-// WebSocket Connection Tests
+// SSE Connection Tests
 // -----------------------------------------------------------------------------
 
-func TestIncrementWebSocketConnections(t *testing.T) {
+func TestIncrementSSEConnections(t *testing.T) {
 	t.Parallel()
 
 	// Instead of checking exact values (which is flaky with parallel tests),
 	// verify that the function doesn't panic and the gauge increases.
-	beforeValue := getGaugeValue(t, metrics.GetMetrics().WebSocketConnectionsActive)
+	beforeValue := getGaugeValue(t, metrics.GetMetrics().SSEConnectionsActive)
 
-	metrics.IncrementWebSocketConnections()
+	metrics.IncrementSSEConnections()
 
-	afterValue := getGaugeValue(t, metrics.GetMetrics().WebSocketConnectionsActive)
+	afterValue := getGaugeValue(t, metrics.GetMetrics().SSEConnectionsActive)
 	if afterValue <= beforeValue {
 		t.Errorf("Expected gauge to increase, got %f -> %f", beforeValue, afterValue)
 	}
 
 	// Clean up by decrementing.
-	metrics.DecrementWebSocketConnections()
+	metrics.DecrementSSEConnections()
 }
 
-func TestDecrementWebSocketConnections(t *testing.T) {
+func TestDecrementSSEConnections(t *testing.T) {
 	t.Parallel()
 
-	// Test that DecrementWebSocketConnections doesn't panic and the gauge reflects changes.
+	// Test that DecrementSSEConnections doesn't panic and the gauge reflects changes.
 	// We can't reliably check exact values with parallel tests affecting the shared gauge.
 	// Instead, verify the increment/decrement pattern works atomically.
-	metrics.IncrementWebSocketConnections()
-	metrics.IncrementWebSocketConnections() // Ensure gauge is positive
-	metrics.DecrementWebSocketConnections()
+	metrics.IncrementSSEConnections()
+	metrics.IncrementSSEConnections() // Ensure gauge is positive
+	metrics.DecrementSSEConnections()
 
 	// If we get here without panic, the decrement function works.
 	// The gauge value is indeterminate due to parallel test interference.
 }
 
-func TestWebSocketConnections_IncrementDecrement(t *testing.T) {
+func TestSSEConnections_IncrementDecrement(t *testing.T) {
 	t.Parallel()
 
 	// Test that increment/decrement functions work correctly.
@@ -442,28 +442,28 @@ func TestWebSocketConnections_IncrementDecrement(t *testing.T) {
 
 	// Simulate opening 5 connections.
 	for range 5 {
-		metrics.IncrementWebSocketConnections()
+		metrics.IncrementSSEConnections()
 	}
 
 	// Simulate closing 5 connections.
 	for range 5 {
-		metrics.DecrementWebSocketConnections()
+		metrics.DecrementSSEConnections()
 	}
 
 	// If we get here without panic, the functions work correctly.
 }
 
-func TestWebSocketConnections_MultipleIncrements(t *testing.T) {
+func TestSSEConnections_MultipleIncrements(t *testing.T) {
 	t.Parallel()
 
-	initialValue := getGaugeValue(t, metrics.GetMetrics().WebSocketConnectionsActive)
+	initialValue := getGaugeValue(t, metrics.GetMetrics().SSEConnectionsActive)
 
 	const numConnections = 100
 	for range numConnections {
-		metrics.IncrementWebSocketConnections()
+		metrics.IncrementSSEConnections()
 	}
 
-	newValue := getGaugeValue(t, metrics.GetMetrics().WebSocketConnectionsActive)
+	newValue := getGaugeValue(t, metrics.GetMetrics().SSEConnectionsActive)
 	// With parallel tests, we might have interference, so just check it increased significantly.
 	if newValue <= initialValue {
 		t.Errorf("Expected gauge to increase significantly, got %f -> %f", initialValue, newValue)
@@ -471,7 +471,7 @@ func TestWebSocketConnections_MultipleIncrements(t *testing.T) {
 
 	// Clean up.
 	for range numConnections {
-		metrics.DecrementWebSocketConnections()
+		metrics.DecrementSSEConnections()
 	}
 }
 
@@ -569,11 +569,11 @@ func TestTestExecutionsTotal_IsNotNil(t *testing.T) {
 	}
 }
 
-func TestWebSocketConnectionsActive_IsNotNil(t *testing.T) {
+func TestSSEConnectionsActive_IsNotNil(t *testing.T) {
 	t.Parallel()
 
-	if metrics.GetMetrics().WebSocketConnectionsActive == nil {
-		t.Error("WebSocketConnectionsActive should not be nil")
+	if metrics.GetMetrics().SSEConnectionsActive == nil {
+		t.Error("SSEConnectionsActive should not be nil")
 	}
 }
 
@@ -664,7 +664,7 @@ func TestRecordTestExecution_Concurrency(t *testing.T) {
 	}
 }
 
-func TestWebSocketConnections_Concurrency(t *testing.T) {
+func TestSSEConnections_Concurrency(t *testing.T) {
 	t.Parallel()
 
 	const numGoroutines = 50
@@ -672,12 +672,12 @@ func TestWebSocketConnections_Concurrency(t *testing.T) {
 
 	// Track the delta we apply (should be 0 after equal increments and decrements).
 	// We can't check absolute values due to parallel test interference.
-	beforeValue := getGaugeValue(t, metrics.GetMetrics().WebSocketConnectionsActive)
+	beforeValue := getGaugeValue(t, metrics.GetMetrics().SSEConnectionsActive)
 
 	// Concurrent increments.
 	for range numGoroutines {
 		go func() {
-			metrics.IncrementWebSocketConnections()
+			metrics.IncrementSSEConnections()
 			done <- true
 		}()
 	}
@@ -688,7 +688,7 @@ func TestWebSocketConnections_Concurrency(t *testing.T) {
 	}
 
 	// Verify gauge increased.
-	afterIncrement := getGaugeValue(t, metrics.GetMetrics().WebSocketConnectionsActive)
+	afterIncrement := getGaugeValue(t, metrics.GetMetrics().SSEConnectionsActive)
 	if afterIncrement <= beforeValue {
 		t.Errorf("Expected gauge to increase after increments, got %f -> %f", beforeValue, afterIncrement)
 	}
@@ -696,7 +696,7 @@ func TestWebSocketConnections_Concurrency(t *testing.T) {
 	// Concurrent decrements.
 	for range numGoroutines {
 		go func() {
-			metrics.DecrementWebSocketConnections()
+			metrics.DecrementSSEConnections()
 			done <- true
 		}()
 	}
@@ -706,7 +706,7 @@ func TestWebSocketConnections_Concurrency(t *testing.T) {
 	}
 
 	// Verify gauge decreased after decrements.
-	afterDecrement := getGaugeValue(t, metrics.GetMetrics().WebSocketConnectionsActive)
+	afterDecrement := getGaugeValue(t, metrics.GetMetrics().SSEConnectionsActive)
 	if afterDecrement >= afterIncrement {
 		t.Errorf("Expected gauge to decrease after decrements, got %f -> %f", afterIncrement, afterDecrement)
 	}
@@ -759,20 +759,20 @@ func BenchmarkRecordTestExecution(b *testing.B) {
 	}
 }
 
-func BenchmarkIncrementWebSocketConnections(b *testing.B) {
+func BenchmarkIncrementSSEConnections(b *testing.B) {
 	for b.Loop() {
-		metrics.IncrementWebSocketConnections()
+		metrics.IncrementSSEConnections()
 	}
 }
 
-func BenchmarkDecrementWebSocketConnections(b *testing.B) {
+func BenchmarkDecrementSSEConnections(b *testing.B) {
 	// Pre-increment to avoid negative values (setup phase, not the benchmark itself).
 	for range make([]struct{}, b.N) {
-		metrics.IncrementWebSocketConnections()
+		metrics.IncrementSSEConnections()
 	}
 	b.ResetTimer()
 	for b.Loop() {
-		metrics.DecrementWebSocketConnections()
+		metrics.DecrementSSEConnections()
 	}
 }
 

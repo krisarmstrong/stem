@@ -41,7 +41,7 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 		// - script-src 'self': Only allow same-origin scripts.
 		// - style-src 'self': Only same-origin styles (no unsafe-inline for XSS protection).
 		// - img-src 'self' data:: Allow same-origin images and data URIs.
-		// - connect-src 'self' ws: wss:: API calls and WebSockets.
+		// - connect-src 'self': API calls and SSE connections.
 		// - font-src 'self': Only same-origin fonts.
 		// - object-src 'none': Block plugins (Flash, etc.).
 		// - base-uri 'self': Restrict <base> tag.
@@ -51,7 +51,7 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 			"script-src 'self'; " +
 			"style-src 'self'; " +
 			"img-src 'self' data:; " +
-			"connect-src 'self' ws: wss:; " +
+			"connect-src 'self'; " +
 			"font-src 'self'; " +
 			"object-src 'none'; " +
 			"base-uri 'self'; " +

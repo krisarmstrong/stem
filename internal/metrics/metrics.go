@@ -5,7 +5,7 @@
 // This package defines and exposes key operational metrics for monitoring:
 //   - HTTP request counts and latencies
 //   - Test execution statistics
-//   - WebSocket connection tracking
+//   - SSE connection tracking
 //   - License validation events
 //
 // All metrics are registered with the default Prometheus registry and can
@@ -35,8 +35,8 @@ type Metrics struct {
 	// TestExecutionsTotal counts test executions by type, module, and status.
 	TestExecutionsTotal *prometheus.CounterVec
 
-	// WebSocketConnectionsActive tracks the number of active WebSocket connections.
-	WebSocketConnectionsActive prometheus.Gauge
+	// SSEConnectionsActive tracks the number of active SSE connections.
+	SSEConnectionsActive prometheus.Gauge
 
 	// LicenseValidationsTotal counts license validation attempts by result.
 	LicenseValidationsTotal *prometheus.CounterVec
@@ -72,11 +72,11 @@ var version = sync.OnceValue(func() *Metrics {
 			},
 			[]string{"type", "module", "status"},
 		),
-		WebSocketConnectionsActive: promauto.NewGauge(
+		SSEConnectionsActive: promauto.NewGauge(
 			prometheus.GaugeOpts{
 				Namespace: namespace,
-				Name:      "websocket_connections_active",
-				Help:      "Number of currently active WebSocket connections.",
+				Name:      "sse_connections_active",
+				Help:      "Number of currently active SSE connections.",
 			},
 		),
 		LicenseValidationsTotal: promauto.NewCounterVec(
@@ -110,14 +110,14 @@ func RecordTestExecution(testType, module, status string) {
 	GetMetrics().TestExecutionsTotal.WithLabelValues(testType, module, status).Inc()
 }
 
-// IncrementWebSocketConnections increments the active WebSocket connection count.
-func IncrementWebSocketConnections() {
-	GetMetrics().WebSocketConnectionsActive.Inc()
+// IncrementSSEConnections increments the active SSE connection count.
+func IncrementSSEConnections() {
+	GetMetrics().SSEConnectionsActive.Inc()
 }
 
-// DecrementWebSocketConnections decrements the active WebSocket connection count.
-func DecrementWebSocketConnections() {
-	GetMetrics().WebSocketConnectionsActive.Dec()
+// DecrementSSEConnections decrements the active SSE connection count.
+func DecrementSSEConnections() {
+	GetMetrics().SSEConnectionsActive.Dec()
 }
 
 // RecordLicenseValidation records a license validation attempt.
