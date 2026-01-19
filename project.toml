@@ -1,0 +1,30 @@
+# Pack (Cloud Native Buildpacks) Configuration
+# Build: pack build stem:latest --builder paketobuildpacks/builder-jammy-base
+# Run:   docker run -p 8443:8443 --cap-add NET_ADMIN --cap-add NET_RAW stem:latest
+
+[_]
+schema-version = "0.2"
+
+[io.buildpacks]
+builder = "paketobuildpacks/builder-jammy-base"
+
+[[io.buildpacks.group]]
+id = "paketo-buildpacks/go"
+
+[[io.buildpacks.group]]
+id = "paketo-buildpacks/go-build"
+
+[io.buildpacks.build.env]
+BP_GO_TARGETS = "./cmd/stem"
+BP_GO_BUILD_LDFLAGS = "-s -w"
+
+[[io.buildpacks.build.env]]
+name = "BP_KEEP_FILES"
+value = "bin/*"
+
+[io.buildpacks.run]
+user-id = 1000
+
+[[io.buildpacks.run.env]]
+name = "STEM_HTTP_PORT"
+value = "8443"

@@ -1,125 +1,107 @@
-# ╔═══════════════════════════════════════════════════════════════════════════╗
-# ║ Stem - .gitignore                                                         ║
-# ╠═══════════════════════════════════════════════════════════════════════════╣
-# ║ Network performance testing and orchestration platform                    ║
-# ║ Stack: Go, C (DPDK), TypeScript/React (UI), Playwright                   ║
-# ╚═══════════════════════════════════════════════════════════════════════════╝
 
-# ─── Application Binaries ────────────────────────────────────────────────────
-/stem
-/stem-*
-seedtest
-rfc2544-linux
+!certs/.gitkeep
+.claude/settings.local.json
+.env
+.env.*.local
+.env.local
+.gemini/
+.gocache/
+.gomodcache/
+.tmp_*
+*.a
+*.cmd
+*.crt
+*.db
+*.deb
+*.dll
+*.dylib
 *.exe
 *.exe~
-*.dll
-*.so
-*.dylib
-
-# ─── C/DPDK Build Artifacts ──────────────────────────────────────────────────
-*.o
-*.a
-*.obj
-*.lib
-
-# DPDK-specific
-*.cmd
-core.*
-
-# Generated headers
-include/version_generated.h
-
-# ─── Build Directories ───────────────────────────────────────────────────────
-/dist/
-/build/
-/bin/
-
-# ─── Go Testing & Coverage ───────────────────────────────────────────────────
-*.test
-*.out
-coverage.html
-coverage.txt
-
-# ─── Go Workspace & Dependencies ─────────────────────────────────────────────
-go.work
-go.work.sum
-vendor/
-
-# ─── Frontend (UI) ───────────────────────────────────────────────────────────
-# Dependencies
-ui/node_modules/
-node_modules/
-
-# Build outputs
-ui/dist/
-ui/.vite/
-ui/coverage/
-
-# Playwright test results
-ui/playwright-report/
-ui/test-results/
-
-# TypeScript
-*.tsbuildinfo
-
-# Logs
-npm-debug.log*
-yarn-error.log*
-
-# ─── Environment & Secrets ───────────────────────────────────────────────────
-.env
-.env.local
-.env.*.local
-*.pem
 *.key
-*.crt
-
-# Certificates (generated at runtime)
-certs/
-!certs/.gitkeep
-
-# ─── Configuration Overrides ─────────────────────────────────────────────────
-# Local overrides (defaults should be version controlled)
-configs/*.local.yaml
-configs/*.local.json
-config.yaml
-
-# ─── Database & Runtime Data ─────────────────────────────────────────────────
-*.db
+*.lib
+*.log
+*.o
+*.obj
+*.out
+*.pem
+*.rpm
+*.so
 *.sqlite
 *.sqlite3
-
-# Auto-generated/runtime data
-data/
-
-# ─── Logs ────────────────────────────────────────────────────────────────────
-logs/
-*.log
-
-# ─── Test Results ────────────────────────────────────────────────────────────
-tests/results/
-results/
-reports/
-
-# ─── Temporary Files ─────────────────────────────────────────────────────────
-tmp/
-temp/
-*.tmp
-.tmp_*
-*~
-
-# ─── Build & Package Artifacts ───────────────────────────────────────────────
 *.tar.gz
+*.test
+*.tmp
+*.tsbuildinfo
 *.zip
-*.deb
-*.rpm
-
-# ─── Debug & Development ─────────────────────────────────────────────────────
-# Debug output
-DebugImages/
-
+*~
+/bin/
+/build/
+/dist/
+/stem
+/stem-*
+# ╔═══════════════════════════════════════════════════════════════════════════╗
 # ─── AI/Agent Artifacts ──────────────────────────────────────────────────────
+# ─── Application Binaries ────────────────────────────────────────────────────
+# ─── Build & Package Artifacts ───────────────────────────────────────────────
+# ─── Build Directories ───────────────────────────────────────────────────────
+# ─── C/DPDK Build Artifacts ──────────────────────────────────────────────────
+# ─── Configuration Overrides ─────────────────────────────────────────────────
+# ─── Database & Runtime Data ─────────────────────────────────────────────────
+# ─── Debug & Development ─────────────────────────────────────────────────────
+# ─── Environment & Secrets ───────────────────────────────────────────────────
+# ─── Frontend (UI) ───────────────────────────────────────────────────────────
+# ─── Go Testing & Coverage ───────────────────────────────────────────────────
+# ─── Go Workspace & Dependencies ─────────────────────────────────────────────
+# ─── Logs ────────────────────────────────────────────────────────────────────
+# ║ Network performance testing and orchestration platform                    ║
+# ║ Stack: Go, C (DPDK), TypeScript/React (UI), Playwright                   ║
+# ║ Stem - .gitignore                                                         ║
+# ─── Temporary Files ─────────────────────────────────────────────────────────
+# ─── Test Results ────────────────────────────────────────────────────────────
 # AI tool session data
-.claude/settings.local.json
-.gemini/
+# Auto-generated/runtime data
+# Build outputs
+# Certificates (generated at runtime)
+# Debug output
+# Dependencies
+# DPDK-specific
+# Generated headers
+# Local overrides (defaults should be version controlled)
+# Logs
+# Playwright test results
+# TypeScript
+certs/
 CLAUDE.md
+config.yaml
+configs/*.local.json
+configs/*.local.yaml
+core.*
+coverage.html
+coverage.txt
+data/
+DebugImages/
+go.work
+go.work.sum
+include/version_generated.h
+logs/
+node_modules/
+npm-debug.log*
+reports/
+results/
+rfc2544-linux
+seedtest
+temp/
+tests/results/
+tmp/
+ui/.vite/
+ui/coverage/
+ui/dist/
+ui/node_modules/
+ui/playwright-report/
+ui/test-results/
+vendor/
+yarn-error.log*
+
+# Build output
+dist/
+*.coverage.out

@@ -9,7 +9,7 @@
 #
 # =============================================================================
 
-.PHONY: deb rpm packages install-service
+.PHONY: deb rpm packages install-service container
 
 # =============================================================================
 # Debian Package
@@ -80,3 +80,21 @@ install-service: build ## Install as systemd service (requires root)
 	install -d -m 0750 -o stem -g stem /var/log/stem
 	systemctl daemon-reload
 	@echo "Service installed. Run: systemctl enable --now stem"
+
+# =============================================================================
+# Container Images (Pack/Buildpacks) - LOCAL DEV ONLY
+# =============================================================================
+# NOTE: No public registry pushing during development.
+# License validation required before commercial distribution.
+# TODO: Add private registry when ready for deployment.
+
+CONTAINER_IMAGE := stem
+
+container: ## Build container image locally (Pack/Buildpacks)
+	@printf "$(BOLD)🐺 Building container with Pack (local only)...$(RESET)\n"
+	@pack build $(CONTAINER_IMAGE):$(VERSION) \
+		--builder paketobuildpacks/builder-jammy-base \
+		--env BP_GO_TARGETS="./cmd/stem" \
+		--env BP_GO_BUILD_LDFLAGS="-s -w -X $(VERSION_PKG).Version=$(VERSION) -X $(VERSION_PKG).Commit=$(COMMIT)"
+	@printf "$(GREEN)✓ Container: $(CONTAINER_IMAGE):$(VERSION) (local)$(RESET)\n"
+	@printf "$(YELLOW)⚠ Local build only - no registry push during development$(RESET)\n"
