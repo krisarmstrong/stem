@@ -5,33 +5,46 @@
 # Code quality and formatting:
 #   - Go linting (golangci-lint v2)
 #   - C linting (clang-tidy, Linux only)
-#   - Formatting (gofmt, clang-format)
+#   - Frontend linting (Biome)
+#   - Markdown linting
+#   - Formatting (gofmt, clang-format, Biome)
 #   - Auto-fix capabilities
 #
 # =============================================================================
 
-.PHONY: lint lint-go lint-c format format-go format-c fix
+.PHONY: lint lint-go lint-c lint-frontend lint-frontend-quiet lint-md \
+        format format-go format-c format-frontend fix fix-all
 
 # =============================================================================
 # Linting
 # =============================================================================
 
-lint: lint-go ## Run all linters
-	@echo "✓ All linters passed"
+lint: lint-go lint-frontend ## Run all linters
+	@printf "$(GREEN)✓ All linters passed$(RESET)\n"
 
 lint-go: ## Run Go linter (golangci-lint)
-	@echo "Running Go linter (golangci-lint)..."
+	@printf "$(BOLD)🔍 Running Go linter (golangci-lint)...$(RESET)\n"
 	@GOLANGCI_LINT="$$(go env GOPATH)/bin/golangci-lint"; \
 	if [ ! -f "$$GOLANGCI_LINT" ]; then \
-		echo "📦 Installing golangci-lint..."; \
+		printf "📦 Installing golangci-lint v2...\n"; \
 		go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest; \
 	fi; \
 	$$GOLANGCI_LINT run --allow-parallel-runners ./...
-	@echo "✓ Go lint passed"
+	@printf "$(GREEN)✓ Go lint passed$(RESET)\n"
+
+lint-frontend: ## Run frontend linter (Biome)
+	@printf "$(BOLD)🔍 Running frontend linter (Biome)...$(RESET)\n"
+	@cd ui && npx @biomejs/biome check src/
+	@printf "$(GREEN)✓ Frontend lint complete$(RESET)\n"
+
+lint-frontend-quiet:
+	@FILE_COUNT=$$(find ui/src -name "*.ts" -o -name "*.tsx" 2>/dev/null | wc -l | tr -d ' '); \
+	printf "   Checking $$FILE_COUNT files...\n"
+	@cd ui && npx @biomejs/biome check src/ 2>&1 | tail -5 || true
 
 lint-c: ## Run C linter (clang-tidy, Linux only)
 ifeq ($(UNAME),Linux)
-	@echo "Running C linter (clang-tidy)..."
+	@printf "$(BOLD)🔍 Running C linter (clang-tidy)...$(RESET)\n"
 	@if ! command -v clang-format >/dev/null 2>&1; then \
 		echo "clang-format not found; install it to enforce formatting."; \
 		exit 1; \
@@ -50,32 +63,48 @@ ifeq ($(UNAME),Linux)
 	fi; \
 	find src include tests -type f \( -name '*.c' -o -name '*.h' \) | xargs clang-format --dry-run --Werror; \
 	find src include tests -type f -name '*.c' | xargs clang-tidy -p $$clang_tidy_db -warnings-as-errors=*
-	@echo "✓ C lint complete"
+	@printf "$(GREEN)✓ C lint complete$(RESET)\n"
 else
 	@echo "C linting requires Linux"
 endif
+
+lint-md: ## Lint markdown files with markdownlint
+	@printf "$(BOLD)🔍 Linting markdown files...$(RESET)\n"
+	@if command -v markdownlint-cli2 > /dev/null 2>&1; then \
+		markdownlint-cli2 "**/*.md"; \
+	elif npx markdownlint-cli2 --help > /dev/null 2>&1; then \
+		npx markdownlint-cli2 "**/*.md"; \
+	else \
+		printf "$(YELLOW)SKIP: markdownlint-cli2 not installed (npm install -g markdownlint-cli2)$(RESET)\n"; \
+	fi
+	@printf "$(GREEN)✓ Markdown lint complete$(RESET)\n"
 
 # =============================================================================
 # Formatting
 # =============================================================================
 
-format: format-go ## Format all code
-	@echo "✓ All code formatted"
+format: format-go format-frontend ## Format all code
+	@printf "$(GREEN)✓ All code formatted$(RESET)\n"
 
 format-go: ## Format Go code
-	@echo "Formatting Go code..."
+	@printf "$(BOLD)🔧 Formatting Go code...$(RESET)\n"
 	@gofmt -w -s .
-	@echo "✓ Go code formatted"
+	@printf "$(GREEN)✓ Go code formatted$(RESET)\n"
+
+format-frontend: ## Format frontend code with Biome
+	@printf "$(BOLD)🔧 Formatting frontend code (Biome)...$(RESET)\n"
+	@cd ui && npx @biomejs/biome format --write src/
+	@printf "$(GREEN)✓ Frontend code formatted$(RESET)\n"
 
 format-c: ## Format C code (Linux only)
 ifeq ($(UNAME),Linux)
-	@echo "Formatting C code..."
+	@printf "$(BOLD)🔧 Formatting C code...$(RESET)\n"
 	@if ! command -v clang-format >/dev/null 2>&1; then \
 		echo "clang-format not found; install it to format C code."; \
 		exit 1; \
 	fi
 	find src include tests -type f \( -name '*.c' -o -name '*.h' \) | xargs clang-format -i
-	@echo "✓ C code formatted"
+	@printf "$(GREEN)✓ C code formatted$(RESET)\n"
 else
 	@echo "C formatting requires Linux"
 endif
@@ -84,12 +113,15 @@ endif
 # Auto-Fix
 # =============================================================================
 
-fix: ## Auto-fix linting issues
-	@echo "Auto-fixing Go code..."
+fix: ## Auto-fix Go and frontend linting issues
+	@printf "$(BOLD)🔧 Auto-fixing code...$(RESET)\n"
 	@GOLANGCI_LINT="$$(go env GOPATH)/bin/golangci-lint"; \
 	if [ ! -f "$$GOLANGCI_LINT" ]; then \
 		go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest; \
 	fi; \
 	$$GOLANGCI_LINT run --fix ./...
 	@gofmt -w -s .
-	@echo "✓ Auto-fix complete"
+	@cd ui && npx @biomejs/biome check --write .
+	@printf "$(GREEN)✓ Auto-fix complete$(RESET)\n"
+
+fix-all: fix format-c ## Auto-fix all code (Go + frontend + C)

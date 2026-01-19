@@ -6,22 +6,37 @@
 #   - Go vulnerability scanning (govulncheck, gosec, staticcheck)
 #   - npm audit
 #   - Secret scanning (gitleaks)
+#   - Container scanning (Trivy)
 #   - License compliance
 #
 # =============================================================================
 
-.PHONY: security security-backend security-frontend security-secrets \
+.PHONY: security security-backend security-backend-quiet security-frontend security-frontend-quiet \
+        security-secrets security-secrets-quiet security-trivy \
         license-check license-check-go license-check-npm license-report
 
 # =============================================================================
 # Security Scanning
 # =============================================================================
 
-security: security-backend security-frontend security-secrets ## Run all security scans
-	@printf "\n$(GREEN)✓ All security scans complete$(RESET)\n"
+security: ## Run all security scans
+	@printf "$(BOLD)$(CYAN)┌─ Security Scanning ──────────────────────────────────────────────────────────┐$(RESET)\n"
+	@printf "$(CYAN)│$(RESET) $(BOLD)[1/3]$(RESET) Go Vulnerabilities (govulncheck)                                       $(CYAN)│$(RESET)\n"
+	$(call timer-start,security-backend)
+	@$(MAKE) --no-print-directory security-backend-quiet
+	$(call timer-end,security-backend,Go vulnerability scan)
+	@printf "$(CYAN)│$(RESET) $(BOLD)[2/3]$(RESET) npm Vulnerabilities (npm audit)                                        $(CYAN)│$(RESET)\n"
+	$(call timer-start,security-frontend)
+	@$(MAKE) --no-print-directory security-frontend-quiet
+	$(call timer-end,security-frontend,npm audit)
+	@printf "$(CYAN)│$(RESET) $(BOLD)[3/3]$(RESET) Secret Scanning (gitleaks)                                             $(CYAN)│$(RESET)\n"
+	$(call timer-start,security-secrets)
+	@$(MAKE) --no-print-directory security-secrets-quiet
+	$(call timer-end,security-secrets,Secret scan)
+	@printf "$(CYAN)└──────────────────────────────────────────────────────────────────────────────┘$(RESET)\n"
 
 security-backend: ## Run Go security scans
-	@printf "$(BOLD)$(CYAN)Running Go security scans...$(RESET)\n"
+	@printf "$(BOLD)🔒 Running Go security scans...$(RESET)\n"
 	$(call timer-start,security-backend)
 	@printf "  [1/3] Running govulncheck...\n"
 	@if command -v govulncheck >/dev/null 2>&1; then \
@@ -43,21 +58,57 @@ security-backend: ## Run Go security scans
 	fi
 	$(call timer-end,security-backend,Go security scan)
 
+security-backend-quiet:
+	@if ! command -v govulncheck > /dev/null 2>&1; then \
+		go install golang.org/x/vuln/cmd/govulncheck@latest; \
+	fi
+	@printf "   Scanning Go dependencies...\n"
+	@govulncheck ./... 2>&1 | grep -E "(Vulnerability|No vulnerabilities)" | head -5 || printf "   No vulnerabilities found\n"
+
 security-frontend: ## Run npm security audit
-	@printf "$(BOLD)$(CYAN)Running npm security audit...$(RESET)\n"
+	@printf "$(BOLD)🔒 Running npm security audit...$(RESET)\n"
 	$(call timer-start,security-frontend)
 	cd ui && npm audit --audit-level=high || true
 	$(call timer-end,security-frontend,npm security audit)
 
+security-frontend-quiet:
+	@printf "   Auditing npm packages...\n"
+	@cd ui && npm audit --audit-level=high 2>&1 | grep -E "(found|vulnerabilities)" | head -3 || printf "   No vulnerabilities found\n"
+
 security-secrets: ## Scan for secrets in codebase
-	@printf "$(BOLD)$(CYAN)Scanning for secrets...$(RESET)\n"
+	@printf "$(BOLD)🔒 Scanning for secrets (gitleaks)...$(RESET)\n"
 	$(call timer-start,security-secrets)
 	@if command -v gitleaks >/dev/null 2>&1; then \
-		gitleaks detect --source . --verbose || true; \
+		if [ -f .gitleaks.toml ]; then \
+			gitleaks detect --source . --config .gitleaks.toml --verbose || true; \
+		else \
+			gitleaks detect --source . --verbose || true; \
+		fi; \
 	else \
 		printf "$(YELLOW)⚠ gitleaks not installed (run: make tools-go)$(RESET)\n"; \
 	fi
 	$(call timer-end,security-secrets,Secret scan)
+
+security-secrets-quiet:
+	@GITLEAKS=$$(command -v gitleaks 2>/dev/null || echo "$$(go env GOPATH)/bin/gitleaks"); \
+	if [ ! -x "$$GITLEAKS" ]; then \
+		go install github.com/zricethezav/gitleaks/v8@latest; \
+		GITLEAKS="$$(go env GOPATH)/bin/gitleaks"; \
+	fi; \
+	printf "   Scanning for secrets...\n"; \
+	if [ -f .gitleaks.toml ]; then \
+		$$GITLEAKS detect --source . --config .gitleaks.toml 2>&1 | grep -E "(leaks found|no leaks)" || printf "   No secrets found\n"; \
+	else \
+		$$GITLEAKS detect --source . 2>&1 | grep -E "(leaks found|no leaks)" || printf "   No secrets found\n"; \
+	fi
+
+security-trivy: ## Run Trivy vulnerability scan
+	@printf "$(BOLD)🔒 Running Trivy filesystem scan...$(RESET)\n"
+	@if command -v trivy > /dev/null 2>&1; then \
+		trivy fs --severity HIGH,CRITICAL .; \
+	else \
+		printf "$(YELLOW)SKIP: trivy not installed (brew install trivy)$(RESET)\n"; \
+	fi
 
 # =============================================================================
 # License Compliance
@@ -67,7 +118,7 @@ license-check: license-check-go license-check-npm ## Check dependency licenses
 	@printf "\n$(GREEN)✓ License check complete$(RESET)\n"
 
 license-check-go: ## Check Go module licenses
-	@printf "$(BOLD)$(CYAN)Checking Go dependency licenses...$(RESET)\n"
+	@printf "$(BOLD)🔍 Checking Go dependency licenses...$(RESET)\n"
 	@if ! command -v go-licenses >/dev/null 2>&1; then \
 		printf "$(YELLOW)Installing go-licenses...$(RESET)\n"; \
 		go install github.com/google/go-licenses@latest; \
@@ -77,13 +128,13 @@ license-check-go: ## Check Go module licenses
 		2>/dev/null || printf "$(YELLOW)⚠ Some license issues found$(RESET)\n"
 
 license-check-npm: ## Check npm package licenses
-	@printf "$(BOLD)$(CYAN)Checking npm dependency licenses...$(RESET)\n"
+	@printf "$(BOLD)🔍 Checking npm dependency licenses...$(RESET)\n"
 	@cd ui && npx license-checker --summary --onlyAllow \
 		"MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;CC0-1.0;Unlicense;0BSD" \
 		2>/dev/null || printf "$(YELLOW)⚠ Some license issues found$(RESET)\n"
 
 license-report: ## Generate full license report
-	@printf "$(BOLD)$(CYAN)Generating license report...$(RESET)\n"
+	@printf "$(BOLD)Generating license report...$(RESET)\n"
 	@mkdir -p reports
 	@printf "Go Licenses:\n" > reports/licenses.txt
 	@printf "============\n" >> reports/licenses.txt

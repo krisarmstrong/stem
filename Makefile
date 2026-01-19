@@ -16,6 +16,7 @@
 # ----------------
 #   Development:        make dev (then run ui-dev and go-dev in separate terminals)
 #   Before commit:      make verify
+#   Release:            make release VERSION=v1.0.0
 #   Cross-compile:      make build-linux-docker
 #   Package:            make packages (deb + rpm)
 #
@@ -33,6 +34,63 @@
 # =============================================================================
 
 include mk/vars.mk
+
+# =============================================================================
+# Display Helpers
+# =============================================================================
+
+# Print a section header
+define section
+	@printf "\n$(BOLD)$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)\n"
+	@printf "$(BOLD)$(CYAN)  $(1)$(RESET)\n"
+	@printf "$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)\n\n"
+endef
+
+# Print a step in a multi-step process
+define step
+	@printf "$(BOLD)[$(1)/$(2)]$(RESET) $(3)\n"
+endef
+
+# Print a success message
+define success
+	@printf "$(GREEN)✓ $(1)$(RESET)\n"
+endef
+
+# Print a warning message
+define warn
+	@printf "$(YELLOW)⚠ $(1)$(RESET)\n"
+endef
+
+# Print an error message
+define error
+	@printf "$(RED)✗ $(1)$(RESET)\n"
+endef
+
+# =============================================================================
+# Timer Functions
+# =============================================================================
+
+# Start a named timer
+define timer-start
+	@date +%s > /tmp/make-timer-$(1)
+endef
+
+# End a timer and display elapsed time
+define timer-end
+	@if [ -f /tmp/make-timer-$(1) ]; then \
+		START=$$(cat /tmp/make-timer-$(1)); \
+		END=$$(date +%s); \
+		ELAPSED=$$((END - START)); \
+		MINS=$$((ELAPSED / 60)); \
+		SECS=$$((ELAPSED % 60)); \
+		if [ $$MINS -gt 0 ]; then \
+			printf "$(GREEN)✓ $(2) $(YELLOW)($$MINS min $$SECS sec)$(RESET)\n"; \
+		else \
+			printf "$(GREEN)✓ $(2) $(YELLOW)($$SECS sec)$(RESET)\n"; \
+		fi; \
+		rm -f /tmp/make-timer-$(1); \
+	fi
+endef
 
 # =============================================================================
 # Project Configuration
@@ -58,6 +116,10 @@ else ifeq ($(PLATFORM),linux)
 else
     BINARY_NAME := bin/$(BINARY)
 endif
+
+# Docker settings
+DOCKER_IMAGE?=stem
+DOCKER_TAG?=$(VERSION)
 
 # =============================================================================
 # C/Dataplane Configuration
@@ -116,36 +178,163 @@ include mk/package.mk
 include mk/container.mk
 
 # =============================================================================
+# Default Target
+# =============================================================================
+
+all: verify ## Full build and validation (recommended before release)
+
+# =============================================================================
+# Cleanup
+# =============================================================================
+
+.PHONY: clean clean-all
+
+clean: ## Clean build artifacts
+	rm -f $(BINARY) $(BINARY)-*
+	rm -f bin/$(BINARY) bin/$(BINARY)-*
+	rm -f coverage.out coverage.html
+	rm -rf ui/dist
+	rm -rf internal/api/embed/*
+	rm -f bin/test_*
+	rm -f src/**/*.o
+
+clean-all: clean ## Clean everything including dependencies
+	rm -rf ui/node_modules
+	rm -rf dist/
+	rm -rf bin/
+	rm -rf reports/
+
+# =============================================================================
 # Verification Pipeline
 # =============================================================================
 
-.PHONY: verify help version
+.PHONY: verify pre-commit pre-commit-install
 
 verify: ## Full verification (lint, test, security, build)
-	@printf "\n$(BOLD)$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)\n"
-	@printf "$(BOLD)$(CYAN)  VERIFICATION PIPELINE$(RESET)\n"
-	@printf "$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)\n\n"
-	$(call timer-start,verify)
-	@printf "$(BOLD)[1/5]$(RESET) Running linters...\n"
-	@$(MAKE) lint
-	@printf "$(BOLD)[2/5]$(RESET) Running tests...\n"
-	@$(MAKE) test
-	@printf "$(BOLD)[3/5]$(RESET) Running security scans...\n"
-	@$(MAKE) security
-	@printf "$(BOLD)[4/5]$(RESET) Building binary...\n"
-	@$(MAKE) build
-	@printf "$(BOLD)[5/5]$(RESET) Checking licenses...\n"
-	@$(MAKE) license-check || true
-	$(call timer-end,verify,Verification pipeline)
-	@printf "\n$(BOLD)$(GREEN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)\n"
-	@printf "$(BOLD)$(GREEN)  ✓ VERIFICATION COMPLETE$(RESET)\n"
-	@printf "$(GREEN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)\n"
-	@printf "    Binary: $(BINARY_NAME)\n"
-	@printf "    Version: $(VERSION)\n\n"
+	@printf "\n$(BOLD)$(CYAN)╔══════════════════════════════════════════════════════════════════════════════╗$(RESET)\n"
+	@printf "$(BOLD)$(CYAN)║                        FULL VERIFICATION PIPELINE                           ║$(RESET)\n"
+	@printf "$(BOLD)$(CYAN)║                        Version: $(VERSION)$(RESET)\n"
+	@printf "$(BOLD)$(CYAN)╚══════════════════════════════════════════════════════════════════════════════╝$(RESET)\n"
+	$(call timer-start,verify-total)
+	$(call step,1,5,Linting Code)
+	$(call timer-start,lint)
+	@$(MAKE) --no-print-directory lint
+	$(call timer-end,lint,Linting)
+	$(call step,2,5,Running Tests)
+	$(call timer-start,test)
+	@$(MAKE) --no-print-directory test
+	$(call timer-end,test,Tests)
+	$(call step,3,5,Security Scanning)
+	$(call timer-start,security)
+	@$(MAKE) --no-print-directory security
+	$(call timer-end,security,Security)
+	$(call step,4,5,Building Application)
+	$(call timer-start,build)
+	@$(MAKE) --no-print-directory build
+	$(call timer-end,build,Build)
+	$(call step,5,5,License Check)
+	@$(MAKE) --no-print-directory license-check || true
+	@printf "\n$(BOLD)$(GREEN)╔══════════════════════════════════════════════════════════════════════════════╗$(RESET)\n"
+	@printf "$(BOLD)$(GREEN)║                        ✓ VERIFICATION COMPLETE                               ║$(RESET)\n"
+	@printf "$(BOLD)$(GREEN)╚══════════════════════════════════════════════════════════════════════════════╝$(RESET)\n"
+	$(call timer-end,verify-total,Total verification)
+	@printf "\n  $(BOLD)Version:$(RESET)     $(VERSION)\n"
+	@printf "  $(BOLD)Commit:$(RESET)      $(COMMIT)\n"
+	@printf "  $(BOLD)Binary:$(RESET)      $(BINARY_NAME)\n\n"
+	@printf "$(GREEN)Ready for release! Run 'make packages' to build packages.$(RESET)\n\n"
+
+pre-commit: ## Run pre-commit hooks manually
+	@if command -v pre-commit > /dev/null 2>&1; then \
+		pre-commit run --all-files; \
+	else \
+		echo "pre-commit not installed. Install with: pip install pre-commit"; \
+		exit 1; \
+	fi
+
+pre-commit-install: ## Install pre-commit hooks
+	@if command -v pre-commit > /dev/null 2>&1; then \
+		pre-commit install; \
+		pre-commit install --hook-type pre-push; \
+		echo "Pre-commit hooks installed successfully"; \
+	else \
+		echo "pre-commit not installed. Install with: pip install pre-commit"; \
+		exit 1; \
+	fi
+
+# =============================================================================
+# Release Automation
+# =============================================================================
+
+.PHONY: release release-check
+
+release: ## Create release (VERSION=vX.Y.Z required)
+	@if [ -z "$(VERSION)" ] || ! echo "$(VERSION)" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+'; then \
+		echo "ERROR: VERSION must be set in format vX.Y.Z"; \
+		echo "Usage: make release VERSION=v1.0.0"; \
+		exit 1; \
+	fi
+	@if [ -n "$$(git status --porcelain)" ]; then \
+		echo "ERROR: Working directory not clean. Commit or stash changes first."; \
+		exit 1; \
+	fi
+	@printf "$(BOLD)$(CYAN)╔══════════════════════════════════════════════════════════════════════════════╗$(RESET)\n"
+	@printf "$(BOLD)$(CYAN)║                         RELEASE $(VERSION)                                   ║$(RESET)\n"
+	@printf "$(BOLD)$(CYAN)╚══════════════════════════════════════════════════════════════════════════════╝$(RESET)\n"
+	@echo ""
+	@echo "Step 1/5: Running verification..."
+	@$(MAKE) --no-print-directory verify
+	@echo ""
+	@echo "Step 2/5: Building all platforms..."
+	@$(MAKE) --no-print-directory build-all
+	@echo ""
+	@echo "Step 3/5: Creating git tag..."
+	@git tag -a $(VERSION) -m "Release $(VERSION)"
+	@echo "Tagged: $(VERSION)"
+	@echo ""
+	@echo "Step 4/5: Pushing tag to origin..."
+	@git push origin $(VERSION)
+	@echo ""
+	@echo "Step 5/5: Creating GitHub release..."
+	@if command -v gh > /dev/null 2>&1; then \
+		gh release create $(VERSION) \
+			--title "$(VERSION)" \
+			--generate-notes \
+			bin/$(BINARY)-darwin-* bin/$(BINARY)-linux-* 2>/dev/null || \
+			echo "Note: Upload binaries manually if gh release failed"; \
+	else \
+		echo "GitHub CLI not installed. Create release manually at:"; \
+		echo "https://github.com/krisarmstrong/stem/releases/new?tag=$(VERSION)"; \
+	fi
+	@echo ""
+	@printf "$(GREEN)╔══════════════════════════════════════════════════════════════════════════════╗$(RESET)\n"
+	@printf "$(GREEN)║                     ✓ RELEASE $(VERSION) COMPLETE                            ║$(RESET)\n"
+	@printf "$(GREEN)╚══════════════════════════════════════════════════════════════════════════════╝$(RESET)\n"
+	@echo ""
+	@echo "Binaries:"
+	@ls -lh bin/$(BINARY)-* 2>/dev/null || true
+
+release-check: verify ## Full release validation (verify + install script check)
+	@echo "Running release checks..."
+	@bash -n deploy/systemd/install.sh 2>/dev/null && echo "PASS: install.sh syntax valid" || true
+	@bash -n deploy/systemd/uninstall.sh 2>/dev/null && echo "PASS: uninstall.sh syntax valid" || true
+	@if echo "$(VERSION)" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+'; then \
+		echo "PASS: Version format valid ($(VERSION))"; \
+	else \
+		echo "WARN: Version $(VERSION) doesn't match vX.Y.Z format"; \
+	fi
+	@if git diff --quiet && git diff --staged --quiet; then \
+		echo "PASS: No uncommitted changes"; \
+	else \
+		echo "WARN: Uncommitted changes detected"; \
+	fi
+	@echo ""
+	@echo "Release checks complete. Ready for 'git tag $(VERSION) && git push --tags'"
 
 # =============================================================================
 # Version Information
 # =============================================================================
+
+.PHONY: version
 
 version: ## Show version info
 	@printf "$(BOLD)Stem Version Information$(RESET)\n"
@@ -153,76 +342,30 @@ version: ## Show version info
 	@printf "  Version:     $(VERSION)\n"
 	@printf "  Commit:      $(COMMIT)\n"
 	@printf "  Build Time:  $(BUILD_TIME)\n"
-	@printf "  Platform:    $(PLATFORM_PRETTY) ($(PLATFORM)/$(GOARCH))\n"
+	@printf "  Platform:    $(PLATFORM) ($(GOARCH))\n"
 	@printf "  Go:          $$(go version | awk '{print $$3}')\n"
 	@printf "  Node:        $$(node --version 2>/dev/null || echo 'not installed')\n"
+	@if [ -f "./bin/$(BINARY)" ]; then \
+		printf "\n$(BOLD)Binary:$(RESET)\n"; \
+		ls -lh ./bin/$(BINARY); \
+	fi
 
 # =============================================================================
 # Help
 # =============================================================================
 
+.PHONY: help
+
 help: ## Show this help
-	@printf "$(BOLD)The Stem$(RESET) - Mustard Seed Networks\n"
-	@printf "Network Performance Testing Tool\n"
-	@printf "\n"
-	@printf "$(BOLD)Usage:$(RESET) make [target]\n"
-	@printf "\n"
-	@printf "$(BOLD)$(CYAN)Build:$(RESET)\n"
-	@printf "  all              Build everything (UI + Go binary)\n"
-	@printf "  build            Build Go binary with symlink\n"
-	@printf "  ui               Build React WebUI\n"
-	@printf "  go               Build Go binary\n"
-	@printf "  quick            Quick build (Go only, skip UI)\n"
-	@printf "  clean            Clean all build artifacts\n"
-	@printf "\n"
-	@printf "$(BOLD)$(CYAN)Quality:$(RESET)\n"
-	@printf "  verify           Full verification (lint + test + security + build)\n"
-	@printf "  lint             Run all linters\n"
-	@printf "  lint-go          Run Go linter (golangci-lint)\n"
-	@printf "  lint-c           Run C linter (clang-tidy, Linux only)\n"
-	@printf "  format           Format all code\n"
-	@printf "  fix              Auto-fix linting issues\n"
-	@printf "\n"
-	@printf "$(BOLD)$(CYAN)Testing:$(RESET)\n"
-	@printf "  test             Run Go unit tests\n"
-	@printf "  test-coverage    Run tests with coverage report\n"
-	@printf "  test-all         Run all tests (Go + C)\n"
-	@printf "  c-test           Build and run C unit tests (Linux)\n"
-	@printf "  smoke-test       Run C smoke tests (Linux, root)\n"
-	@printf "\n"
-	@printf "$(BOLD)$(CYAN)Security:$(RESET)\n"
-	@printf "  security         Run all security scans\n"
-	@printf "  security-backend Run Go security scans\n"
-	@printf "  security-frontend Run npm audit\n"
-	@printf "  security-secrets Scan for secrets (gitleaks)\n"
-	@printf "\n"
-	@printf "$(BOLD)$(CYAN)Licenses:$(RESET)\n"
-	@printf "  license-check    Check dependency licenses\n"
-	@printf "  license-check-go Check Go module licenses\n"
-	@printf "  license-check-npm Check npm package licenses\n"
-	@printf "  license-report   Generate full license report\n"
-	@printf "\n"
-	@printf "$(BOLD)$(CYAN)Development:$(RESET)\n"
-	@printf "  dev              Show dev server instructions\n"
-	@printf "  ui-dev           Run React dev server (port 3000)\n"
-	@printf "  go-dev           Run Go backend (port 8080)\n"
-	@printf "  tools            Install all development tools\n"
-	@printf "  tools-go         Install Go development tools\n"
-	@printf "  tools-frontend   Install frontend development tools\n"
-	@printf "  update           Update all dependencies\n"
-	@printf "  update-go        Update Go modules\n"
-	@printf "  update-npm       Update npm packages\n"
-	@printf "  version-check    Show version info and outdated packages\n"
-	@printf "\n"
-	@printf "$(BOLD)$(CYAN)Packaging:$(RESET)\n"
-	@printf "  install-service  Install as systemd service (Linux, root)\n"
-	@printf "  rpm              Build RPM package (Fedora/RHEL)\n"
-	@printf "  deb              Build DEB package (Debian/Ubuntu)\n"
-	@printf "\n"
-	@printf "$(BOLD)$(CYAN)C Dataplane:$(RESET)\n"
-	@printf "  c-build          Build C dataplane (alias for dataplane)\n"
-	@printf "  c-build-docker   Build C code using Docker (cross-platform)\n"
-	@printf "  dataplane        Build C dataplane library (Linux only)\n"
-	@printf "\n"
-	@printf "$(BOLD)$(CYAN)Docker:$(RESET)\n"
-	@printf "  build-linux-docker Build Linux binary via Docker\n"
+	@echo "The Stem - Network Performance Testing Tool by Mustard Seed Networks"
+	@echo ""
+	@echo "Usage: make [target]"
+	@echo ""
+	@grep -hE '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) mk/*.mk 2>/dev/null | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "Examples:"
+	@echo "  make build                    Build production binary"
+	@echo "  make verify                   Full CI pipeline"
+	@echo "  make release VERSION=v1.0.0   Create tagged release"
+	@echo "  make packages                 Build deb and rpm packages"
+	@echo "  make build-linux-docker       Build Linux binary via Docker"
