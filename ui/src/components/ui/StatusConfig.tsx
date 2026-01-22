@@ -10,7 +10,7 @@
 import type { ReactNode } from 'react';
 import { icon as iconTokens, spacing } from '../../styles/theme';
 
-export type Status = 'success' | 'warning' | 'error' | 'unknown' | 'loading';
+export type Status = 'success' | 'warning' | 'error' | 'info' | 'unknown' | 'loading';
 
 // Centralized status configuration - icons, colors, and labels
 export const statusConfig: Record<
@@ -59,6 +59,20 @@ export const statusConfig: Record<
     bgColor: 'bg-status-error/10',
     label: 'Status: error',
   },
+  info: {
+    icon: (
+      <svg className="w-full h-full" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path
+          fillRule="evenodd"
+          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+          clipRule="evenodd"
+        />
+      </svg>
+    ),
+    color: 'text-status-info',
+    bgColor: 'bg-status-info/10',
+    label: 'Status: info',
+  },
   unknown: {
     icon: (
       <svg className="w-full h-full" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -96,7 +110,7 @@ export const statusConfig: Record<
 };
 
 // Size configurations using design tokens
-const sizeConfig = {
+export const sizeConfig = {
   sm: {
     icon: iconTokens.size.sm, // w-4 h-4
     dot: 'w-2 h-2',
@@ -107,9 +121,14 @@ const sizeConfig = {
     dot: 'w-2.5 h-2.5',
     padding: spacing.badge.sm, // 4px
   },
+  lg: {
+    icon: iconTokens.size.lg, // w-6 h-6
+    dot: 'w-3 h-3',
+    padding: 'p-1.5',
+  },
 } as const;
 
-type SizeKey = keyof typeof sizeConfig;
+export type SizeKey = keyof typeof sizeConfig;
 
 /**
  * Type-safe getter for status configuration.
@@ -127,14 +146,14 @@ export function getStatusConfig(status: Status): {
       return statusConfig.warning;
     case 'error':
       return statusConfig.error;
+    case 'info':
+      return statusConfig.info;
     case 'unknown':
       return statusConfig.unknown;
     case 'loading':
       return statusConfig.loading;
-    default: {
-      const exhaustiveCheck: never = status;
-      return exhaustiveCheck;
-    }
+    default:
+      return statusConfig.unknown;
   }
 }
 
@@ -142,8 +161,14 @@ export function getStatusConfig(status: Status): {
  * Type-safe getter for size configuration.
  */
 export function getSizeConfig(size: SizeKey): { icon: string; dot: string; padding: string } {
-  if (size === 'sm') {
-    return sizeConfig.sm;
+  switch (size) {
+    case 'sm':
+      return sizeConfig.sm;
+    case 'md':
+      return sizeConfig.md;
+    case 'lg':
+      return sizeConfig.lg;
+    default:
+      return sizeConfig.md;
   }
-  return sizeConfig.md;
 }

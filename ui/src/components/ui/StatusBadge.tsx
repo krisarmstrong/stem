@@ -9,8 +9,8 @@
  *
  * Key Features:
  * - Variants: "icon" (large symbol) or "dot" (small indicator)
- * - Sizes: "sm" (small), "md" (medium)
- * - Status types: success (green), warning (yellow), error (red), unknown (gray), loading (spinner)
+ * - Sizes: "sm" (small), "md" (medium), "lg" (large)
+ * - Status types: success, warning, error, info, unknown, loading
  * - Centralized statusConfig mapping all visual properties for each status
  * - Fully accessible with proper ARIA labels and semantics
  *
@@ -29,7 +29,7 @@
 
 import type React from 'react';
 import { cn, layout, radius } from '../../styles/theme';
-import { getSizeConfig, getStatusConfig, type Status } from './StatusConfig';
+import { getSizeConfig, getStatusConfig, type SizeKey, type Status } from './StatusConfig';
 
 // Re-export Status type for convenience
 export type { Status };
@@ -37,7 +37,7 @@ export type { Status };
 interface StatusBadgeProps {
   status: Status;
   variant?: 'icon' | 'dot';
-  size?: 'sm' | 'md';
+  size?: SizeKey;
   className?: string;
 }
 
