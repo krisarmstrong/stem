@@ -1,97 +1,135 @@
 #!/bin/bash
+# =============================================================================
+# The Stem - Post-installation Script (deb)
+# =============================================================================
+# Creates service user/group, sets capabilities, configures directories,
+# and enables the systemd service.
+# =============================================================================
 set -e
 
-# Create stem user/group if they don't exist
-if ! getent group stem >/dev/null; then
-    addgroup --system stem
+SERVICE_USER="stem"
+SERVICE_GROUP="stem"
+BINARY_PATH="/usr/bin/stem"
+CONFIG_DIR="/etc/stem"
+DATA_DIR="/var/lib/stem"
+LOG_DIR="/var/log/stem"
+
+# Create service group if it doesn't exist
+if ! getent group "$SERVICE_GROUP" > /dev/null 2>&1; then
+    echo "Creating group: $SERVICE_GROUP"
+    groupadd --system "$SERVICE_GROUP"
 fi
 
-if ! getent passwd stem >/dev/null; then
-    adduser --system --ingroup stem --home /var/lib/stem \
-        --no-create-home --gecos "The Stem Network Testing" stem
+# Create service user if it doesn't exist
+if ! getent passwd "$SERVICE_USER" > /dev/null 2>&1; then
+    echo "Creating user: $SERVICE_USER"
+    useradd --system \
+        --gid "$SERVICE_GROUP" \
+        --home-dir "$DATA_DIR" \
+        --no-create-home \
+        --shell /usr/sbin/nologin \
+        --comment "The Stem Network Performance Testing" \
+        "$SERVICE_USER"
 fi
 
-# Find available port if default is in use
-find_available_port() {
-    local start_port=$1
-    local port=$start_port
-    while [ $port -lt $((start_port + 100)) ]; do
-        if ! ss -tlnp 2>/dev/null | grep -q ":${port} "; then
-            echo $port
-            return 0
-        fi
-        port=$((port + 1))
-    done
-    echo $start_port
-}
+# Create config directory
+if [ ! -d "$CONFIG_DIR" ]; then
+    mkdir -p "$CONFIG_DIR"
+fi
+chown root:"$SERVICE_GROUP" "$CONFIG_DIR"
+chmod 750 "$CONFIG_DIR"
 
-# Check and update ports if needed
-CONFIG_FILE="/etc/stem/config.yaml"
-if [ -f "$CONFIG_FILE" ]; then
-    # Check HTTP port
-    if grep -qE '^\s+port:\s*8080' "$CONFIG_FILE" && ss -tlnp 2>/dev/null | grep -q ":8080 "; then
-        NEW_PORT=$(find_available_port 8080)
-        if [ "$NEW_PORT" != "8080" ]; then
-            sed -i "s/port: 8080/port: $NEW_PORT/" "$CONFIG_FILE"
-            echo "Note: Port 8080 in use, configured to use port $NEW_PORT"
-        fi
-    fi
-
-    # Check HTTPS port
-    if grep -qE '^\s+tls_port:\s*8443' "$CONFIG_FILE" && ss -tlnp 2>/dev/null | grep -q ":8443 "; then
-        NEW_PORT=$(find_available_port 8443)
-        if [ "$NEW_PORT" != "8443" ]; then
-            sed -i "s/tls_port: 8443/tls_port: $NEW_PORT/" "$CONFIG_FILE"
-            echo "Note: Port 8443 in use, configured to use port $NEW_PORT"
-        fi
+# Install default config if not present
+if [ ! -f "$CONFIG_DIR/config.yaml" ]; then
+    if [ -f /usr/share/stem/config.yaml ]; then
+        cp /usr/share/stem/config.yaml "$CONFIG_DIR/config.yaml"
+        chown root:"$SERVICE_GROUP" "$CONFIG_DIR/config.yaml"
+        chmod 640 "$CONFIG_DIR/config.yaml"
     fi
 fi
 
-# Set permissions
-chown -R stem:stem /var/lib/stem
-chown -R stem:stem /var/log/stem
-chown root:stem /etc/stem
-chown root:stem /etc/stem/config.yaml
-chown root:stem /etc/stem/environment
-chmod 0750 /etc/stem
-chmod 0640 /etc/stem/config.yaml
-chmod 0600 /etc/stem/environment
+# Create environment file if not present
+if [ ! -f "$CONFIG_DIR/environment" ]; then
+    cat > "$CONFIG_DIR/environment" << 'EOF'
+# Stem environment variables
+# STEM_AUTH_USERNAME=admin
+# STEM_AUTH_PASSWORD=changeme
+# STEM_JWT_SECRET=generate-a-secure-random-string
+# STEM_LICENSE_KEY=your-license-key
+EOF
+    chown root:"$SERVICE_GROUP" "$CONFIG_DIR/environment"
+    chmod 600 "$CONFIG_DIR/environment"
+fi
+
+# Create data directory
+if [ ! -d "$DATA_DIR" ]; then
+    mkdir -p "$DATA_DIR"
+fi
+chown "$SERVICE_USER:$SERVICE_GROUP" "$DATA_DIR"
+chmod 750 "$DATA_DIR"
+
+# Create log directory
+if [ ! -d "$LOG_DIR" ]; then
+    mkdir -p "$LOG_DIR"
+fi
+chown "$SERVICE_USER:$SERVICE_GROUP" "$LOG_DIR"
+chmod 750 "$LOG_DIR"
+
+# Set capabilities for raw socket access (required for packet testing)
+# - CAP_NET_RAW: Required for raw packet I/O, ICMP
+# - CAP_NET_ADMIN: Required for interface control
+# - CAP_NET_BIND_SERVICE: Required for binding to privileged ports
+if command -v setcap &> /dev/null; then
+    setcap 'cap_net_raw,cap_net_admin,cap_net_bind_service=+ep' "$BINARY_PATH" || {
+        echo "Warning: Could not set capabilities on $BINARY_PATH"
+        echo "The service may need to run as root for full functionality."
+    }
+else
+    echo "Warning: setcap not found. Install libcap2-bin for non-root operation."
+    echo "  sudo apt install libcap2-bin"
+fi
 
 # Configure firewall (ufw) if available and active
 if command -v ufw >/dev/null 2>&1; then
     if ufw status 2>/dev/null | grep -q "Status: active"; then
-        # Get configured ports from config file
-        HTTP_PORT=$(grep -E '^\s+port:' "$CONFIG_FILE" | head -1 | awk '{print $2}')
-        HTTPS_PORT=$(grep -E '^\s+tls_port:' "$CONFIG_FILE" | head -1 | awk '{print $2}')
-
-        HTTP_PORT=${HTTP_PORT:-8080}
-        HTTPS_PORT=${HTTPS_PORT:-8443}
-
-        ufw allow ${HTTP_PORT}/tcp comment 'Stem WebUI HTTP' >/dev/null 2>&1 || true
-        if [ "$HTTPS_PORT" != "0" ]; then
-            ufw allow ${HTTPS_PORT}/tcp comment 'Stem WebUI HTTPS' >/dev/null 2>&1 || true
-        fi
-        echo "Firewall configured for Stem service (ports $HTTP_PORT, $HTTPS_PORT)"
+        ufw allow 8080/tcp comment 'Stem WebUI HTTP' >/dev/null 2>&1 || true
+        ufw allow 8443/tcp comment 'Stem WebUI HTTPS' >/dev/null 2>&1 || true
+        echo "Firewall configured for Stem service (ports 8080, 8443)"
     fi
 fi
 
-# Enable and reload systemd
-if [ -d /run/systemd/system ]; then
-    systemctl daemon-reload
+# Reload systemd daemon
+systemctl daemon-reload
+
+# Enable service to start on boot
+systemctl enable stem.service
+
+# Start the service
+if systemctl is-active --quiet stem.service; then
+    echo "Restarting stem service..."
+    systemctl restart stem.service
+else
+    echo "Starting stem service..."
+    systemctl start stem.service || true
 fi
 
 echo ""
 echo "=============================================="
-echo "The Stem has been installed!"
+echo "  The Stem installed successfully!"
+echo "=============================================="
+echo ""
+echo "Web interface: http://localhost:8080"
 echo ""
 echo "Quick start:"
 echo "  1. Edit /etc/stem/environment to set credentials"
-echo "  2. sudo systemctl enable --now stem"
-echo "  3. Access WebUI at http://localhost:8080"
+echo "  2. Restart: sudo systemctl restart stem"
 echo ""
-echo "For CLI usage: stem --help"
-echo "=============================================="
-
-#DEBHELPER#
+echo "Commands:"
+echo "  View logs:      journalctl -u stem -f"
+echo "  Restart:        sudo systemctl restart stem"
+echo "  Status:         sudo systemctl status stem"
+echo "  Stop:           sudo systemctl stop stem"
+echo "  CLI help:       stem --help"
+echo ""
 
 exit 0

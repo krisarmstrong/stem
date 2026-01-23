@@ -1,28 +1,12 @@
-# Disable debug package (Go binary is stripped)
-%define debug_package %{nil}
+Name:       stem
+Version:    __VERSION__
+Release:    1%{?dist}
+Summary:    The Stem - Network Performance Testing Tool by Mustard Seed Networks
+License:    Proprietary
+URL:        https://github.com/krisarmstrong/stem
+BuildArch:  __ARCHITECTURE__
 
-Name:           stem
-Version:        0.2.9
-Release:        1%{?dist}
-Summary:        The Stem - Network Performance Testing Tool
-
-License:        Proprietary
-URL:            https://github.com/krisarmstrong/stem
-Source0:        %{name}-%{version}.tar.gz
-
-BuildRequires:  golang >= 1.21
-BuildRequires:  gcc
-BuildRequires:  make
-BuildRequires:  systemd-rpm-macros
-BuildRequires:  libbpf-devel
-BuildRequires:  libxdp-devel
-BuildRequires:  elfutils-libelf-devel
-BuildRequires:  zlib-devel
-
-Requires:       systemd
-Requires:       libbpf
-Requires:       libxdp
-Recommends:     firewalld
+Requires:   systemd, libcap
 
 %description
 The Stem is a high-performance network testing tool supporting:
@@ -32,133 +16,80 @@ The Stem is a high-performance network testing tool supporting:
 - Packet reflection for remote testing
 - WebUI, TUI, and CLI interfaces
 
-%prep
-%setup -q
-
-%build
-# Build C dataplane library first (required for CGO)
-make dataplane
-# Build Go binary with CGO linking to C dataplane
-make build VERSION=%{version}
-
 %install
-# Binary
-install -D -m 0755 bin/stem-linux %{buildroot}%{_bindir}/stem
+rm -rf %{buildroot}
+mkdir -p %{buildroot}/usr/bin
+mkdir -p %{buildroot}/usr/lib/systemd/system
+mkdir -p %{buildroot}/etc/stem
+mkdir -p %{buildroot}/usr/share/stem
+mkdir -p %{buildroot}/var/lib/stem
+mkdir -p %{buildroot}/var/log/stem
 
-# Systemd service
-install -D -m 0644 packaging/systemd/stem.service %{buildroot}%{_unitdir}/stem.service
+# Copy binary (single binary with embedded assets)
+install -m 755 %{_repo_root}/stem %{buildroot}/usr/bin/stem
 
-# Configuration
-install -D -m 0640 packaging/config/stem.yaml %{buildroot}%{_sysconfdir}/stem/config.yaml
-install -d -m 0750 %{buildroot}%{_sysconfdir}/stem
+# Copy systemd service file
+install -m 644 %{_repo_root}/deploy/systemd/stem.service %{buildroot}/usr/lib/systemd/system/stem.service
 
-# Environment file (for secrets)
-cat > %{buildroot}%{_sysconfdir}/stem/environment << 'EOF'
+# Copy default configuration
+install -m 640 %{_repo_root}/deploy/config/stem.yaml %{buildroot}/usr/share/stem/config.yaml
+
+%files
+%attr(755, root, root) /usr/bin/stem
+%attr(644, root, root) /usr/lib/systemd/system/stem.service
+%attr(640, root, stem) /usr/share/stem/config.yaml
+%dir %attr(750, root, stem) /etc/stem
+%dir %attr(750, stem, stem) /var/lib/stem
+%dir %attr(750, stem, stem) /var/log/stem
+
+%pre
+# Create service user and group
+getent group stem >/dev/null || groupadd -r stem
+getent passwd stem >/dev/null || \
+    useradd -r -g stem -d /var/lib/stem -s /sbin/nologin \
+    -c "The Stem Network Performance Testing" stem
+exit 0
+
+%post
+# Set ownership of directories
+chown -R stem:stem /var/lib/stem /var/log/stem
+chown root:stem /etc/stem
+
+# Install default config if not present
+if [ ! -f /etc/stem/config.yaml ]; then
+    cp /usr/share/stem/config.yaml /etc/stem/config.yaml
+    chown root:stem /etc/stem/config.yaml
+    chmod 640 /etc/stem/config.yaml
+fi
+
+# Create environment file if not present
+if [ ! -f /etc/stem/environment ]; then
+    cat > /etc/stem/environment << 'EOF'
 # Stem environment variables
 # STEM_AUTH_USERNAME=admin
 # STEM_AUTH_PASSWORD=changeme
 # STEM_JWT_SECRET=generate-a-secure-random-string
 # STEM_LICENSE_KEY=your-license-key
 EOF
-chmod 0600 %{buildroot}%{_sysconfdir}/stem/environment
-
-# State and log directories
-install -d -m 0750 %{buildroot}%{_sharedstatedir}/stem
-install -d -m 0750 %{buildroot}%{_localstatedir}/log/stem
-
-# Firewalld service definition
-install -d -m 0755 %{buildroot}%{_prefix}/lib/firewalld/services
-cat > %{buildroot}%{_prefix}/lib/firewalld/services/stem.xml << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<service>
-  <short>Stem</short>
-  <description>The Stem - Network Performance Testing WebUI</description>
-  <port protocol="tcp" port="8080"/>
-  <port protocol="tcp" port="8443"/>
-</service>
-EOF
-chmod 0644 %{buildroot}%{_prefix}/lib/firewalld/services/stem.xml
-
-%pre
-# Create stem user/group if they don't exist
-getent group stem >/dev/null || groupadd -r stem
-getent passwd stem >/dev/null || \
-    useradd -r -g stem -d %{_sharedstatedir}/stem -s /sbin/nologin \
-    -c "The Stem Network Testing" stem
-exit 0
-
-%post
-%systemd_post stem.service
-
-# Find available port if default is in use
-find_available_port() {
-    local start_port=$1
-    local port=$start_port
-    while [ $port -lt $((start_port + 100)) ]; do
-        if ! ss -tlnp | grep -q ":${port} "; then
-            echo $port
-            return 0
-        fi
-        port=$((port + 1))
-    done
-    echo $start_port
-}
-
-# Check and update ports if needed
-CONFIG_FILE="%{_sysconfdir}/stem/config.yaml"
-if [ -f "$CONFIG_FILE" ]; then
-    # Check HTTP port
-    HTTP_PORT=$(grep -E '^\s+port:\s*8080' "$CONFIG_FILE" | head -1)
-    if [ -n "$HTTP_PORT" ] && ss -tlnp | grep -q ":8080 "; then
-        NEW_PORT=$(find_available_port 8080)
-        if [ "$NEW_PORT" != "8080" ]; then
-            sed -i "s/port: 8080/port: $NEW_PORT/" "$CONFIG_FILE"
-            echo "Note: Port 8080 in use, configured to use port $NEW_PORT"
-        fi
-    fi
-
-    # Check HTTPS port
-    HTTPS_PORT=$(grep -E '^\s+tls_port:\s*8443' "$CONFIG_FILE" | head -1)
-    if [ -n "$HTTPS_PORT" ] && ss -tlnp | grep -q ":8443 "; then
-        NEW_PORT=$(find_available_port 8443)
-        if [ "$NEW_PORT" != "8443" ]; then
-            sed -i "s/tls_port: 8443/tls_port: $NEW_PORT/" "$CONFIG_FILE"
-            echo "Note: Port 8443 in use, configured to use port $NEW_PORT"
-        fi
-    fi
+    chown root:stem /etc/stem/environment
+    chmod 600 /etc/stem/environment
 fi
+
+# Set capabilities for raw socket access
+# - CAP_NET_RAW: Required for raw packet I/O
+# - CAP_NET_ADMIN: Required for interface control
+# - CAP_NET_BIND_SERVICE: Required for binding to privileged ports
+/usr/sbin/setcap 'cap_net_raw,cap_net_admin,cap_net_bind_service=+ep' /usr/bin/stem || true
 
 # Configure firewall if firewalld is running
-if systemctl is-active --quiet firewalld; then
+if systemctl is-active --quiet firewalld 2>/dev/null; then
+    firewall-cmd --permanent --add-port=8080/tcp 2>/dev/null || true
+    firewall-cmd --permanent --add-port=8443/tcp 2>/dev/null || true
     firewall-cmd --reload 2>/dev/null || true
-    firewall-cmd --permanent --add-service=stem 2>/dev/null || true
-    firewall-cmd --reload 2>/dev/null || true
-    echo "Firewall configured for Stem service"
+    echo "Firewall configured for Stem service (ports 8080, 8443)"
 fi
 
-# Enable and start the service
-systemctl enable stem.service 2>/dev/null || true
-systemctl start stem.service 2>/dev/null || true
-
-# Set permissions
-chown -R stem:stem %{_sharedstatedir}/stem
-chown -R stem:stem %{_localstatedir}/log/stem
-chown root:stem %{_sysconfdir}/stem
-chown root:stem %{_sysconfdir}/stem/config.yaml
-chown root:stem %{_sysconfdir}/stem/environment
-
-echo ""
-echo "=============================================="
-echo "The Stem has been installed and started!"
-echo ""
-echo "Quick start:"
-echo "  1. Edit /etc/stem/environment to set credentials"
-echo "  2. Restart: systemctl restart stem"
-echo "  3. Access WebUI at http://localhost:8080"
-echo ""
-echo "Service status: systemctl status stem"
-echo "For CLI usage: stem --help"
-echo "=============================================="
+%systemd_post stem.service
 
 %preun
 %systemd_preun stem.service
@@ -166,38 +97,23 @@ echo "=============================================="
 %postun
 %systemd_postun_with_restart stem.service
 
-# Remove firewall rule on uninstall
+# On complete removal (not upgrade), clean up
 if [ $1 -eq 0 ]; then
-    if systemctl is-active --quiet firewalld; then
-        firewall-cmd --permanent --remove-service=stem 2>/dev/null || true
+    # Remove firewall rules
+    if systemctl is-active --quiet firewalld 2>/dev/null; then
+        firewall-cmd --permanent --remove-port=8080/tcp 2>/dev/null || true
+        firewall-cmd --permanent --remove-port=8443/tcp 2>/dev/null || true
         firewall-cmd --reload 2>/dev/null || true
     fi
+
+    # Remove user/group
+    userdel stem 2>/dev/null || true
+    groupdel stem 2>/dev/null || true
 fi
 
-%files
-%license LICENSE
-%doc README.md
-%{_bindir}/stem
-%{_unitdir}/stem.service
-%dir %attr(0750,root,stem) %{_sysconfdir}/stem
-%config(noreplace) %attr(0640,root,stem) %{_sysconfdir}/stem/config.yaml
-%config(noreplace) %attr(0600,root,stem) %{_sysconfdir}/stem/environment
-%dir %attr(0750,stem,stem) %{_sharedstatedir}/stem
-%dir %attr(0750,stem,stem) %{_localstatedir}/log/stem
-%{_prefix}/lib/firewalld/services/stem.xml
-
 %changelog
-* Thu Jan 09 2025 Kris Armstrong <kris@mustardseednetworks.com> - 0.2.9-1
-- RPM now auto-enables and starts stem service on install
-- Updated post-install messaging
-
-* Wed Jan 08 2025 Kris Armstrong <kris@mustardseednetworks.com> - 0.2.8-1
-- Added complete configuration documentation to help system
-- Implemented i18n infrastructure with English and Spanish support
-- All tests pass with lint and format compliance
-
-* Wed Jan 08 2025 Kris Armstrong <kris@mustardseednetworks.com> - 0.2.7-1
-- C23 lint compliance (clang-tidy)
-- Fixed data race in test executor
-- Added systemd service support
+* Thu Jan 23 2025 Kris Armstrong <kris@mustardseednetworks.com>
+- Converted to binary package format for CI/CD release workflow
+- Added capabilities (NET_RAW, NET_ADMIN, NET_BIND_SERVICE)
 - Added firewalld integration
+- Added environment file for secrets management

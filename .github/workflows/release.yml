@@ -1,50 +1,47 @@
-# Release Workflow
-# Mustard Seed Networks - The Stem
+# =============================================================================
+# Release - The Stem
+# =============================================================================
+# Release workflow for creating versioned releases.
+# Builds multi-arch packages (.tar.gz, .deb, .rpm, .pkg) for Linux and macOS.
+# Triggered on version tags (v*) or manual dispatch.
 #
-# Builds and publishes release artifacts when a new tag is pushed
-# Includes: binaries, SBOM, checksums, signatures
+# NOTE: Full CI validation happens in ci.yml on every push to main.
+# Tags should only be created after CI passes on main.
+# This workflow focuses on building release artifacts.
+# =============================================================================
 
 name: Release
 
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
-  id-token: write
 
 jobs:
-  build:
-    name: Build (${{ matrix.os }}-${{ matrix.arch }})
-    runs-on: ${{ matrix.runner }}
+  # ===========================================================================
+  # Build Linux Release Packages
+  # ===========================================================================
+  release-linux:
+    name: Linux (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: linux
-            arch: amd64
-            runner: ubuntu-latest
-            goos: linux
+          - arch: amd64
             goarch: amd64
-          - os: linux
-            arch: arm64
-            runner: ubuntu-latest
-            goos: linux
+          - arch: arm64
             goarch: arm64
-          - os: darwin
-            arch: amd64
-            runner: macos-latest
-            goos: darwin
-            goarch: amd64
-          - os: darwin
-            arch: arm64
-            runner: macos-latest
-            goos: darwin
-            goarch: arm64
+
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -55,106 +52,413 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '25'
-          cache: 'npm'
+          node-version: "25"
+          cache: npm
           cache-dependency-path: ui/package-lock.json
 
-      - name: Build UI
-        working-directory: ui
+      - name: Install build dependencies
         run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm
+
+      - name: Build frontend
+        run: |
+          cd ui
           npm ci
           npm run build
-
-      - name: Copy UI dist
-        run: |
-          mkdir -p pkg/web/dist
-          cp -r ui/dist/* pkg/web/dist/
 
       - name: Extract version from tag
         id: version
         env:
           GITHUB_REF_NAME: ${{ github.ref_name }}
-        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(echo "$VERSION" | sed 's/-dirty$//;s/-[0-9]*-g[0-9a-f]*$//')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "pkg_version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Build binary
         env:
-          GOOS: ${{ matrix.goos }}
+          GOOS: linux
           GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: '0'
-          VERSION: ${{ steps.version.outputs.version }}
+          CGO_ENABLED: "0"
+          BUILD_VERSION: ${{ steps.version.outputs.version }}
         run: |
           COMMIT=$(git rev-parse --short HEAD)
           BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
           go build -trimpath -buildvcs=false \
             -ldflags "-s -w \
-              -X github.com/krisarmstrong/stem/pkg/version.Version=${VERSION} \
-              -X github.com/krisarmstrong/stem/pkg/version.Commit=${COMMIT} \
-              -X github.com/krisarmstrong/stem/pkg/version.BuildTime=${BUILD_TIME}" \
-            -o stem-${{ matrix.os }}-${{ matrix.arch }} \
+              -X github.com/krisarmstrong/stem/internal/version.semver=${BUILD_VERSION} \
+              -X github.com/krisarmstrong/stem/internal/version.commit=${COMMIT} \
+              -X github.com/krisarmstrong/stem/internal/version.buildTime=${BUILD_TIME}" \
+            -o "dist/stem-linux-${{ matrix.arch }}" \
             ./cmd/stem/
 
-      - name: Create archive
+      - name: Verify binary (smoke test)
         run: |
-          tar -czvf stem-${{ matrix.os }}-${{ matrix.arch }}.tar.gz \
-            stem-${{ matrix.os }}-${{ matrix.arch }}
+          echo "=== Binary file type ==="
+          file "dist/stem-linux-${{ matrix.arch }}"
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v6
+          if [ "${{ matrix.arch }}" = "amd64" ]; then
+            echo ""
+            echo "=== Version smoke test ==="
+            "./dist/stem-linux-${{ matrix.arch }}" version || echo "Version check done"
+          fi
+
+      - name: Create .tar.gz package
+        env:
+          VERSION: ${{ github.ref_name }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          mkdir -p "release/stem-${VERSION}-linux-${ARCH}"
+          cp "dist/stem-linux-${ARCH}" "release/stem-${VERSION}-linux-${ARCH}/stem"
+          chmod +x "release/stem-${VERSION}-linux-${ARCH}/stem"
+          cp deploy/config/stem.yaml "release/stem-${VERSION}-linux-${ARCH}/"
+          cp deploy/systemd/stem.service "release/stem-${VERSION}-linux-${ARCH}/"
+          if [ -d ui/dist ]; then
+            cp -r ui/dist "release/stem-${VERSION}-linux-${ARCH}/ui/"
+          fi
+          cd release
+          tar -czvf "stem-${VERSION}-linux-${ARCH}.tar.gz" "stem-${VERSION}-linux-${ARCH}"
+
+      - name: Create .deb package
+        env:
+          PKG_VERSION: ${{ steps.version.outputs.pkg_version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          DEB_DIR="dist/deb"
+          mkdir -p "$DEB_DIR/DEBIAN"
+          mkdir -p "$DEB_DIR/usr/bin"
+          mkdir -p "$DEB_DIR/usr/lib/systemd/system"
+          mkdir -p "$DEB_DIR/usr/share/stem"
+          mkdir -p "$DEB_DIR/var/lib/stem"
+          mkdir -p "$DEB_DIR/var/log/stem"
+
+          cp "dist/stem-linux-${ARCH}" "$DEB_DIR/usr/bin/stem"
+          chmod 755 "$DEB_DIR/usr/bin/stem"
+          cp deploy/systemd/stem.service "$DEB_DIR/usr/lib/systemd/system/"
+          cp deploy/config/stem.yaml "$DEB_DIR/usr/share/stem/config.yaml"
+
+          sed "s/__VERSION__/${PKG_VERSION}/;s/__ARCHITECTURE__/${ARCH}/" \
+            deploy/deb/control > "$DEB_DIR/DEBIAN/control"
+
+          cp deploy/deb/postinst "$DEB_DIR/DEBIAN/"
+          cp deploy/deb/prerm "$DEB_DIR/DEBIAN/"
+          cp deploy/deb/postrm "$DEB_DIR/DEBIAN/"
+          chmod 755 "$DEB_DIR/DEBIAN/postinst" "$DEB_DIR/DEBIAN/prerm" "$DEB_DIR/DEBIAN/postrm"
+
+          dpkg-deb --build "$DEB_DIR" "release/stem_${PKG_VERSION}_${ARCH}.deb"
+
+      - name: Create .rpm package
+        env:
+          PKG_VERSION: ${{ steps.version.outputs.pkg_version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          RPM_ARCH=${ARCH}
+          if [ "${ARCH}" = "amd64" ]; then
+            RPM_ARCH="x86_64"
+          elif [ "${ARCH}" = "arm64" ]; then
+            RPM_ARCH="aarch64"
+          fi
+
+          # Copy binary to repo root for rpmbuild (spec expects %{_repo_root}/stem)
+          cp "dist/stem-linux-${ARCH}" stem
+
+          sed "s/__VERSION__/${PKG_VERSION}/;s/__ARCHITECTURE__/${RPM_ARCH}/" \
+            deploy/rpm/stem.spec > stem.spec
+
+          rpmbuild --target "${RPM_ARCH}" \
+            --define "_repo_root $(pwd)" \
+            --define "_topdir $(pwd)/rpmbuild" \
+            --define "_rpmdir $(pwd)/release" \
+            -bb stem.spec
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
         with:
-          name: stem-${{ matrix.os }}-${{ matrix.arch }}
-          path: stem-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
-          retention-days: 1
+          name: release-linux-${{ matrix.arch }}
+          path: |
+            release/*.tar.gz
+            release/*.deb
+            release/*.rpm
 
-  release:
-    name: Create Release
-    needs: build
-    runs-on: ubuntu-latest
+  # ===========================================================================
+  # Build macOS Release
+  # ===========================================================================
+  release-macos:
+    name: macOS (${{ matrix.arch }})
+    permissions:
+      contents: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            arch: arm64
+            goarch: arm64
+          - os: macos-13
+            arch: amd64
+            goarch: amd64
+
+    runs-on: ${{ matrix.os }}
+
     steps:
       - uses: actions/checkout@v6
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v7
         with:
-          path: artifacts
+          fetch-depth: 0
 
-      - name: Collect archives
-        run: |
-          mkdir -p release
-          find artifacts -name '*.tar.gz' -exec cp {} release/ \;
-          ls -la release/
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
 
-      - name: Generate checksums
-        working-directory: release
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "25"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Build frontend
         run: |
-          sha256sum *.tar.gz > checksums.txt
+          cd ui
+          npm ci
+          npm run build
+
+      - name: Extract version from tag
+        id: version
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(echo "$VERSION" | sed 's/-dirty$//;s/-[0-9]*-g[0-9a-f]*$//')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "pkg_version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build binary
+        env:
+          GOOS: darwin
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+          BUILD_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          COMMIT=$(git rev-parse --short HEAD)
+          BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          go build -trimpath -buildvcs=false \
+            -ldflags "-s -w \
+              -X github.com/krisarmstrong/stem/internal/version.semver=${BUILD_VERSION} \
+              -X github.com/krisarmstrong/stem/internal/version.commit=${COMMIT} \
+              -X github.com/krisarmstrong/stem/internal/version.buildTime=${BUILD_TIME}" \
+            -o "dist/stem-darwin-${{ matrix.arch }}" \
+            ./cmd/stem/
+
+      - name: Verify binary (smoke test)
+        run: |
+          echo "=== Binary file type ==="
+          file "dist/stem-darwin-${{ matrix.arch }}"
+
+          echo ""
+          echo "=== Version smoke test ==="
+          "./dist/stem-darwin-${{ matrix.arch }}" version || echo "Version check done"
+
+      - name: Create .tar.gz package
+        env:
+          VERSION: ${{ github.ref_name }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          mkdir -p "release/stem-${VERSION}-darwin-${ARCH}"
+          cp "dist/stem-darwin-${ARCH}" "release/stem-${VERSION}-darwin-${ARCH}/stem"
+          chmod +x "release/stem-${VERSION}-darwin-${ARCH}/stem"
+          cp deploy/config/stem.yaml "release/stem-${VERSION}-darwin-${ARCH}/"
+          if [ -d ui/dist ]; then
+            cp -r ui/dist "release/stem-${VERSION}-darwin-${ARCH}/ui/"
+          fi
+          cd release
+          tar -czvf "stem-${VERSION}-darwin-${ARCH}.tar.gz" "stem-${VERSION}-darwin-${ARCH}"
+
+      - name: Create .pkg installer
+        env:
+          ARCH: ${{ matrix.arch }}
+          PKG_VERSION: ${{ steps.version.outputs.pkg_version }}
+        run: |
+          chmod +x deploy/macos/build-pkg.sh
+          ./deploy/macos/build-pkg.sh "./dist/stem-darwin-${ARCH}" "${PKG_VERSION}"
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-darwin-${{ matrix.arch }}
+          path: |
+            release/*.tar.gz
+            dist/*.pkg
+
+  # ===========================================================================
+  # Publish Release
+  # ===========================================================================
+  publish:
+    name: Publish Release
+    runs-on: ubuntu-latest
+    needs: [release-linux, release-macos]
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download all release artifacts
+        uses: actions/download-artifact@v6
+        with:
+          path: artifacts/
+
+      - name: Prepare release files
+        run: |
+          mkdir -p dist
+          find artifacts -name "*.tar.gz" -exec cp {} dist/ \;
+          find artifacts -name "*.deb" -exec cp {} dist/ \;
+          find artifacts -name "*.rpm" -exec cp {} dist/ \;
+          find artifacts -name "*.pkg" -exec cp {} dist/ \;
+          cd dist
+          sha256sum * > checksums.txt 2>/dev/null || true
           cat checksums.txt
 
-      - name: Generate SBOM
-        uses: anchore/sbom-action@v0
-        with:
-          path: .
-          format: spdx-json
-          output-file: release/sbom.spdx.json
+      - name: Install Syft for SBOM generation
+        uses: anchore/sbom-action/download-syft@v0
 
-      - name: Install Cosign
+      - name: Generate SBOMs for packages
+        run: |
+          cd dist
+          for pkg in *.tar.gz; do
+            if [ -f "${pkg}" ]; then
+              echo "Generating SBOM for ${pkg}..."
+              syft "${pkg}" -o cyclonedx-json > "${pkg%.tar.gz}.sbom.json"
+            fi
+          done
+
+      - name: Install Cosign for signing
         uses: sigstore/cosign-installer@v3
 
-      - name: Sign checksums with Cosign
-        env:
-          COSIGN_EXPERIMENTAL: '1'
+      - name: Sign release artifacts with cosign (keyless OIDC)
         run: |
-          cd release
-          cosign sign-blob --yes checksums.txt --output-signature checksums.txt.sig
+          cd dist
+          for file in *.tar.gz *.deb *.rpm *.pkg checksums.txt *.sbom.json; do
+            if [ -f "${file}" ]; then
+              echo "Signing ${file}..."
+              cosign sign-blob --yes --bundle "${file}.cosign.bundle" "${file}"
+            fi
+          done
 
-      - name: Create GitHub Release
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" "$PREV_TAG"..HEAD)
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" -20)
+          fi
+          echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
+          body: |
+            ## Changes
+
+            ${{ steps.changelog.outputs.changelog }}
+
+            ## Checksums
+
+            ```
+            $(cat dist/checksums.txt)
+            ```
+
+            ## Installation
+
+            ### Debian/Ubuntu (.deb - Recommended for Linux)
+
+            **AMD64:**
+            ```bash
+            sudo dpkg -i stem_<version>_amd64.deb
+            ```
+
+            **ARM64:**
+            ```bash
+            sudo dpkg -i stem_<version>_arm64.deb
+            ```
+
+            ### Fedora/RHEL (.rpm)
+
+            **x86_64:**
+            ```bash
+            sudo rpm -i stem-<version>.x86_64.rpm
+            ```
+
+            **aarch64:**
+            ```bash
+            sudo rpm -i stem-<version>.aarch64.rpm
+            ```
+
+            ### macOS (.pkg Installer - Recommended for macOS)
+
+            **Apple Silicon (M1/M2/M3/M4):**
+            ```bash
+            sudo installer -pkg stem-<version>-arm64.pkg -target /
+            ```
+
+            **Intel Mac:**
+            ```bash
+            sudo installer -pkg stem-<version>-amd64.pkg -target /
+            ```
+
+            ### Linux Manual (tar.gz)
+
+            ```bash
+            tar -xzf stem-<version>-linux-amd64.tar.gz
+            cd stem-*-linux-amd64
+            sudo mv stem /usr/bin/
+            sudo cp stem.service /usr/lib/systemd/system/
+            sudo mkdir -p /etc/stem
+            sudo cp stem.yaml /etc/stem/config.yaml
+            sudo systemctl enable --now stem
+            ```
+
+            ## After Installation
+
+            - **Web UI:** http://localhost:8080
+            - **CLI:** `stem --help`
+            - **TUI:** `stem tui`
+            - **Status:** `sudo systemctl status stem` (Linux) / `sudo launchctl list | grep stem` (macOS)
+
+            ## Supply Chain Security
+
+            All release artifacts include:
+            - **SBOM** (Software Bill of Materials) in CycloneDX JSON format
+            - **Cosign signatures** for cryptographic verification
+
+            Verify signatures:
+            ```bash
+            cosign verify-blob \
+              --bundle <artifact>.cosign.bundle \
+              --certificate-identity-regexp='https://github.com/krisarmstrong/stem' \
+              --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
+              <artifact>
+            ```
           files: |
-            release/*.tar.gz
-            release/checksums.txt
-            release/checksums.txt.sig
-            release/sbom.spdx.json
-          generate_release_notes: true
+            dist/*.tar.gz
+            dist/*.deb
+            dist/*.rpm
+            dist/*.pkg
+            dist/checksums.txt
+            dist/*.sbom.json
+            dist/*.cosign.bundle
           draft: false
-          prerelease: ${{ contains(github.ref, '-') }}
+          prerelease: ${{ contains(github.ref_name, '-') }}

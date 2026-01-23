@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<installer-gui-script minSpecVersion="2">
+    <title>The Stem - Network Performance Testing</title>
+    <organization>com.stem</organization>
+    <domains enable_localSystem="true"/>
+    <options customize="never" require-scripts="true" rootVolumeOnly="true"/>
+    <welcome file="welcome.html"/>
+    <conclusion file="conclusion.html"/>
+    <choices-outline>
+        <line choice="default">
+            <line choice="com.stem.pkg"/>
+        </line>
+    </choices-outline>
+    <choice id="default"/>
+    <choice id="com.stem.pkg" visible="false">
+        <pkg-ref id="com.stem.pkg"/>
+    </choice>
+    <pkg-ref id="com.stem.pkg" version="__VERSION__" onConclusion="none">stem-component.pkg</pkg-ref>
+</installer-gui-script>

@@ -100,9 +100,9 @@ endef
 GO := go
 VERSION_PKG := github.com/krisarmstrong/stem/internal/version
 LDFLAGS := -s -w \
-	-X $(VERSION_PKG).Version=$(VERSION) \
-	-X $(VERSION_PKG).Commit=$(COMMIT) \
-	-X $(VERSION_PKG).BuildTime=$(BUILD_TIME)
+	-X $(VERSION_PKG).semver=$(VERSION) \
+	-X $(VERSION_PKG).commit=$(COMMIT) \
+	-X $(VERSION_PKG).buildTime=$(BUILD_TIME)
 GOFLAGS := -trimpath -buildvcs=false -ldflags "$(LDFLAGS)"
 
 # Binary name

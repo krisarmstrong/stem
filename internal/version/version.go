@@ -1,57 +1,48 @@
 // Package version provides build-time version information for The Stem.
 package version
 
-// version holds build information set by ldflags at build time.
-// The Go linker uses -X to set these values during the build process.
-// Named "version" to use the gochecknoglobals exemption for version variables.
-var version = struct {
-	semver    string
-	commit    string
-	buildTime string
-}{
-	semver:    "dev",
-	commit:    "unknown",
-	buildTime: "unknown",
-}
+// Set via ldflags: -X github.com/krisarmstrong/stem/internal/version.semver=...
+// nolint:gochecknoglobals // Required for ldflags injection.
+var (
+	semver    = "dev"     //nolint:gochecknoglobals // ldflags
+	commit    = "unknown" //nolint:gochecknoglobals // ldflags
+	buildTime = "unknown" //nolint:gochecknoglobals // ldflags
+)
 
 // Version returns the semantic version (set via ldflags).
 func Version() string {
-	return version.semver
+	return semver
 }
 
 // Commit returns the git commit SHA (set via ldflags).
 func Commit() string {
-	return version.commit
+	return commit
 }
 
 // BuildTime returns the UTC build timestamp (set via ldflags).
 func BuildTime() string {
-	return version.buildTime
+	return buildTime
 }
 
 // Info returns version information as a map for JSON serialization.
 func Info() map[string]string {
 	return map[string]string{
-		"version":   version.semver,
-		"commit":    version.commit,
-		"buildTime": version.buildTime,
+		"version":   semver,
+		"commit":    commit,
+		"buildTime": buildTime,
 	}
 }
 
 // SetForTesting sets version info for testing purposes only.
 // This function should only be called in test code.
-func SetForTesting(semver, commit, buildTime string) func() {
-	orig := version
-	version = struct {
-		semver    string
-		commit    string
-		buildTime string
-	}{
-		semver:    semver,
-		commit:    commit,
-		buildTime: buildTime,
-	}
+func SetForTesting(ver, cmt, bt string) func() {
+	origSemver, origCommit, origBuildTime := semver, commit, buildTime
+	semver = ver
+	commit = cmt
+	buildTime = bt
 	return func() {
-		version = orig
+		semver = origSemver
+		commit = origCommit
+		buildTime = origBuildTime
 	}
 }

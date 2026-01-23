@@ -1,0 +1,20 @@
+<html>
+<body>
+<h1>Installation Complete</h1>
+<p>The Stem has been installed and the background service is running.</p>
+<p><strong>Access the Web UI:</strong></p>
+<p><a href="http://localhost:8080">http://localhost:8080</a></p>
+<p><strong>CLI Usage:</strong></p>
+<pre>
+/usr/local/stem/stem version
+/usr/local/stem/stem --help
+/usr/local/stem/stem tui
+</pre>
+<p><strong>Service Management:</strong></p>
+<pre>
+sudo launchctl unload /Library/LaunchDaemons/com.stem.plist  # Stop
+sudo launchctl load /Library/LaunchDaemons/com.stem.plist    # Start
+</pre>
+<p><strong>Tip:</strong> Add <code>/usr/local/stem</code> to your PATH for convenience.</p>
+</body>
+</html>

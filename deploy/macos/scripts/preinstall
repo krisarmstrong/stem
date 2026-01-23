@@ -1,0 +1,25 @@
+#!/bin/bash
+#
+# Pre-install script for The Stem macOS .pkg
+#
+# Stops existing service before installation.
+#
+
+set -e
+
+log() {
+    /usr/bin/logger -t "stem-installer" "$1"
+    echo "$1"
+}
+
+log "Starting pre-install for The Stem..."
+
+# Stop existing service if running
+if launchctl list 2>/dev/null | grep -q "com.stem"; then
+    log "Stopping existing service..."
+    launchctl unload /Library/LaunchDaemons/com.stem.plist 2>/dev/null || true
+    sleep 2
+fi
+
+log "Pre-install complete"
+exit 0

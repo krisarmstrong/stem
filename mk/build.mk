@@ -105,9 +105,9 @@ build-linux-docker: ## Build Linux binary using Docker (cross-platform)
 		golang:1.25 \
 		go build -trimpath -buildvcs=false \
 			-ldflags "-s -w \
-				-X $(VERSION_PKG).Version=$(VERSION) \
-				-X $(VERSION_PKG).Commit=$(COMMIT) \
-				-X $(VERSION_PKG).BuildTime=$(BUILD_TIME)" \
+				-X $(VERSION_PKG).semver=$(VERSION) \
+				-X $(VERSION_PKG).commit=$(COMMIT) \
+				-X $(VERSION_PKG).buildTime=$(BUILD_TIME)" \
 			-o bin/stem-linux-amd64 \
 			./cmd/stem/
 	@printf "$(GREEN)✓ Linux binary built: bin/stem-linux-amd64$(RESET)\n"

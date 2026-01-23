@@ -1,0 +1,67 @@
+#!/bin/bash
+#
+# Post-install script for The Stem macOS .pkg
+#
+# Sets up the launchd service and starts The Stem.
+#
+
+set -e
+
+INSTALL_DIR="/usr/local/stem"
+BINARY_NAME="stem"
+PLIST_NAME="com.stem.plist"
+PLIST_DEST="/Library/LaunchDaemons/$PLIST_NAME"
+PLIST_SOURCE="$INSTALL_DIR/launchd/$PLIST_NAME"
+
+log() {
+    /usr/bin/logger -t "stem-installer" "$1"
+    echo "$1"
+}
+
+log "Starting post-install for The Stem..."
+
+# Ensure directories exist
+mkdir -p "$INSTALL_DIR/configs"
+mkdir -p "$INSTALL_DIR/logs"
+mkdir -p "$INSTALL_DIR/data"
+
+# Set proper ownership
+chown -R root:wheel "$INSTALL_DIR"
+
+# Make binary executable
+chmod 755 "$INSTALL_DIR/$BINARY_NAME"
+
+# Install launchd plist
+if [[ -f "$PLIST_SOURCE" ]]; then
+    cp "$PLIST_SOURCE" "$PLIST_DEST"
+    log "Installed launchd plist from package"
+else
+    log "Warning: launchd plist not found in package"
+    exit 1
+fi
+
+# Set plist permissions
+chmod 644 "$PLIST_DEST"
+chown root:wheel "$PLIST_DEST"
+
+# Load and start service
+log "Loading launchd service..."
+launchctl load "$PLIST_DEST"
+
+# Wait for startup
+sleep 3
+
+# Verify
+if launchctl list 2>/dev/null | grep -q "com.stem"; then
+    if pgrep -f "/usr/local/stem/stem" > /dev/null; then
+        log "The Stem installation successful - service is running"
+    else
+        log "Warning: Service loaded but process may not be running"
+        log "Check logs: /usr/local/stem/logs/stem.error.log"
+    fi
+else
+    log "Warning: Failed to load launchd service"
+fi
+
+log "Post-install complete"
+exit 0
