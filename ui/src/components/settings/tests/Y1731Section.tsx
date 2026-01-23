@@ -44,9 +44,9 @@ export function Y1731Section({
         const key = testKeyMap.get(id);
         return {
           id,
-          name: t(`tests.y1731.${key}.name`),
-          desc: t(`tests.y1731.${key}.desc`),
-          tooltip: t(`tests.y1731.${key}.tooltip`),
+          name: t(`tests.y1731.${key}.name` as never),
+          desc: t(`tests.y1731.${key}.desc` as never),
+          tooltip: t(`tests.y1731.${key}.tooltip` as never),
         };
       }),
     [t],

@@ -37,7 +37,7 @@ import esParams from '@locales/es/params.json';
 import esRecovery from '@locales/es/recovery.json';
 import esSettings from '@locales/es/settings.json';
 import esSetup from '@locales/es/setup.json';
-import i18n from 'i18next';
+import i18n, { type Resource } from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import { initReactI18next } from 'react-i18next';
 
@@ -75,7 +75,7 @@ export const defaultNs: Namespace = 'common';
 /**
  * Resources organized by language and namespace.
  */
-const resources: Record<string, Record<string, unknown>> = {
+const resources: Resource = {
   en: {
     common: enCommon,
     errors: enErrors,

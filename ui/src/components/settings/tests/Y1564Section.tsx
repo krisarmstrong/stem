@@ -43,9 +43,9 @@ export function Y1564Section({
         const key = testKeyMap.get(id);
         return {
           id,
-          name: t(`tests.y1564.${key}.name`),
-          desc: t(`tests.y1564.${key}.desc`),
-          tooltip: t(`tests.y1564.${key}.tooltip`),
+          name: t(`tests.y1564.${key}.name` as never),
+          desc: t(`tests.y1564.${key}.desc` as never),
+          tooltip: t(`tests.y1564.${key}.tooltip` as never),
         };
       }),
     [t],

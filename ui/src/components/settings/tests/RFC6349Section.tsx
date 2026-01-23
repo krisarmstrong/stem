@@ -11,7 +11,7 @@ import { Activity } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CollapsibleSection } from '../../CollapsibleSection';
-import { type RFC6349Config, RFC6349ConfigForm } from '../../Rfc6349ConfigForm';
+import { type RFC6349Config, RFC6349ConfigForm } from '../../RFC6349ConfigForm';
 import { TestCheckbox } from '../TestCheckbox';
 import type { TestDefinition, TestSectionProps } from '../types';
 
@@ -42,9 +42,9 @@ export function RFC6349Section({
         const key = testKeyMap.get(id);
         return {
           id,
-          name: t(`tests.rfc6349.${key}.name`),
-          desc: t(`tests.rfc6349.${key}.desc`),
-          tooltip: t(`tests.rfc6349.${key}.tooltip`),
+          name: t(`tests.rfc6349.${key}.name` as never),
+          desc: t(`tests.rfc6349.${key}.desc` as never),
+          tooltip: t(`tests.rfc6349.${key}.tooltip` as never),
         };
       }),
     [t],

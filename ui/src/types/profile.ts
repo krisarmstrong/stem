@@ -13,11 +13,11 @@
  */
 
 import type { RFC2544Config } from '../components/RFC2544ConfigForm';
-import type { RFC2889Config } from '../components/Rfc2889ConfigForm';
-import type { RFC6349Config } from '../components/Rfc6349ConfigForm';
+import type { RFC2889Config } from '../components/RFC2889ConfigForm';
+import type { RFC6349Config } from '../components/RFC6349ConfigForm';
 import type { ReflectorProfile } from '../components/settings/types';
 import type { TrafficGenConfig } from '../components/TrafficGenConfigForm';
-import type { TSNConfig } from '../components/TsnConfigForm';
+import type { TSNConfig } from '../components/TSNConfigForm';
 import type { Y1564Config } from '../components/Y1564ConfigForm';
 import type { Y1731Config } from '../components/Y1731ConfigForm';
 

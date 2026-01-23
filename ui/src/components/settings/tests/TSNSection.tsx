@@ -11,7 +11,7 @@ import { Cpu } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CollapsibleSection } from '../../CollapsibleSection';
-import { type TSNConfig, TSNConfigForm } from '../../TsnConfigForm';
+import { type TSNConfig, TSNConfigForm } from '../../TSNConfigForm';
 import { TestCheckbox } from '../TestCheckbox';
 import type { TestDefinition, TestSectionProps } from '../types';
 
@@ -44,9 +44,9 @@ export function TSNSection({
         const key = testKeyMap.get(id);
         return {
           id,
-          name: t(`tests.tsn.${key}.name`),
-          desc: t(`tests.tsn.${key}.desc`),
-          tooltip: t(`tests.tsn.${key}.tooltip`),
+          name: t(`tests.tsn.${key}.name` as never),
+          desc: t(`tests.tsn.${key}.desc` as never),
+          tooltip: t(`tests.tsn.${key}.tooltip` as never),
         };
       }),
     [t],

@@ -43,9 +43,9 @@ export function TrafficGenSection({
         const key = testKeyMap.get(id);
         return {
           id,
-          name: t(`tests.trafficgen.${key}.name`),
-          desc: t(`tests.trafficgen.${key}.desc`),
-          tooltip: t(`tests.trafficgen.${key}.tooltip`),
+          name: t(`tests.trafficgen.${key}.name` as never),
+          desc: t(`tests.trafficgen.${key}.desc` as never),
+          tooltip: t(`tests.trafficgen.${key}.tooltip` as never),
         };
       }),
     [t],

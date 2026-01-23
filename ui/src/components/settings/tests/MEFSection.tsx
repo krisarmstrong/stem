@@ -33,9 +33,9 @@ export function MEFSection({ selectedTests, onToggleTest }: TestSectionProps): R
         const key = testKeyMap.get(id);
         return {
           id,
-          name: t(`tests.mef.${key}.name`),
-          desc: t(`tests.mef.${key}.desc`),
-          tooltip: t(`tests.mef.${key}.tooltip`),
+          name: t(`tests.mef.${key}.name` as never),
+          desc: t(`tests.mef.${key}.desc` as never),
+          tooltip: t(`tests.mef.${key}.tooltip` as never),
         };
       }),
     [t],

@@ -11,7 +11,7 @@ import { Cpu } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CollapsibleSection } from '../../CollapsibleSection';
-import { type RFC2889Config, RFC2889ConfigForm } from '../../Rfc2889ConfigForm';
+import { type RFC2889Config, RFC2889ConfigForm } from '../../RFC2889ConfigForm';
 import { TestCheckbox } from '../TestCheckbox';
 import type { TestDefinition, TestSectionProps } from '../types';
 
@@ -45,9 +45,9 @@ export function RFC2889Section({
         const key = testKeyMap.get(id);
         return {
           id,
-          name: t(`tests.rfc2889.${key}.name`),
-          desc: t(`tests.rfc2889.${key}.desc`),
-          tooltip: t(`tests.rfc2889.${key}.tooltip`),
+          name: t(`tests.rfc2889.${key}.name` as never),
+          desc: t(`tests.rfc2889.${key}.desc` as never),
+          tooltip: t(`tests.rfc2889.${key}.tooltip` as never),
         };
       }),
     [t],

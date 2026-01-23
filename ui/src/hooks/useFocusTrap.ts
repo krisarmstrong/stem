@@ -49,6 +49,11 @@ function handleTabKey(
 
   const [firstElement] = focusableElements;
   const lastElement = focusableElements.at(-1);
+  // Type guard: should never trigger since we verified length > 0 above
+  if (!lastElement) {
+    return;
+  }
+
   const isAtFirst = document.activeElement === firstElement;
   const isAtLast = document.activeElement === lastElement;
   const isOutside = !container.contains(document.activeElement);

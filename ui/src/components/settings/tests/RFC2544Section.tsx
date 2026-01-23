@@ -46,9 +46,9 @@ export function RFC2544Section({
         const key = testKeyMap.get(id);
         return {
           id,
-          name: t(`tests.rfc2544.${key}.name`),
-          desc: t(`tests.rfc2544.${key}.desc`),
-          tooltip: t(`tests.rfc2544.${key}.tooltip`),
+          name: t(`tests.rfc2544.${key}.name` as never),
+          desc: t(`tests.rfc2544.${key}.desc` as never),
+          tooltip: t(`tests.rfc2544.${key}.tooltip` as never),
         };
       }),
     [t],

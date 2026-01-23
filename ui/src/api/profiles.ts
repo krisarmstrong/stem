@@ -47,7 +47,8 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    const errorText = response.text();
+    // biome-ignore lint/nursery/useAwaitThenable: Response.text() returns Promise<string>
+    const errorText = await response.text();
     throw new ApiError(response.status, errorText || `HTTP ${response.status}`);
   }
 

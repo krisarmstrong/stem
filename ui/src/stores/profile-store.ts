@@ -14,7 +14,7 @@
  * - Import/Export functionality
  */
 
-import { create } from 'zustand';
+import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import { devtools, persist, subscribeWithSelector } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import { profileApi } from '../api/profiles';
@@ -84,7 +84,7 @@ function mergeWithDefaults(
  * Profile store with Zustand.
  * Uses immer for immutable updates and subscribeWithSelector for optimized subscriptions.
  */
-export const useProfileStore: ReturnType<typeof create<ProfileStore>> = create<ProfileStore>()(
+export const useProfileStore: UseBoundStore<StoreApi<ProfileStore>> = create<ProfileStore>()(
   devtools(
     persist(
       subscribeWithSelector(
