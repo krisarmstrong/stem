@@ -769,7 +769,7 @@ function GlossaryTab({
           defaultOpen={searchQuery.length > 0}
         >
           <div className="stack-sm">
-            {byCategory[category].map((entry) => (
+            {byCategory[category].map((entry: GlossaryEntry) => (
               <div key={entry.term} className={cn('bg-surface-base', radius.lg, spacing.pad.sm)}>
                 <div className={layout.inline.default}>
                   <span className="font-medium body-small text-text-primary">{entry.term}</span>
@@ -781,7 +781,7 @@ function GlossaryTab({
                 {entry.related.length > 0 && (
                   <div className={cn(layout.inline.tight, 'mt-2')}>
                     <span className="caption">Related:</span>
-                    {entry.related.map((r) => (
+                    {entry.related.map((r: string) => (
                       <span key={r} className="caption text-brand-primary">
                         {r}
                       </span>
