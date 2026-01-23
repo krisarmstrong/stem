@@ -14,6 +14,7 @@ import (
 
 // TestMaskStringEdgeCases tests maskString with edge cases.
 func TestMaskStringEdgeCases(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input    string
 		show     int
@@ -46,6 +47,7 @@ func TestMaskStringEdgeCases(t *testing.T) {
 
 // TestToAlphanumericEdgeCases tests toAlphanumeric with edge cases.
 func TestToAlphanumericEdgeCases(t *testing.T) {
+	t.Parallel()
 	// Test values 0-9 return digits.
 	for i := range 10 {
 		result := toAlphanumeric(i)
@@ -67,6 +69,7 @@ func TestToAlphanumericEdgeCases(t *testing.T) {
 
 // TestFromAlphanumericEdgeCases tests fromAlphanumeric with all cases.
 func TestFromAlphanumericEdgeCases(t *testing.T) {
+	t.Parallel()
 	// Test digits.
 	for c := byte('0'); c <= '9'; c++ {
 		result := fromAlphanumeric(c)
@@ -106,6 +109,7 @@ func TestFromAlphanumericEdgeCases(t *testing.T) {
 
 // TestValidateKeyChecksumDirect tests validateKeyChecksum directly.
 func TestValidateKeyChecksumDirect(t *testing.T) {
+	t.Parallel()
 	// Create a valid key and verify checksum validation.
 	key, err := GenerateLicenseKey("2001", "1234567", TierTestSuite)
 	if err != nil {
@@ -130,6 +134,7 @@ func TestValidateKeyChecksumDirect(t *testing.T) {
 
 // TestNormalizeKeyDirect tests normalizeKey directly.
 func TestNormalizeKeyDirect(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input    string
 		expected string
@@ -152,6 +157,7 @@ func TestNormalizeKeyDirect(t *testing.T) {
 
 // TestRotorCipherDecodeLowercase tests decoding lowercase letters.
 func TestRotorCipherDecodeLowercase(t *testing.T) {
+	t.Parallel()
 	// Encode and decode lowercase.
 	cipher := NewRotorCipher(0)
 	encoded := cipher.EncodeString("abcdefghijklmnopqrstuvwxyz")
@@ -166,6 +172,7 @@ func TestRotorCipherDecodeLowercase(t *testing.T) {
 
 // TestRotorCipherDecodeNonAlpha tests decoding non-alphanumeric chars.
 func TestRotorCipherDecodeNonAlpha(t *testing.T) {
+	t.Parallel()
 	cipher := NewRotorCipher(0)
 	// Non-alphanumeric should pass through unchanged.
 	result := cipher.Decode('-')
@@ -186,6 +193,7 @@ func TestRotorCipherDecodeNonAlpha(t *testing.T) {
 
 // TestSplitLinesIterator tests splitLines iterator.
 func TestSplitLinesIterator(t *testing.T) {
+	t.Parallel()
 	input := "line1\nline2\nline3"
 	var lines []string
 
@@ -207,6 +215,7 @@ func TestSplitLinesIterator(t *testing.T) {
 
 // TestGetPrimaryMACReturnsValid tests that getPrimaryMAC returns a valid format.
 func TestGetPrimaryMACReturnsValid(t *testing.T) {
+	t.Parallel()
 	mac := getPrimaryMAC()
 
 	// Should be either default or a valid MAC format.
@@ -230,6 +239,7 @@ func TestGetPrimaryMACReturnsValid(t *testing.T) {
 
 // TestGetCPUSerialReturnsNonEmpty tests getCPUSerial returns non-empty.
 func TestGetCPUSerialReturnsNonEmpty(t *testing.T) {
+	t.Parallel()
 	serial := getCPUSerial()
 	if serial == "" {
 		t.Error("getCPUSerial should not return empty string")
@@ -238,6 +248,7 @@ func TestGetCPUSerialReturnsNonEmpty(t *testing.T) {
 
 // TestGetDiskSerialReturnsNonEmpty tests getDiskSerial returns non-empty.
 func TestGetDiskSerialReturnsNonEmpty(t *testing.T) {
+	t.Parallel()
 	serial := getDiskSerial()
 	if serial == "" {
 		t.Error("getDiskSerial should not return empty string")
@@ -246,6 +257,7 @@ func TestGetDiskSerialReturnsNonEmpty(t *testing.T) {
 
 // TestManagerEncryptDecryptRoundtrip tests encrypt/decrypt directly.
 func TestManagerEncryptDecryptRoundtrip(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -280,6 +292,7 @@ func TestManagerEncryptDecryptRoundtrip(t *testing.T) {
 
 // TestDecryptInvalidBase64 tests decrypt with invalid base64.
 func TestDecryptInvalidBase64(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -294,6 +307,7 @@ func TestDecryptInvalidBase64(t *testing.T) {
 
 // TestDecryptTooShort tests decrypt with too-short ciphertext.
 func TestDecryptTooShort(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -309,6 +323,7 @@ func TestDecryptTooShort(t *testing.T) {
 
 // TestDecryptInvalidCiphertext tests decrypt with invalid ciphertext content.
 func TestDecryptInvalidCiphertext(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -324,6 +339,7 @@ func TestDecryptInvalidCiphertext(t *testing.T) {
 
 // TestDeriveKey tests that deriveKey returns consistent results.
 func TestDeriveKey(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -352,6 +368,7 @@ func TestDeriveKey(t *testing.T) {
 
 // TestValidateLicenseKeyInternalEdgeCases tests ValidateLicenseKey edge cases.
 func TestValidateLicenseKeyInternalEdgeCases(t *testing.T) {
+	t.Parallel()
 	// Test Reflector tier key validation.
 	reflectorKey, err := GenerateLicenseKey("1001", "1234567", TierReflector)
 	if err != nil {
@@ -400,6 +417,7 @@ func TestValidateLicenseKeyInternalEdgeCases(t *testing.T) {
 
 // TestIsActivatedInternalEdgeCases tests IsActivated edge cases.
 func TestIsActivatedInternalEdgeCases(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -487,6 +505,7 @@ func timeZero() time.Time {
 
 // TestIsTrialValidInternalEdgeCases tests IsTrialValid edge cases.
 func TestIsTrialValidInternalEdgeCases(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -549,6 +568,7 @@ func TestIsTrialValidInternalEdgeCases(t *testing.T) {
 
 // TestTrialDaysRemainingInternalEdgeCases tests TrialDaysRemaining edge cases.
 func TestTrialDaysRemainingInternalEdgeCases(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -611,6 +631,7 @@ func TestTrialDaysRemainingInternalEdgeCases(t *testing.T) {
 
 // TestStartTrialInternalEdgeCases tests StartTrial edge cases.
 func TestStartTrialInternalEdgeCases(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -662,6 +683,7 @@ func TestStartTrialInternalEdgeCases(t *testing.T) {
 
 // TestSaveStateNilState tests saveState with nil state.
 func TestSaveStateNilState(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -677,6 +699,7 @@ func TestSaveStateNilState(t *testing.T) {
 
 // TestDeactivateInternalEdgeCases tests Deactivate edge cases.
 func TestDeactivateInternalEdgeCases(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -692,6 +715,7 @@ func TestDeactivateInternalEdgeCases(t *testing.T) {
 
 // TestValidateLicenseKeyAllPaths tests all ValidateLicenseKey code paths.
 func TestValidateLicenseKeyAllPaths(t *testing.T) {
+	t.Parallel()
 	// Test empty key.
 	info := ValidateLicenseKey("")
 	if info.Valid {
@@ -740,6 +764,7 @@ func TestValidateLicenseKeyAllPaths(t *testing.T) {
 
 // TestSaveStateCreatesDirectory tests that saveState creates directory if needed.
 func TestSaveStateCreatesDirectory(t *testing.T) {
+	t.Parallel()
 	// This is already tested implicitly through activation tests,
 	// but let's test the error path explicitly.
 	mgr, err := NewManager()
@@ -769,6 +794,7 @@ func TestSaveStateCreatesDirectory(t *testing.T) {
 
 // TestActivateInternalEdgeCases tests Activate edge cases.
 func TestActivateInternalEdgeCases(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -799,6 +825,7 @@ func TestActivateInternalEdgeCases(t *testing.T) {
 
 // TestLoadStateErrorPaths tests loadState error paths.
 func TestLoadStateErrorPaths(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -815,6 +842,7 @@ func TestLoadStateErrorPaths(t *testing.T) {
 
 // TestNewManagerEdgeCases tests NewManager edge cases.
 func TestNewManagerEdgeCases(t *testing.T) {
+	t.Parallel()
 	// NewManager should work even with default paths.
 	mgr, err := NewManager()
 	if err != nil {
@@ -832,6 +860,7 @@ func TestNewManagerEdgeCases(t *testing.T) {
 
 // TestEncryptNonceGeneration tests that encrypt generates unique nonces.
 func TestEncryptNonceGeneration(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -873,6 +902,7 @@ func TestEncryptNonceGeneration(t *testing.T) {
 
 // TestFingerprintHashConsistency tests that fingerprint hash is consistent.
 func TestFingerprintHashConsistency(t *testing.T) {
+	t.Parallel()
 	fp, err := GenerateFingerprint()
 	if err != nil {
 		t.Fatalf("GenerateFingerprint error: %v", err)
@@ -895,6 +925,7 @@ func TestFingerprintHashConsistency(t *testing.T) {
 
 // TestFingerprintStringFormat tests that fingerprint String format is correct.
 func TestFingerprintStringFormat(t *testing.T) {
+	t.Parallel()
 	fp, err := GenerateFingerprint()
 	if err != nil {
 		t.Fatalf("GenerateFingerprint error: %v", err)
@@ -920,6 +951,7 @@ func TestFingerprintStringFormat(t *testing.T) {
 
 // TestSaveStateWithReadOnlyDir tests saveState error when directory is read-only.
 func TestSaveStateWithReadOnlyDir(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -950,6 +982,7 @@ func TestSaveStateWithReadOnlyDir(t *testing.T) {
 
 // TestStartTrialSaveError tests StartTrial when save fails.
 func TestStartTrialSaveError(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -973,6 +1006,7 @@ func TestStartTrialSaveError(t *testing.T) {
 
 // TestActivateSaveError tests Activate when save fails.
 func TestActivateSaveError(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -993,6 +1027,7 @@ func TestActivateSaveError(t *testing.T) {
 
 // TestDeactivateRemoveError tests Deactivate when remove fails.
 func TestDeactivateRemoveError(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -1033,6 +1068,7 @@ func TestDeactivateRemoveError(t *testing.T) {
 
 // TestValidateLicenseKeyUnknownProductCode tests unknown product code path.
 func TestValidateLicenseKeyUnknownProductCode(t *testing.T) {
+	t.Parallel()
 	// We need to create a key that passes checksum validation but has an unknown product code.
 	// This requires crafting a specific key that will decode to have unknown product code.
 	// Since keys are encoded, this is complex. Let's test with all valid product codes covered.
@@ -1076,6 +1112,7 @@ func TestLoadStateUnmarshalError(_ *testing.T) {
 
 // TestDarwinCPUSerialNoIOPlatformUUID tests getDarwinCPUSerial when UUID not found.
 func TestDarwinCPUSerialNoIOPlatformUUID(t *testing.T) {
+	t.Parallel()
 	// This is hard to test without mocking exec.Command.
 	// The function will return defaultDarwinCPU if UUID is not found.
 	// We verify the function returns something.
@@ -1087,6 +1124,7 @@ func TestDarwinCPUSerialNoIOPlatformUUID(t *testing.T) {
 
 // TestDarwinDiskSerialNoSerialNumber tests getDarwinDiskSerial when serial not found.
 func TestDarwinDiskSerialNoSerialNumber(t *testing.T) {
+	t.Parallel()
 	// This function tries SATA first, then NVMe.
 	// We verify it returns something.
 	serial := getDarwinDiskSerial()
@@ -1097,6 +1135,7 @@ func TestDarwinDiskSerialNoSerialNumber(t *testing.T) {
 
 // TestLoadStateWithValidEncryptedState tests loadState with valid encrypted data.
 func TestLoadStateWithValidEncryptedState(t *testing.T) {
+	t.Parallel()
 	// Create a manager and save state, then verify it can be loaded.
 	tmpDir := t.TempDir()
 	configDir := tmpDir + "/.config/seed-test-suite"
@@ -1157,6 +1196,7 @@ func TestLoadStateWithValidEncryptedState(t *testing.T) {
 
 // TestEncryptLargeData tests encryption with larger data.
 func TestEncryptLargeData(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -1232,6 +1272,7 @@ func TestNewManagerLoadsExistingState(t *testing.T) {
 
 // TestGetPrimaryMACWithLoopback tests that loopback is skipped.
 func TestGetPrimaryMACWithLoopback(t *testing.T) {
+	t.Parallel()
 	// getPrimaryMAC should skip loopback interfaces.
 	mac := getPrimaryMAC()
 
@@ -1257,6 +1298,7 @@ func TestGetPrimaryMACWithLoopback(t *testing.T) {
 
 // TestValidateLicenseKeyWithLowercaseKey tests lowercase key normalization.
 func TestValidateLicenseKeyWithLowercaseKey(t *testing.T) {
+	t.Parallel()
 	// Generate a valid key.
 	key, err := GenerateLicenseKey("2001", "TESTKEY", TierTestSuite)
 	if err != nil {
@@ -1283,6 +1325,7 @@ func TestValidateLicenseKeyWithLowercaseKey(t *testing.T) {
 
 // TestValidateLicenseKeyProductCodeMismatchTier1 tests product code mismatch for Tier 1.
 func TestValidateLicenseKeyProductCodeMismatchTier1(t *testing.T) {
+	t.Parallel()
 	// Create a Tier 1 key but with wrong product code (2001 instead of 1001).
 	// This requires crafting a key manually.
 
@@ -1307,6 +1350,7 @@ func TestValidateLicenseKeyProductCodeMismatchTier1(t *testing.T) {
 
 // TestValidateLicenseKeyProductCodeMismatchTier2 tests product code mismatch for Tier 2.
 func TestValidateLicenseKeyProductCodeMismatchTier2(t *testing.T) {
+	t.Parallel()
 	// Product 1001 with Tier 2.
 	payload := "1001" + "1234567" + "2"
 	checksum := CalculateChecksum(payload)
@@ -1326,6 +1370,7 @@ func TestValidateLicenseKeyProductCodeMismatchTier2(t *testing.T) {
 
 // TestValidateLicenseKeyProductCodeMismatchTier3 tests product code mismatch for Tier 3.
 func TestValidateLicenseKeyProductCodeMismatchTier3(t *testing.T) {
+	t.Parallel()
 	// Product 2001 with Tier 3.
 	payload := "2001" + "1234567" + "3"
 	checksum := CalculateChecksum(payload)
@@ -1345,6 +1390,7 @@ func TestValidateLicenseKeyProductCodeMismatchTier3(t *testing.T) {
 
 // TestValidateLicenseKeyUnknownProductCodeInternal tests unknown product code.
 func TestValidateLicenseKeyUnknownProductCodeInternal(t *testing.T) {
+	t.Parallel()
 	// Product 9999 (unknown) with Tier 1.
 	payload := "9999" + "1234567" + "1"
 	checksum := CalculateChecksum(payload)
@@ -1364,6 +1410,7 @@ func TestValidateLicenseKeyUnknownProductCodeInternal(t *testing.T) {
 
 // TestValidateLicenseKeyInvalidTierCharacter tests invalid tier character.
 func TestValidateLicenseKeyInvalidTierCharacter(t *testing.T) {
+	t.Parallel()
 	// Product 2001 with invalid tier character '0'.
 	payload := "2001" + "1234567" + "0"
 	checksum := CalculateChecksum(payload)
@@ -1383,6 +1430,7 @@ func TestValidateLicenseKeyInvalidTierCharacter(t *testing.T) {
 
 // TestValidateLicenseKeyInvalidTierCharacter4 tests tier character '4'.
 func TestValidateLicenseKeyInvalidTierCharacter4(t *testing.T) {
+	t.Parallel()
 	// Product 3001 with tier '4' (invalid).
 	payload := "3001" + "1234567" + "4"
 	checksum := CalculateChecksum(payload)
@@ -1399,6 +1447,7 @@ func TestValidateLicenseKeyInvalidTierCharacter4(t *testing.T) {
 
 // TestValidateLicenseKeyInvalidTierCharacterLetter tests tier character 'A'.
 func TestValidateLicenseKeyInvalidTierCharacterLetter(t *testing.T) {
+	t.Parallel()
 	// Product 2001 with tier 'A' (invalid).
 	payload := "2001" + "1234567" + "A"
 	checksum := CalculateChecksum(payload)
@@ -1415,6 +1464,7 @@ func TestValidateLicenseKeyInvalidTierCharacterLetter(t *testing.T) {
 
 // TestLoadStateDecryptError tests loadState when decryption fails.
 func TestLoadStateDecryptError(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	configDir := tmpDir + "/.config/seed-test-suite"
 	err := os.MkdirAll(configDir, 0o700)
@@ -1446,6 +1496,7 @@ func TestLoadStateDecryptError(t *testing.T) {
 
 // TestLoadStateOpenError tests loadState when file open fails.
 func TestLoadStateOpenError(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	configDir := tmpDir + "/.config/seed-test-suite"
 	err := os.MkdirAll(configDir, 0o700)
@@ -1475,6 +1526,7 @@ func TestLoadStateOpenError(t *testing.T) {
 
 // TestNewManagerWithTempHome tests NewManager uses /tmp when home fails.
 func TestNewManagerWithTempHome(t *testing.T) {
+	t.Parallel()
 	// We can't easily test the failure to get home dir without mocking.
 	// But we can verify normal creation works.
 	mgr, err := NewManager()
@@ -1495,6 +1547,7 @@ func TestNewManagerWithTempHome(t *testing.T) {
 
 // TestCheckInWithTrialState tests CheckIn returns trial info.
 func TestCheckInWithTrialState(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -1521,6 +1574,7 @@ func TestCheckInWithTrialState(t *testing.T) {
 
 // TestNeedsCheckInWithTrialMode tests NeedsCheckIn with trial state.
 func TestNeedsCheckInWithTrialMode(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -1547,6 +1601,7 @@ func TestNeedsCheckInWithTrialMode(t *testing.T) {
 
 // TestNeedsCheckInRecentValidation tests NeedsCheckIn with recent validation.
 func TestNeedsCheckInRecentValidation(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -1573,6 +1628,7 @@ func TestNeedsCheckInRecentValidation(t *testing.T) {
 
 // TestNeedsCheckInOldValidation tests NeedsCheckIn with old validation.
 func TestNeedsCheckInOldValidation(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -1599,6 +1655,7 @@ func TestNeedsCheckInOldValidation(t *testing.T) {
 
 // TestStartTrialWithActiveTrial tests StartTrial when trial is active.
 func TestStartTrialWithActiveTrial(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -1631,6 +1688,7 @@ func TestStartTrialWithActiveTrial(t *testing.T) {
 
 // TestGetStateAndFingerprint tests GetState and GetFingerprint accessors.
 func TestGetStateAndFingerprint(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -1667,6 +1725,7 @@ func TestGetStateAndFingerprint(t *testing.T) {
 
 // TestActivationStateFields tests ActivationState field access.
 func TestActivationStateFields(t *testing.T) {
+	t.Parallel()
 	state := &ActivationState{
 		LicenseKey:      "TESTKEY",
 		DeviceHash:      "HASH123",
@@ -1708,6 +1767,7 @@ func TestActivationStateFields(t *testing.T) {
 
 // TestActivationResultFields tests ActivationResult field access.
 func TestActivationResultFields(t *testing.T) {
+	t.Parallel()
 	result := &ActivationResult{
 		Success:       true,
 		Message:       "Test message",
@@ -1736,6 +1796,7 @@ func TestActivationResultFields(t *testing.T) {
 
 // TestEncryptWithEmptyPlaintext tests encrypt with empty data.
 func TestEncryptWithEmptyPlaintext(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -1758,6 +1819,7 @@ func TestEncryptWithEmptyPlaintext(t *testing.T) {
 
 // TestIsActivatedWithZeroExpiresAt tests IsActivated with zero expiration.
 func TestIsActivatedWithZeroExpiresAt(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -1784,6 +1846,7 @@ func TestIsActivatedWithZeroExpiresAt(t *testing.T) {
 
 // TestDeviceFingerprintComponents tests fingerprint components directly.
 func TestDeviceFingerprintComponents(t *testing.T) {
+	t.Parallel()
 	fp, err := GenerateFingerprint()
 	if err != nil {
 		t.Fatalf("GenerateFingerprint error: %v", err)
@@ -1810,6 +1873,7 @@ func TestDeviceFingerprintComponents(t *testing.T) {
 
 // TestSaveStateWriteError tests saveState when write fails.
 func TestSaveStateWriteError(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -1852,6 +1916,7 @@ func TestSaveStateWriteError(t *testing.T) {
 
 // TestLoadStateUnmarshalErrorDirect tests loadState with invalid JSON directly.
 func TestLoadStateUnmarshalErrorDirect(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	configDir := tmpDir + "/.config/seed-test-suite"
 	err := os.MkdirAll(configDir, 0o700)
@@ -1887,6 +1952,7 @@ func TestLoadStateUnmarshalErrorDirect(t *testing.T) {
 
 // TestDeriveKeyWithDifferentFingerprints tests that different fingerprints produce different keys.
 func TestDeriveKeyWithDifferentFingerprints(t *testing.T) {
+	t.Parallel()
 	mgr1, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -1926,6 +1992,7 @@ func TestDeriveKeyWithDifferentFingerprints(t *testing.T) {
 
 // TestDecryptGCMOpenError tests decrypt when GCM.Open fails.
 func TestDecryptGCMOpenError(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -1950,6 +2017,7 @@ func TestDecryptGCMOpenError(t *testing.T) {
 
 // TestSaveStateCreateDirectoryError tests saveState when MkdirAll fails.
 func TestSaveStateCreateDirectoryError(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -1985,6 +2053,7 @@ func TestSaveStateCreateDirectoryError(t *testing.T) {
 
 // TestValidateLicenseKeyWithFormattedKey tests key with dashes.
 func TestValidateLicenseKeyWithFormattedKey(t *testing.T) {
+	t.Parallel()
 	// Generate a valid key.
 	key, err := GenerateLicenseKey("2001", "TESTKEY", TierTestSuite)
 	if err != nil {
@@ -2003,6 +2072,7 @@ func TestValidateLicenseKeyWithFormattedKey(t *testing.T) {
 
 // TestValidateLicenseKeyWithSpaces tests key with spaces.
 func TestValidateLicenseKeyWithSpaces(t *testing.T) {
+	t.Parallel()
 	// Generate a valid key.
 	key, err := GenerateLicenseKey("2001", "TESTKEY", TierTestSuite)
 	if err != nil {
@@ -2021,6 +2091,7 @@ func TestValidateLicenseKeyWithSpaces(t *testing.T) {
 
 // TestValidateLicenseKeyWithDots tests key with dots.
 func TestValidateLicenseKeyWithDots(t *testing.T) {
+	t.Parallel()
 	// Generate a valid key.
 	key, err := GenerateLicenseKey("2001", "TESTKEY", TierTestSuite)
 	if err != nil {
@@ -2094,6 +2165,7 @@ func TestMultipleActivationsAndDeactivations(t *testing.T) {
 
 // TestInfoCanRunReflectorAndTests tests CanRunReflector and CanRunTests methods.
 func TestInfoCanRunReflectorAndTests(t *testing.T) {
+	t.Parallel()
 	// Test reflector tier.
 	reflectorKey, _ := GenerateLicenseKey("1001", "REFKEY1", TierReflector)
 	info := ValidateLicenseKey(reflectorKey)
@@ -2136,6 +2208,7 @@ func TestInfoCanRunReflectorAndTests(t *testing.T) {
 
 // TestInfoHasFeature tests HasFeature method.
 func TestInfoHasFeature(t *testing.T) {
+	t.Parallel()
 	// Reflector tier.
 	reflectorKey, _ := GenerateLicenseKey("1001", "REFKEY1", TierReflector)
 	info := ValidateLicenseKey(reflectorKey)
@@ -2172,6 +2245,7 @@ func TestInfoHasFeature(t *testing.T) {
 
 // TestTierStringValues tests all Tier.String() return values.
 func TestTierStringValues(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		tier     Tier
 		expected string
@@ -2193,6 +2267,7 @@ func TestTierStringValues(t *testing.T) {
 
 // TestFormatKeyVariousInputs tests FormatKey with various inputs.
 func TestFormatKeyVariousInputs(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input    string
 		expected string
@@ -2221,6 +2296,7 @@ func TestFormatKeyVariousInputs(t *testing.T) {
 
 // TestSplitLinesEmpty tests splitLines with empty and single-line strings.
 func TestSplitLinesEmpty(t *testing.T) {
+	t.Parallel()
 	// Empty string.
 	var lines []string
 	for line := range splitLines("") {
@@ -2251,6 +2327,7 @@ func TestSplitLinesEmpty(t *testing.T) {
 
 // TestDecryptBase64DecodeError tests decrypt with invalid base64.
 func TestDecryptBase64DecodeError(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -2265,6 +2342,7 @@ func TestDecryptBase64DecodeError(t *testing.T) {
 
 // TestCheckInNilState tests CheckIn with nil state.
 func TestCheckInNilState(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -2282,6 +2360,7 @@ func TestCheckInNilState(t *testing.T) {
 
 // TestNeedsCheckInNilState tests NeedsCheckIn with nil state.
 func TestNeedsCheckInNilState(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -2295,6 +2374,7 @@ func TestNeedsCheckInNilState(t *testing.T) {
 
 // TestGetPrimaryMACFiltersVirtualInterfaces tests that virtual interfaces are skipped.
 func TestGetPrimaryMACFiltersVirtualInterfaces(t *testing.T) {
+	t.Parallel()
 	// This tests the getPrimaryMAC function indirectly.
 	// We can't inject mock interfaces, but we verify the function runs without error
 	// and returns a valid format.
@@ -2322,6 +2402,7 @@ func TestGetPrimaryMACFiltersVirtualInterfaces(t *testing.T) {
 
 // TestGetCPUSerialPlatformSpecific tests getCPUSerial returns a non-empty result.
 func TestGetCPUSerialPlatformSpecific(t *testing.T) {
+	t.Parallel()
 	serial := getCPUSerial()
 
 	// Should never be empty.
@@ -2341,6 +2422,7 @@ func TestGetCPUSerialPlatformSpecific(t *testing.T) {
 
 // TestGetDiskSerialPlatformSpecific tests getDiskSerial returns a non-empty result.
 func TestGetDiskSerialPlatformSpecific(t *testing.T) {
+	t.Parallel()
 	serial := getDiskSerial()
 
 	// Should never be empty.
@@ -2360,6 +2442,7 @@ func TestGetDiskSerialPlatformSpecific(t *testing.T) {
 
 // TestEncryptConsistency tests that encrypt produces valid ciphertext each time.
 func TestEncryptConsistency(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -2403,6 +2486,7 @@ func TestEncryptConsistency(t *testing.T) {
 
 // TestDecryptErrorPaths tests various error conditions in decrypt.
 func TestDecryptErrorPaths(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -2512,6 +2596,7 @@ func TestSaveStateAndLoadRoundtrip(t *testing.T) {
 
 // TestFingerprintFieldsPopulated tests that all fingerprint fields are set.
 func TestFingerprintFieldsPopulated(t *testing.T) {
+	t.Parallel()
 	fp, err := GenerateFingerprint()
 	if err != nil {
 		t.Fatalf("GenerateFingerprint error: %v", err)
@@ -2542,6 +2627,7 @@ func TestFingerprintFieldsPopulated(t *testing.T) {
 
 // TestMaskStringWithVariousLengths tests maskString with different show values.
 func TestMaskStringWithVariousLengths(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input    string
 		show     int
@@ -2569,6 +2655,7 @@ func TestMaskStringWithVariousLengths(t *testing.T) {
 
 // TestDeriveKeyIsConsistentWithSameFingerprint tests key derivation consistency.
 func TestDeriveKeyIsConsistentWithSameFingerprint(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -2602,6 +2689,7 @@ func TestDeriveKeyIsConsistentWithSameFingerprint(t *testing.T) {
 
 // TestValidateLicenseKeyWithNormalization tests key normalization edge cases.
 func TestValidateLicenseKeyWithNormalization(t *testing.T) {
+	t.Parallel()
 	// Generate a valid key.
 	key, err := GenerateLicenseKey("2001", "TESTKEY", TierTestSuite)
 	if err != nil {
@@ -2635,6 +2723,7 @@ func TestValidateLicenseKeyWithNormalization(t *testing.T) {
 
 // TestEncryptProducesDifferentOutputsForSameInput tests nonce randomness.
 func TestEncryptProducesDifferentOutputsForSameInput(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -2676,6 +2765,7 @@ func TestEncryptProducesDifferentOutputsForSameInput(t *testing.T) {
 
 // TestLoadStateWithEmptyFile tests loadState when file is empty.
 func TestLoadStateWithEmptyFile(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	configDir := tmpDir + "/.config/seed-test-suite"
 	err := os.MkdirAll(configDir, 0o700)
@@ -2741,6 +2831,7 @@ func TestCheckInUpdatesLastValidatedAt(t *testing.T) {
 
 // TestGenerateFingerprintConsistency tests fingerprint generation is consistent.
 func TestGenerateFingerprintConsistency(t *testing.T) {
+	t.Parallel()
 	// Generate fingerprint multiple times.
 	fingerprints := make([]*DeviceFingerprint, 5)
 	for i := range fingerprints {
@@ -2762,6 +2853,7 @@ func TestGenerateFingerprintConsistency(t *testing.T) {
 
 // TestValidateLicenseKeyInvalidLength tests key validation with wrong length.
 func TestValidateLicenseKeyInvalidLength(t *testing.T) {
+	t.Parallel()
 	// Test keys that are too short after normalization.
 	shortKeys := []string{
 		"",
@@ -2797,6 +2889,7 @@ func TestValidateLicenseKeyInvalidLength(t *testing.T) {
 
 // TestValidateLicenseKeyInvalidCharacters tests key validation with special characters.
 func TestValidateLicenseKeyInvalidCharacters(t *testing.T) {
+	t.Parallel()
 	// Keys with special characters (after normalization still 16 chars).
 	invalidKeys := []string{
 		"ABCD!@#$EFGH5678", // Special chars
@@ -2816,6 +2909,7 @@ func TestValidateLicenseKeyInvalidCharacters(t *testing.T) {
 
 // TestChecksumWithSpecialCases tests checksum calculation edge cases.
 func TestChecksumWithSpecialCases(t *testing.T) {
+	t.Parallel()
 	// Test checksum with all zeros.
 	checksum := CalculateChecksum("00000000000000")
 	if len(checksum) != 2 {
@@ -2839,6 +2933,7 @@ func TestChecksumWithSpecialCases(t *testing.T) {
 
 // TestSplitLinesWithCarriageReturn tests splitLines with Windows line endings.
 func TestSplitLinesWithCarriageReturn(t *testing.T) {
+	t.Parallel()
 	// Note: splitLines splits on \n only, not \r\n
 	input := "line1\r\nline2\r\nline3"
 	var lines []string
@@ -2893,6 +2988,7 @@ func TestActivateWithKeyNormalization(t *testing.T) {
 
 // TestDeviceFingerprintHashFormat tests that fingerprint hash is always valid format.
 func TestDeviceFingerprintHashFormat(t *testing.T) {
+	t.Parallel()
 	fp, err := GenerateFingerprint()
 	if err != nil {
 		t.Fatalf("GenerateFingerprint error: %v", err)
@@ -2917,6 +3013,7 @@ func TestDeviceFingerprintHashFormat(t *testing.T) {
 
 // TestIsActivatedWithExpiredLicense tests IsActivated when license is expired.
 func TestIsActivatedWithExpiredLicense(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)
@@ -2942,6 +3039,7 @@ func TestIsActivatedWithExpiredLicense(t *testing.T) {
 
 // TestValidateLicenseKeyWithAllTiers tests validation for all tier combinations.
 func TestValidateLicenseKeyWithAllTiers(t *testing.T) {
+	t.Parallel()
 	tiers := []struct {
 		product      string
 		tier         Tier
@@ -2973,6 +3071,7 @@ func TestValidateLicenseKeyWithAllTiers(t *testing.T) {
 
 // TestNormalizeKeyWithMixedSeparators tests normalizeKey with mixed separators.
 func TestNormalizeKeyWithMixedSeparators(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input    string
 		expected string
@@ -3036,6 +3135,7 @@ func TestDeactivateWithNoLicense(t *testing.T) {
 
 // TestFromAlphanumericBoundaryChars tests fromAlphanumeric with boundary characters.
 func TestFromAlphanumericBoundaryChars(t *testing.T) {
+	t.Parallel()
 	// Test boundary characters.
 	tests := []struct {
 		char     byte
@@ -3062,6 +3162,7 @@ func TestFromAlphanumericBoundaryChars(t *testing.T) {
 
 // TestToAlphanumericBoundaryValues tests toAlphanumeric with boundary values.
 func TestToAlphanumericBoundaryValues(t *testing.T) {
+	t.Parallel()
 	// Test boundary values.
 	tests := []struct {
 		value    int
@@ -3083,6 +3184,7 @@ func TestToAlphanumericBoundaryValues(t *testing.T) {
 
 // TestRotorCipherWithFullAlphabet tests cipher with all alphanumeric characters.
 func TestRotorCipherWithFullAlphabet(t *testing.T) {
+	t.Parallel()
 	fullAlphabet := "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 	for pos := range 36 {
@@ -3100,6 +3202,7 @@ func TestRotorCipherWithFullAlphabet(t *testing.T) {
 
 // TestMaskStringWithEmptyInput tests maskString edge cases.
 func TestMaskStringWithEmptyInput(t *testing.T) {
+	t.Parallel()
 	// Empty string.
 	result := maskString("", 0)
 	if result != "" {
@@ -3125,6 +3228,7 @@ func TestMaskStringWithEmptyInput(t *testing.T) {
 
 // TestValidateLicenseKeyAllProductCodes tests validation of all product code types.
 func TestValidateLicenseKeyAllProductCodes(t *testing.T) {
+	t.Parallel()
 	// Test all three valid product codes with their corresponding tiers.
 	testCases := []struct {
 		product string
@@ -3156,6 +3260,7 @@ func TestValidateLicenseKeyAllProductCodes(t *testing.T) {
 
 // TestValidateLicenseKeyEnterpriseTier tests Enterprise tier specifically.
 func TestValidateLicenseKeyEnterpriseTier(t *testing.T) {
+	t.Parallel()
 	// Generate an Enterprise tier key.
 	key, err := GenerateLicenseKey("3001", "ZZZZZZA", TierEnterprise)
 	if err != nil {
@@ -3188,6 +3293,7 @@ func hasFeature(features []string, feature string) bool {
 
 // TestDeriveKeyConsistency tests that deriveKey produces consistent results.
 func TestDeriveKeyConsistency(t *testing.T) {
+	t.Parallel()
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatalf("NewManager error: %v", err)

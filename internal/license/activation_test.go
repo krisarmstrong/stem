@@ -222,6 +222,7 @@ func TestManagerCheckIn(t *testing.T) {
 }
 
 func TestDeviceFingerprintString(t *testing.T) {
+	t.Parallel()
 	fp, err := license.GenerateFingerprint()
 	if err != nil {
 		t.Fatalf("GenerateFingerprint() error: %v", err)
@@ -237,6 +238,7 @@ func TestDeviceFingerprintString(t *testing.T) {
 }
 
 func TestDeviceFingerprintHash(t *testing.T) {
+	t.Parallel()
 	fp, err := license.GenerateFingerprint()
 	if err != nil {
 		t.Fatalf("GenerateFingerprint() error: %v", err)
@@ -255,6 +257,7 @@ func TestDeviceFingerprintHash(t *testing.T) {
 }
 
 func TestRotorCipherEncodeDecode(t *testing.T) {
+	t.Parallel()
 	// Test roundtrip encoding/decoding.
 	testCases := []struct {
 		input    string
@@ -280,6 +283,7 @@ func TestRotorCipherEncodeDecode(t *testing.T) {
 }
 
 func TestRotorCipherNonAlpha(t *testing.T) {
+	t.Parallel()
 	cipher := license.NewRotorCipher(0)
 	// Non-alphanumeric characters should pass through unchanged.
 	input := "TEST-123!"
@@ -293,6 +297,7 @@ func TestRotorCipherNonAlpha(t *testing.T) {
 }
 
 func TestCalculateChecksumDeterministic(t *testing.T) {
+	t.Parallel()
 	// Checksum should be consistent.
 	cs1 := license.CalculateChecksum("HELLO")
 	cs2 := license.CalculateChecksum("HELLO")
@@ -313,6 +318,7 @@ func TestCalculateChecksumDeterministic(t *testing.T) {
 }
 
 func TestValidateChecksumRoundtrip(t *testing.T) {
+	t.Parallel()
 	// Generate valid checksum.
 	payload := "TEST1234"
 	checksum := license.CalculateChecksum(payload)
@@ -427,6 +433,7 @@ func TestStartTrialAlreadyActivated(t *testing.T) {
 }
 
 func TestGenerateLicenseKeyAllTiers(t *testing.T) {
+	t.Parallel()
 	tiers := []struct {
 		product string
 		tier    license.Tier

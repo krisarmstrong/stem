@@ -45,9 +45,9 @@ test-backend: ## Run Go tests with progress
 	PKG_COUNT=$$(echo "$$PKGS" | wc -l | tr -d ' '); \
 	printf "   📦 Testing $$PKG_COUNT packages...\n\n"; \
 	if command -v gotestsum > /dev/null 2>&1; then \
-		gotestsum --format pkgname-and-test-fails -- -race -coverprofile=coverage.out $$PKGS; \
+		gotestsum --format pkgname-and-test-fails -- -race -parallel 8 -coverprofile=coverage.out $$PKGS; \
 	else \
-		$(GO) test -v -race -coverprofile=coverage.out $$PKGS; \
+		$(GO) test -v -race -parallel 8 -coverprofile=coverage.out $$PKGS; \
 	fi
 	@if [ -f coverage.out ]; then \
 		COV=$$(go tool cover -func=coverage.out | grep total | awk '{print $$3}'); \
@@ -59,7 +59,7 @@ test-backend-quiet:
 	@PKGS=$$(go list ./... | grep -v '/ui$$'); \
 	PKG_COUNT=$$(echo "$$PKGS" | wc -l | tr -d ' '); \
 	printf "   Testing $$PKG_COUNT packages...\n"; \
-	$(GO) test -race -coverprofile=coverage.out $$PKGS 2>&1 | grep -E "^(ok|FAIL|---)" || true
+	$(GO) test -race -parallel 8 -coverprofile=coverage.out $$PKGS 2>&1 | grep -E "^(ok|FAIL|---)" || true
 	@if [ -f coverage.out ]; then \
 		COV=$$(go tool cover -func=coverage.out | grep total | awk '{print $$3}'); \
 		printf "   📊 Coverage: %s\n" "$$COV"; \
@@ -87,7 +87,7 @@ test-frontend-quiet:
 
 test-coverage: ## Run tests with coverage
 	@echo "Running Go tests with coverage..."
-	$(GO) test -v -race -coverprofile=coverage.out -covermode=atomic ./internal/...
+	$(GO) test -v -race -parallel 8 -coverprofile=coverage.out -covermode=atomic ./internal/...
 	$(GO) tool cover -func=coverage.out
 
 test-coverage-html: test-coverage ## Generate HTML coverage report
@@ -98,7 +98,7 @@ test-coverage-html: test-coverage ## Generate HTML coverage report
 # C Tests (Linux only)
 # =============================================================================
 
-c-test: ## Build and run C unit tests (Linux only)
+c-test: ## Build and run C unit tests
 ifeq ($(UNAME),Linux)
 	@echo "Building C tests..."
 	mkdir -p bin
@@ -107,8 +107,15 @@ ifeq ($(UNAME),Linux)
 	@echo "Running C tests..."
 	./bin/test_pacing
 	./bin/test_protocols
+else ifeq ($(UNAME),Darwin)
+	@echo "Building C tests (common code only, macOS)..."
+	mkdir -p bin
+	$(CC) $(CFLAGS) -DSTUB_PLATFORM -o bin/test_pacing tests/c/test_pacing.c $(C_PACING_SRCS) $(C_LDFLAGS)
+	@echo "Running C tests..."
+	./bin/test_pacing
+	@echo "Note: Protocol tests require Linux networking APIs"
 else
-	@echo "C tests require Linux"
+	@echo "C tests require Linux or macOS"
 endif
 
 smoke-test: ## Run smoke tests (requires root, Linux only)

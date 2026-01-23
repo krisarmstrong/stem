@@ -11,6 +11,7 @@ import (
 )
 
 func TestRotorCipherRoundTrip(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		input    string
 		position int
@@ -37,6 +38,7 @@ func TestRotorCipherRoundTrip(t *testing.T) {
 }
 
 func TestCalculateChecksum(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		input    string
 		expected int // length of checksum.
@@ -55,6 +57,7 @@ func TestCalculateChecksum(t *testing.T) {
 }
 
 func TestValidateChecksum(t *testing.T) {
+	t.Parallel()
 	// Test with valid checksums.
 	payload := "ABC123"
 	checksum := license.CalculateChecksum(payload)
@@ -72,6 +75,7 @@ func TestValidateChecksum(t *testing.T) {
 }
 
 func TestGenerateLicenseKey(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		productCode string
 		serial      string
@@ -111,6 +115,7 @@ func TestGenerateLicenseKey(t *testing.T) {
 }
 
 func TestValidateLicenseKey(t *testing.T) {
+	t.Parallel()
 	// Generate a valid key and test validation.
 	key, err := license.GenerateLicenseKey("1001", "ABCDEFG", license.TierReflector)
 	if err != nil {
@@ -141,6 +146,7 @@ func TestValidateLicenseKey(t *testing.T) {
 }
 
 func TestTierString(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		tier     license.Tier
 		expected string
@@ -159,6 +165,7 @@ func TestTierString(t *testing.T) {
 }
 
 func TestFormatKey(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		input    string
 		expected string
@@ -178,6 +185,7 @@ func TestFormatKey(t *testing.T) {
 }
 
 func TestInfoHasFeature(t *testing.T) {
+	t.Parallel()
 	info := &license.Info{
 		Key:         "",
 		Valid:       false,
@@ -203,6 +211,7 @@ func TestInfoHasFeature(t *testing.T) {
 }
 
 func TestInfoCanRunReflector(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		info *license.Info
 		want bool
@@ -302,6 +311,7 @@ func TestInfoCanRunReflector(t *testing.T) {
 }
 
 func TestInfoCanRunTests(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		info *license.Info
 		want bool
@@ -384,6 +394,7 @@ func TestInfoCanRunTests(t *testing.T) {
 }
 
 func TestDeviceFingerprint(t *testing.T) {
+	t.Parallel()
 	fp, err := license.GenerateFingerprint()
 	if err != nil {
 		t.Fatalf("GenerateFingerprint failed: %v", err)
@@ -411,6 +422,7 @@ func TestDeviceFingerprint(t *testing.T) {
 
 // TestValidateLicenseKeyEdgeCases tests additional license validation paths.
 func TestValidateLicenseKeyEdgeCases(t *testing.T) {
+	t.Parallel()
 	// Test with valid Enterprise tier key.
 	key, err := license.GenerateLicenseKey("3001", "1234567", license.TierEnterprise)
 	if err != nil {
@@ -464,6 +476,7 @@ func TestValidateLicenseKeyEdgeCases(t *testing.T) {
 
 // TestValidateLicenseKeyInvalidTier tests invalid tier in key.
 func TestValidateLicenseKeyInvalidTier(t *testing.T) {
+	t.Parallel()
 	// Create a key manually with invalid tier character.
 	// Generate a valid key first.
 	validKey, _ := license.GenerateLicenseKey("1001", "ABCDEFG", license.TierReflector)
@@ -497,6 +510,7 @@ func TestValidateLicenseKeyInvalidTier(t *testing.T) {
 
 // TestValidateLicenseKeyProductCodeMismatch tests product code tier mismatch.
 func TestValidateLicenseKeyProductCodeMismatch(t *testing.T) {
+	t.Parallel()
 	// These would require crafting malformed keys that pass checksum
 	// but have mismatched product codes.
 	// For now, verify that correctly generated keys validate.
@@ -531,6 +545,7 @@ func TestValidateLicenseKeyProductCodeMismatch(t *testing.T) {
 
 // TestTierStringUnknownValue tests Tier.String() with an unknown value.
 func TestTierStringUnknownValue(t *testing.T) {
+	t.Parallel()
 	// Test with a tier value outside the defined range.
 	unknownTier := license.Tier(99)
 	result := unknownTier.String()
@@ -548,6 +563,7 @@ func TestTierStringUnknownValue(t *testing.T) {
 
 // TestRotorCipherDecodeAllCharTypes tests decoding of all character types.
 func TestRotorCipherDecodeAllCharTypes(t *testing.T) {
+	t.Parallel()
 	// Test uppercase letters.
 	cipher := license.NewRotorCipher(0)
 	for c := byte('A'); c <= 'Z'; c++ {
@@ -581,6 +597,7 @@ func TestRotorCipherDecodeAllCharTypes(t *testing.T) {
 
 // TestRotorCipherDecodeRoundtripLowercase tests lowercase roundtrip.
 func TestRotorCipherDecodeRoundtripLowercase(t *testing.T) {
+	t.Parallel()
 	testInputs := []string{
 		"abc",
 		"xyz",
@@ -604,6 +621,7 @@ func TestRotorCipherDecodeRoundtripLowercase(t *testing.T) {
 
 // TestValidateChecksumShortStrings tests checksum validation with short strings.
 func TestValidateChecksumShortStrings(t *testing.T) {
+	t.Parallel()
 	// String with exactly 3 characters (minimum).
 	shortValid := "A" + license.CalculateChecksum("A")
 	if !license.ValidateChecksum(shortValid) {
@@ -621,6 +639,7 @@ func TestValidateChecksumShortStrings(t *testing.T) {
 
 // TestInitRotors tests that InitRotors can be called multiple times.
 func TestInitRotors(t *testing.T) {
+	t.Parallel()
 	// Call InitRotors multiple times - should not panic.
 	license.InitRotors()
 	license.InitRotors()
@@ -640,6 +659,7 @@ func TestInitRotors(t *testing.T) {
 
 // TestMaskString tests the maskString function behavior.
 func TestMaskString(t *testing.T) {
+	t.Parallel()
 	// This tests the fingerprint String() output which uses maskString internally.
 	fp, err := license.GenerateFingerprint()
 	if err != nil {
@@ -670,6 +690,7 @@ func TestMaskString(t *testing.T) {
 
 // TestGenerateLicenseKeyErrors tests error paths in GenerateLicenseKey.
 func TestGenerateLicenseKeyErrors(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		product string
@@ -737,6 +758,7 @@ func TestGenerateLicenseKeyErrors(t *testing.T) {
 
 // TestFormatKeyVariousInputs tests FormatKey with various inputs.
 func TestFormatKeyVariousInputs(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input    string
 		expected string
@@ -770,6 +792,7 @@ func TestFormatKeyVariousInputs(t *testing.T) {
 
 // TestInfoMethods tests Info struct methods.
 func TestInfoMethods(t *testing.T) {
+	t.Parallel()
 	// Test CanRunReflector and CanRunTests for all tier combinations.
 	testCases := []struct {
 		valid       bool
@@ -817,6 +840,7 @@ func TestInfoMethods(t *testing.T) {
 
 // TestHasFeatureVariousFeatures tests HasFeature with various inputs.
 func TestHasFeatureVariousFeatures(t *testing.T) {
+	t.Parallel()
 	info := &license.Info{
 		Key:         "",
 		Valid:       true,
@@ -871,6 +895,7 @@ func TestHasFeatureVariousFeatures(t *testing.T) {
 
 // TestChecksumWithVariousPayloads tests checksum calculation with edge cases.
 func TestChecksumWithVariousPayloads(t *testing.T) {
+	t.Parallel()
 	payloads := []string{
 		"A",                          // Single character (minimum valid payload for validation).
 		"0",                          // Single digit.
@@ -912,6 +937,7 @@ func TestChecksumWithVariousPayloads(t *testing.T) {
 
 // TestRotorCipherPosition tests that position advances correctly during encoding.
 func TestRotorCipherPosition(t *testing.T) {
+	t.Parallel()
 	// Create two ciphers with the same starting position.
 	cipher1 := license.NewRotorCipher(7)
 	cipher2 := license.NewRotorCipher(7)
@@ -927,6 +953,7 @@ func TestRotorCipherPosition(t *testing.T) {
 
 // TestRotorCipherLargePosition tests that large position values are handled correctly.
 func TestRotorCipherLargePosition(t *testing.T) {
+	t.Parallel()
 	// Test with position larger than rotor modulus.
 	cipher1 := license.NewRotorCipher(100)
 	cipher2 := license.NewRotorCipher(100 % 36)
@@ -943,6 +970,7 @@ func TestRotorCipherLargePosition(t *testing.T) {
 
 // TestNonAlphanumericPassthrough tests that non-alphanumeric characters pass unchanged.
 func TestNonAlphanumericPassthrough(t *testing.T) {
+	t.Parallel()
 	cipher := license.NewRotorCipher(0)
 
 	// Test various non-alphanumeric characters.
@@ -964,6 +992,7 @@ func TestNonAlphanumericPassthrough(t *testing.T) {
 
 // TestMixedAlphanumericAndSpecial tests encoding/decoding with mixed characters.
 func TestMixedAlphanumericAndSpecial(t *testing.T) {
+	t.Parallel()
 	input := "ABC-123-XYZ"
 	cipher := license.NewRotorCipher(5)
 	encoded := cipher.EncodeString(input)
@@ -984,6 +1013,7 @@ func TestMixedAlphanumericAndSpecial(t *testing.T) {
 
 // TestTierStringBoundary tests Tier.String() with boundary values.
 func TestTierStringBoundary(t *testing.T) {
+	t.Parallel()
 	// Test tier value exactly at the boundary.
 	tier := license.Tier(4)
 	result := tier.String()
@@ -1001,6 +1031,7 @@ func TestTierStringBoundary(t *testing.T) {
 
 // TestToAlphanumericConversion tests the alphanumeric conversion function indirectly.
 func TestToAlphanumericConversion(t *testing.T) {
+	t.Parallel()
 	// Test that checksum characters are valid alphanumeric.
 	testPayloads := []string{
 		"0",
@@ -1024,6 +1055,7 @@ func TestToAlphanumericConversion(t *testing.T) {
 
 // TestValidateLicenseKeyWithProductCodeVariants tests all product code paths.
 func TestValidateLicenseKeyWithProductCodeVariants(t *testing.T) {
+	t.Parallel()
 	// Generate keys for each product code and verify they validate.
 	variants := []struct {
 		product string
@@ -1055,6 +1087,7 @@ func TestValidateLicenseKeyWithProductCodeVariants(t *testing.T) {
 
 // TestValidateLicenseKeySerialExtraction tests that serial is correctly extracted.
 func TestValidateLicenseKeySerialExtraction(t *testing.T) {
+	t.Parallel()
 	serial := "ABCDEFG"
 	key, err := license.GenerateLicenseKey("1001", serial, license.TierReflector)
 	if err != nil {
@@ -1072,6 +1105,7 @@ func TestValidateLicenseKeySerialExtraction(t *testing.T) {
 
 // TestChecksumEdgeCases tests checksum with special payloads.
 func TestChecksumEdgeCases(t *testing.T) {
+	t.Parallel()
 	// Test single character.
 	check1 := license.CalculateChecksum("X")
 	if len(check1) != 2 {
@@ -1093,6 +1127,7 @@ func TestChecksumEdgeCases(t *testing.T) {
 
 // TestRotorCipherPositionWrapping tests rotor position wrapping at modulus boundary.
 func TestRotorCipherPositionWrapping(t *testing.T) {
+	t.Parallel()
 	// Create a cipher at the modulus boundary.
 	cipher := license.NewRotorCipher(35)
 
@@ -1116,6 +1151,7 @@ func TestRotorCipherPositionWrapping(t *testing.T) {
 
 // TestProductCodeTierMismatchRejection tests that product code/tier mismatches are rejected.
 func TestProductCodeTierMismatchRejection(t *testing.T) {
+	t.Parallel()
 	// This test attempts to catch the product code mismatch path.
 	// We generate a valid key and then verify its components.
 
@@ -1170,6 +1206,7 @@ func TestProductCodeTierMismatchRejection(t *testing.T) {
 
 // TestValidateLicenseKeyUnknownProduct tests unknown product code rejection.
 func TestValidateLicenseKeyUnknownProduct(t *testing.T) {
+	t.Parallel()
 	// Test with a manually crafted key that has an unknown product code.
 	// We need to bypass the normal generation and create a key with an invalid product code.
 	// Since we can't easily generate mismatched keys, we test the validation logic.
@@ -1199,6 +1236,7 @@ func TestValidateLicenseKeyUnknownProduct(t *testing.T) {
 
 // TestValidateChecksumCaseSensitivity tests that validation handles case correctly.
 func TestValidateChecksumCaseSensitivity(t *testing.T) {
+	t.Parallel()
 	payload := "ABCDEFGH"
 	checksum := license.CalculateChecksum(payload)
 

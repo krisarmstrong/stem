@@ -80,6 +80,13 @@ log_step "2/6 Copying binary..."
 cp "$BINARY_PATH" "$BUILD_DIR/payload$INSTALL_LOCATION/$PKG_NAME"
 chmod 755 "$BUILD_DIR/payload$INSTALL_LOCATION/$PKG_NAME"
 
+# Copy bundled iperf3 if available
+if [[ -f "$REPO_ROOT/bin/iperf3" ]]; then
+    cp "$REPO_ROOT/bin/iperf3" "$BUILD_DIR/payload$INSTALL_LOCATION/stem-iperf3"
+    chmod 755 "$BUILD_DIR/payload$INSTALL_LOCATION/stem-iperf3"
+    log_info "  Bundled: stem-iperf3"
+fi
+
 # Copy config
 if [[ -f "$REPO_ROOT/deploy/config/stem.yaml" ]]; then
     cp "$REPO_ROOT/deploy/config/stem.yaml" "$BUILD_DIR/payload$INSTALL_LOCATION/configs/"

@@ -37,6 +37,10 @@ deb: build ## Build Debian package (.deb)
 	@mkdir -p dist/deb/var/log/stem
 	@cp bin/stem-linux dist/deb/usr/bin/stem
 	@chmod 755 dist/deb/usr/bin/stem
+	@if [ -f bin/iperf3 ]; then \
+		cp bin/iperf3 dist/deb/usr/bin/stem-iperf3; \
+		chmod 755 dist/deb/usr/bin/stem-iperf3; \
+	fi
 	@cp deploy/systemd/stem.service dist/deb/usr/lib/systemd/system/
 	@cp deploy/config/stem.yaml dist/deb/usr/share/stem/config.yaml
 	@sed 's/__VERSION__/$(PKG_VERSION)/g; s/__ARCHITECTURE__/$(DEB_ARCH)/g' \
@@ -84,6 +88,9 @@ rpm: build ## Build RPM package (.rpm)
 	@mkdir -p dist/rpm/BUILD dist/rpm/RPMS dist/rpm/SOURCES dist/rpm/SPECS dist/rpm/SRPMS
 	@mkdir -p dist/rpm/SOURCES/stem-$(PKG_VERSION)
 	@cp bin/stem-linux dist/rpm/SOURCES/stem-$(PKG_VERSION)/stem
+	@if [ -f bin/iperf3 ]; then \
+		cp bin/iperf3 dist/rpm/SOURCES/stem-$(PKG_VERSION)/stem-iperf3; \
+	fi
 	@cp deploy/systemd/stem.service dist/rpm/SOURCES/stem-$(PKG_VERSION)/
 	@cp deploy/config/stem.yaml dist/rpm/SOURCES/stem-$(PKG_VERSION)/
 	@sed 's/__VERSION__/$(PKG_VERSION)/g; s/__ARCHITECTURE__/$(RPM_ARCH)/g; s|%{_repo_root}|$(CURDIR)|g' \
