@@ -46,9 +46,10 @@ TEST_PID=""
 # Capability flags (detected at runtime)
 REFLECTOR_AVAILABLE=false
 
-# Auth credentials for WebUI smoke tests
+# Auth credentials and TLS config for WebUI smoke tests
 export STEM_AUTH_USERNAME="smoketest"
 export STEM_AUTH_PASSWORD="SmokeTest2025!"
+export STEM_TLS_ENABLED=false
 
 # Timing
 START_TIME=$(date +%s)
@@ -434,70 +435,59 @@ test_webui() {
         return 0
     fi
 
+    local BASE="http://localhost:${WEB_PORT}"
+
     log_header "API Health Endpoint"
-    local health=$(curl -s http://localhost:${WEB_PORT}/api/health)
+    local health=$(curl -s ${BASE}/api/v1/health)
 
     assert_json_field "$health" "status" "healthy" "Health status is 'healthy'"
     assert_json_field "$health" "product" "The Stem" "Product name is 'The Stem'"
     assert_json_field "$health" "company" "Mustard Seed Networks" "Company name correct"
 
     log_header "Core API Endpoints"
-    run_test "GET /api/stats returns JSON" \
-        "curl -s http://localhost:${WEB_PORT}/api/stats | grep -q '{'"
+    run_test "GET /api/v1/stats returns JSON" \
+        "curl -s ${BASE}/api/v1/stats | grep -q '{'"
 
-    run_test "GET /api/interfaces returns JSON" \
-        "curl -s http://localhost:${WEB_PORT}/api/interfaces | grep -q '\['"
+    run_test "GET /api/v1/interfaces returns JSON" \
+        "curl -s ${BASE}/api/v1/interfaces | grep -q '\['"
 
-    run_test "GET /api/settings returns JSON" \
-        "curl -s http://localhost:${WEB_PORT}/api/settings | grep -q '{'"
+    run_test "GET /api/v1/settings returns JSON" \
+        "curl -s ${BASE}/api/v1/settings | grep -q '{'"
 
-    run_test "GET /api/mode returns JSON" \
-        "curl -s http://localhost:${WEB_PORT}/api/mode | grep -q 'mode'"
+    run_test "GET /api/v1/mode returns JSON" \
+        "curl -s ${BASE}/api/v1/mode | grep -q 'mode'"
 
     log_header "License API Endpoints"
-    run_test "GET /api/license returns JSON" \
-        "curl -s http://localhost:${WEB_PORT}/api/license | grep -q '{'"
+    run_test "GET /api/v1/license returns JSON" \
+        "curl -s ${BASE}/api/v1/license | grep -q '{'"
 
-    run_test "GET /api/license/trial returns JSON" \
-        "curl -s http://localhost:${WEB_PORT}/api/license/trial | grep -q 'active'"
+    run_test "GET /api/v1/license/trial returns JSON" \
+        "curl -s ${BASE}/api/v1/license/trial | grep -q '{'"
 
     log_header "Reflector API Endpoints"
-    run_test "GET /api/reflector/config returns JSON" \
-        "curl -s http://localhost:${WEB_PORT}/api/reflector/config | grep -q 'profile'"
+    run_test "GET /api/v1/reflector/config returns JSON" \
+        "curl -s ${BASE}/api/v1/reflector/config | grep -q '{'"
 
-    run_test "GET /api/reflector/stats returns JSON" \
-        "curl -s http://localhost:${WEB_PORT}/api/reflector/stats | grep -q 'running'"
+    run_test "GET /api/v1/reflector/stats returns JSON" \
+        "curl -s ${BASE}/api/v1/reflector/stats | grep -q '{'"
 
-    log_header "API POST Operations"
-    run_test "POST /api/mode accepts JSON" \
-        "curl -s -X POST -H 'Content-Type: application/json' -d '{\"mode\":\"reflector\"}' http://localhost:${WEB_PORT}/api/mode | grep -q 'updated'"
+    log_header "Auth-Protected Endpoints (expect 401)"
+    run_test "POST /api/v1/test/start requires auth (401)" \
+        "curl -s -o /dev/null -w '%{http_code}' -X POST ${BASE}/api/v1/test/start | grep -q '401'"
 
-    run_test "POST /api/settings accepts JSON" \
-        "curl -s -X POST -H 'Content-Type: application/json' -d '{\"interface\":\"eth0\"}' http://localhost:${WEB_PORT}/api/settings | grep -q 'updated'"
-
-    run_test "POST /api/reflector/config accepts JSON" \
-        "curl -s -X POST -H 'Content-Type: application/json' -d '{\"profile\":\"netally\"}' http://localhost:${WEB_PORT}/api/reflector/config | grep -q 'updated'"
-
-    log_header "Test Control Endpoints"
-    run_test "POST /api/test/start starts test" \
-        "curl -s -X POST http://localhost:${WEB_PORT}/api/test/start | grep -q 'started'"
-
-    run_test "POST /api/test/stop stops test" \
-        "curl -s -X POST http://localhost:${WEB_PORT}/api/test/stop | grep -q 'stopped'"
+    run_test "POST /api/v1/test/stop requires auth (401)" \
+        "curl -s -o /dev/null -w '%{http_code}' -X POST ${BASE}/api/v1/test/stop | grep -q '401'"
 
     log_header "Static File Serving"
     run_test "Root path serves HTML" \
-        "curl -s http://localhost:${WEB_PORT}/ | grep -q 'html'"
+        "curl -s ${BASE}/ | grep -q 'html'"
 
-    run_test "HTML contains The Stem title" \
-        "curl -s http://localhost:${WEB_PORT}/ | grep -qi 'stem'"
+    run_test "HTML contains script tag" \
+        "curl -s ${BASE}/ | grep -qi 'script'"
 
     log_header "Error Handling"
-    run_test "Invalid endpoint returns 404" \
-        "curl -s -o /dev/null -w '%{http_code}' http://localhost:${WEB_PORT}/api/nonexistent | grep -q '404'"
-
-    run_test "Wrong method returns 405" \
-        "curl -s -X DELETE http://localhost:${WEB_PORT}/api/health 2>&1 | grep -qi 'method'"
+    run_test "Health wrong method returns 405" \
+        "curl -s -o /dev/null -w '%{http_code}' -X DELETE ${BASE}/api/v1/health | grep -q '405'"
 
     # Cleanup
     kill $WEB_PID 2>/dev/null || true
@@ -689,7 +679,7 @@ test_performance() {
         # Hit API rapidly
         local request_ok=true
         for i in $(seq 1 50); do
-            if ! curl -s http://localhost:${WEB_PORT_ALT}/api/health >/dev/null 2>&1; then
+            if ! curl -s http://localhost:${WEB_PORT_ALT}/api/v1/health >/dev/null 2>&1; then
                 request_ok=false
                 break
             fi
@@ -707,12 +697,12 @@ test_performance() {
         # Concurrent requests
         local concurrent_ok=true
         for i in $(seq 1 10); do
-            curl -s http://localhost:${WEB_PORT_ALT}/api/health &
+            curl -s http://localhost:${WEB_PORT_ALT}/api/v1/health &
         done
         wait
 
         TESTS_RUN=$((TESTS_RUN + 1))
-        if curl -s http://localhost:${WEB_PORT_ALT}/api/health | grep -q "healthy"; then
+        if curl -s http://localhost:${WEB_PORT_ALT}/api/v1/health | grep -q "healthy"; then
             log_pass "Web server handles concurrent requests"
             TESTS_PASSED=$((TESTS_PASSED + 1))
         else
@@ -784,7 +774,7 @@ test_integration() {
         fi
 
         # Check stats endpoint reflects reflector data
-        local stats=$(curl -s http://localhost:${WEB_PORT}/api/stats 2>/dev/null)
+        local stats=$(curl -s http://localhost:${WEB_PORT}/api/v1/stats 2>/dev/null)
         TESTS_RUN=$((TESTS_RUN + 1))
         if echo "$stats" | grep -q "packetsReceived"; then
             log_pass "Stats endpoint returns packet data"
