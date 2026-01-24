@@ -679,7 +679,7 @@ test_performance() {
         # Hit API rapidly
         local request_ok=true
         for i in $(seq 1 50); do
-            if ! curl -s http://localhost:${WEB_PORT_ALT}/api/v1/health >/dev/null 2>&1; then
+            if ! curl -s -m 5 http://localhost:${WEB_PORT_ALT}/api/v1/health >/dev/null 2>&1; then
                 request_ok=false
                 break
             fi
@@ -696,13 +696,17 @@ test_performance() {
 
         # Concurrent requests
         local concurrent_ok=true
+        local curl_pids=""
         for i in $(seq 1 10); do
-            curl -s http://localhost:${WEB_PORT_ALT}/api/v1/health &
+            curl -s -m 5 http://localhost:${WEB_PORT_ALT}/api/v1/health >/dev/null 2>&1 &
+            curl_pids="$curl_pids $!"
         done
-        wait
+        for pid in $curl_pids; do
+            wait $pid 2>/dev/null || true
+        done
 
         TESTS_RUN=$((TESTS_RUN + 1))
-        if curl -s http://localhost:${WEB_PORT_ALT}/api/v1/health | grep -q "healthy"; then
+        if curl -s -m 5 http://localhost:${WEB_PORT_ALT}/api/v1/health | grep -q "healthy"; then
             log_pass "Web server handles concurrent requests"
             TESTS_PASSED=$((TESTS_PASSED + 1))
         else
