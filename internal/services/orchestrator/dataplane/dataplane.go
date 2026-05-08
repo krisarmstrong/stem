@@ -1374,6 +1374,12 @@ func NewContext(iface string) (*Context, error) {
 	return &Context{ctx: cctx}, nil
 }
 
+// NewTestContext creates a test context for unit tests that need a non-nil
+// context but do not execute dataplane operations.
+func NewTestContext() *Context {
+	return &Context{}
+}
+
 // Configure applies test configuration
 func (c *Context) Configure(cfg *Config) error {
 	c.mu.Lock()
