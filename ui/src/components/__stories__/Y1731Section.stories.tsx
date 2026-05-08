@@ -2,8 +2,8 @@
 
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
-import { defaultY1731Config, type Y1731Config } from '../Y1731ConfigForm';
 import { Y1731Section } from '../settings/tests/Y1731Section';
+import { defaultY1731Config, type Y1731Config } from '../Y1731ConfigForm';
 import { selectedY1731Tests } from './storyData';
 
 const meta: Meta<typeof Y1731Section> = {

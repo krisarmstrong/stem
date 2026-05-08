@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Mustard Seed Networks. All rights reserved.
 
-import { Activity } from 'lucide-react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { Activity } from 'lucide-react';
 import { BaseCard } from '../ui/BaseCard';
 import { CardRow, CardValue } from '../ui/Card';
 

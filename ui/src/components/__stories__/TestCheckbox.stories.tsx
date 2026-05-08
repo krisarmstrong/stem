@@ -2,8 +2,8 @@
 
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
-import type { TestDefinition } from '../settings/types';
 import { TestCheckbox } from '../settings/TestCheckbox';
+import type { TestDefinition } from '../settings/types';
 
 const meta: Meta<typeof TestCheckbox> = {
   title: 'Settings/TestCheckbox',

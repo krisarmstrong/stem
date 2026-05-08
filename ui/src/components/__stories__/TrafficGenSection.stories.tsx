@@ -2,8 +2,8 @@
 
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
-import { defaultTrafficGenConfig, type TrafficGenConfig } from '../TrafficGenConfigForm';
 import { TrafficGenSection } from '../settings/tests/TrafficGenSection';
+import { defaultTrafficGenConfig, type TrafficGenConfig } from '../TrafficGenConfigForm';
 import { selectedTrafficGenTests } from './storyData';
 
 const meta: Meta<typeof TrafficGenSection> = {

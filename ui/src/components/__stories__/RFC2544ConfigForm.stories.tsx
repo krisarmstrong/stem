@@ -2,7 +2,7 @@
 
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
-import { RFC2544ConfigForm, defaultRFC2544Config, type RFC2544Config } from '../RFC2544ConfigForm';
+import { defaultRFC2544Config, type RFC2544Config, RFC2544ConfigForm } from '../RFC2544ConfigForm';
 import { selectedRFC2544Tests } from './storyData';
 
 const meta: Meta<typeof RFC2544ConfigForm> = {
@@ -17,6 +17,12 @@ type Story = StoryObj<typeof RFC2544ConfigForm>;
 export const Default: Story = {
   render: () => {
     const [config, setConfig] = useState<RFC2544Config>(defaultRFC2544Config);
-    return <RFC2544ConfigForm config={config} setConfig={setConfig} selectedTests={selectedRFC2544Tests} />;
+    return (
+      <RFC2544ConfigForm
+        config={config}
+        setConfig={setConfig}
+        selectedTests={selectedRFC2544Tests}
+      />
+    );
   },
 };

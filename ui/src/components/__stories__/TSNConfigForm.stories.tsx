@@ -2,7 +2,7 @@
 
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
-import { TSNConfigForm, defaultTSNConfig, type TSNConfig } from '../TSNConfigForm';
+import { defaultTSNConfig, type TSNConfig, TSNConfigForm } from '../TSNConfigForm';
 import { selectedTSNTests } from './storyData';
 
 const meta: Meta<typeof TSNConfigForm> = {

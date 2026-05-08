@@ -2,24 +2,15 @@
 
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
+import { defaultRFC2544Config, type RFC2544Config } from '../RFC2544ConfigForm';
+import { defaultRFC2889Config, type RFC2889Config } from '../RFC2889ConfigForm';
+import { defaultRFC6349Config, type RFC6349Config } from '../RFC6349ConfigForm';
 import { SettingsDrawer } from '../SettingsDrawer';
-import {
-  defaultRFC2544Config,
-  type RFC2544Config,
-} from '../RFC2544ConfigForm';
-import {
-  defaultRFC2889Config,
-  type RFC2889Config,
-} from '../RFC2889ConfigForm';
-import {
-  defaultRFC6349Config,
-  type RFC6349Config,
-} from '../RFC6349ConfigForm';
+import type { OperatingMode, ReflectorProfile } from '../settings/types';
+import { defaultTrafficGenConfig, type TrafficGenConfig } from '../TrafficGenConfigForm';
+import { defaultTSNConfig, type TSNConfig } from '../TSNConfigForm';
 import { defaultY1564Config, type Y1564Config } from '../Y1564ConfigForm';
 import { defaultY1731Config, type Y1731Config } from '../Y1731ConfigForm';
-import { defaultTSNConfig, type TSNConfig } from '../TSNConfigForm';
-import { defaultTrafficGenConfig, type TrafficGenConfig } from '../TrafficGenConfigForm';
-import type { OperatingMode, ReflectorProfile } from '../settings/types';
 import { sampleInterfaces } from './storyData';
 
 const meta: Meta<typeof SettingsDrawer> = {
