@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
 #include <unistd.h>
 
 #include "platform_config.h"
@@ -19,12 +20,14 @@ static reflector_ctx_t       g_rctx;
 static stats_format_t        g_stats_format   = STATS_FORMAT_TEXT;
 static int                   g_stats_interval = 10; /* Default 10 seconds */
 
-void signal_handler(int sig) {
+void signal_handler(int sig)
+{
     (void)sig;
     g_running = 0;
 }
 
-void print_stats_text(const reflector_stats_t* stats, double elapsed) {
+void print_stats_text(const reflector_stats_t *stats, double elapsed)
+{
     double pps  = (elapsed > 0) ? stats->packets_reflected / elapsed : 0.0;
     double mbps = (elapsed > 0) ? (stats->bytes_reflected * 8.0) / (elapsed * 1000000.0) : 0.0;
 
@@ -50,7 +53,8 @@ void print_stats_text(const reflector_stats_t* stats, double elapsed) {
     fflush(stdout);
 }
 
-void print_usage(const char* prog) {
+void print_usage(const char *prog)
+{
     fprintf(stderr, "Usage: %s <interface> [options]\n", prog);
     fprintf(stderr, "\nGeneral Options:\n");
     fprintf(stderr, "  -v, --verbose       Enable verbose logging\n");
@@ -84,7 +88,8 @@ void print_usage(const char* prog) {
     fprintf(stderr, "\n  -h, --help          Show this help message\n");
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv)
+{
     if (argc < 2) {
         print_usage(argv[0]);
         return 1;
@@ -98,7 +103,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    const char* ifname          = argv[1];
+    const char *ifname          = argv[1];
     bool        verbose         = false;
     bool        measure_latency = false;
 
@@ -112,7 +117,7 @@ int main(int argc, char** argv) {
 
 #if HAVE_DPDK
     bool  use_dpdk  = false;
-    char* dpdk_args = NULL;
+    char *dpdk_args = NULL;
 #endif
 
     /* Parse options */
@@ -127,7 +132,7 @@ int main(int argc, char** argv) {
             measure_latency = true;
         } else if (strcmp(argv[i], "--stats-interval") == 0) {
             if (i + 1 < argc) {
-                char* endptr;
+                char *endptr;
                 long  val = strtol(argv[++i], &endptr, 10);
                 if (*endptr != '\0' || val <= 0 || val > INT_MAX) {
                     fprintf(stderr, "Invalid stats interval: %s\n", argv[i]);
@@ -140,7 +145,7 @@ int main(int argc, char** argv) {
             }
         } else if (strcmp(argv[i], "--port") == 0) {
             if (i + 1 < argc) {
-                char* endptr;
+                char *endptr;
                 long  val = strtol(argv[++i], &endptr, 10);
                 if (*endptr != '\0' || val < 0 || val > 65535) {
                     fprintf(stderr, "Invalid port: %s (must be 0-65535)\n", argv[i]);

@@ -29,10 +29,11 @@
 /**
  * Initialize default RFC 6349 configuration
  */
-void rfc6349_default_config(rfc6349_config_t* config) {
+void rfc6349_default_config(rfc6349_config_t *config)
+{
     if (!config) {
         return;
-}
+    }
 
     memset(config, 0, sizeof(*config));
 
@@ -52,10 +53,11 @@ void rfc6349_default_config(rfc6349_config_t* config) {
  * Measures RTT and calculates Bandwidth-Delay Product
  * ============================================================================ */
 
-int rfc6349_path_test(rfc2544_ctx_t* ctx, const rfc6349_config_t* config, tcp_path_info_t* path) {
+int rfc6349_path_test(rfc2544_ctx_t *ctx, const rfc6349_config_t *config, tcp_path_info_t *path)
+{
     if (!ctx || !config || !path) {
         return -EINVAL;
-}
+    }
 
     memset(path, 0, sizeof(*path));
 
@@ -85,13 +87,13 @@ int rfc6349_path_test(rfc2544_ctx_t* ctx, const rfc6349_config_t* config, tcp_pa
     /* Ensure minimum RTT is reasonable */
     if (path->rtt_min_ms < 0.001) {
         path->rtt_min_ms = 0.1; /* Minimum 100us */
-}
+    }
     if (path->rtt_avg_ms < 0.001) {
         path->rtt_avg_ms = path->rtt_min_ms;
-}
+    }
     if (path->rtt_max_ms < path->rtt_avg_ms) {
         path->rtt_max_ms = path->rtt_avg_ms * 2;
-}
+    }
 
     /* Path MTU and MSS from config */
     path->path_mtu = 1500; /* Standard MTU */
@@ -117,11 +119,12 @@ int rfc6349_path_test(rfc2544_ctx_t* ctx, const rfc6349_config_t* config, tcp_pa
  * Measures achieved TCP throughput vs theoretical maximum
  * ============================================================================ */
 
-int rfc6349_throughput_test(rfc2544_ctx_t* ctx, const rfc6349_config_t* config,
-                            rfc6349_result_t* result) {
+int rfc6349_throughput_test(rfc2544_ctx_t *ctx, const rfc6349_config_t *config,
+                            rfc6349_result_t *result)
+{
     if (!ctx || !config || !result) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
 
@@ -214,18 +217,19 @@ int rfc6349_throughput_test(rfc2544_ctx_t* ctx, const rfc6349_config_t* config,
  * Calculate theoretical TCP throughput
  */
 double rfc6349_theoretical_throughput(double bandwidth_mbps, double rtt_ms, double loss_pct,
-                                      uint32_t mss) {
+                                      uint32_t mss)
+{
     /* Validate inputs to prevent division by zero/invalid results */
     if (bandwidth_mbps <= 0.0) {
         return 0.0;
-}
+    }
     if (rtt_ms <= 0.0 || mss == 0) {
         return bandwidth_mbps;
-}
+    }
     /* Very low loss (< 0.0001% = 1e-6) means essentially lossless - return line rate */
     if (loss_pct <= 0.0001) {
         return bandwidth_mbps;
-}
+    }
 
     /* Mathis formula: Throughput = (MSS / RTT) * (C / sqrt(loss)) */
     /* where C is typically 1.22 for standard TCP */
@@ -235,7 +239,7 @@ double rfc6349_theoretical_throughput(double bandwidth_mbps, double rtt_ms, doub
     double sqrt_loss = sqrt(loss_ratio);
     if (sqrt_loss < 1e-6) {
         sqrt_loss = 1e-6;
-}
+    }
     double max_throughput = (mss * 8.0 / (rtt_ms / 1000.0)) * (c / sqrt_loss) / 1e6;
 
     return (max_throughput < bandwidth_mbps) ? max_throughput : bandwidth_mbps;
@@ -245,10 +249,11 @@ double rfc6349_theoretical_throughput(double bandwidth_mbps, double rtt_ms, doub
  * Print Results
  * ============================================================================ */
 
-void rfc6349_print_results(const rfc6349_result_t* result, stats_format_t format) {
+void rfc6349_print_results(const rfc6349_result_t *result, stats_format_t format)
+{
     if (!result) {
         return;
-}
+    }
 
     double efficiency_pct =
         (result->theoretical_rate_mbps > 0.0)

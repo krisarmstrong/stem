@@ -5,9 +5,10 @@
  * tests over IPv6 networks as specified in RFC 5180.
  */
 
-#include <arpa/inet.h>
 #include <errno.h>
 #include <string.h>
+
+#include <arpa/inet.h>
 
 #include "rfc2544.h"
 #include "rfc2544_internal.h"
@@ -31,15 +32,16 @@
 /**
  * Parse IPv6 address from string
  */
-int rfc2544_parse_ipv6(const char* str, uint8_t addr[16]) {
+int rfc2544_parse_ipv6(const char *str, uint8_t addr[16])
+{
     if (!str || !addr) {
         return -EINVAL;
-}
+    }
 
     struct in6_addr in6;
     if (inet_pton(AF_INET6, str, &in6) != 1) {
         return -EINVAL;
-}
+    }
 
     memcpy(addr, &in6, 16);
     return 0;
@@ -48,7 +50,8 @@ int rfc2544_parse_ipv6(const char* str, uint8_t addr[16]) {
 /**
  * Format IPv6 address to string
  */
-static void ipv6_to_string(const uint8_t addr[16], char* str, size_t len) {
+static void ipv6_to_string(const uint8_t addr[16], char *str, size_t len)
+{
     struct in6_addr in6;
     memcpy(&in6, addr, 16);
     inet_ntop(AF_INET6, &in6, str, len);
@@ -57,10 +60,11 @@ static void ipv6_to_string(const uint8_t addr[16], char* str, size_t len) {
 /**
  * Configure IPv6 test parameters
  */
-int rfc2544_ipv6_configure(rfc2544_ctx_t* ctx, const ipv6_config_t* config) {
+int rfc2544_ipv6_configure(rfc2544_ctx_t *ctx, const ipv6_config_t *config)
+{
     if (!ctx || !config) {
         return -EINVAL;
-}
+    }
 
     /* Store IPv6 configuration */
     memcpy(&ctx->config.ipv6, config, sizeof(ipv6_config_t));
@@ -79,10 +83,11 @@ int rfc2544_ipv6_configure(rfc2544_ctx_t* ctx, const ipv6_config_t* config) {
 /**
  * Build IPv6 header
  */
-int rfc2544_build_ipv6_header(uint8_t* buffer, uint16_t payload_len, const ipv6_config_t* config) {
+int rfc2544_build_ipv6_header(uint8_t *buffer, uint16_t payload_len, const ipv6_config_t *config)
+{
     if (!buffer || !config) {
         return -EINVAL;
-}
+    }
 
     /* Version (4) | Traffic Class (8) | Flow Label (20) */
     uint32_t ver_tc_fl = (6 << 28) | /* Version 6 */
@@ -115,10 +120,11 @@ int rfc2544_build_ipv6_header(uint8_t* buffer, uint16_t payload_len, const ipv6_
 /**
  * Get default IPv6 configuration
  */
-void rfc2544_ipv6_default_config(ipv6_config_t* config) {
+void rfc2544_ipv6_default_config(ipv6_config_t *config)
+{
     if (!config) {
         return;
-}
+    }
 
     memset(config, 0, sizeof(*config));
 
@@ -141,8 +147,9 @@ void rfc2544_ipv6_default_config(ipv6_config_t* config) {
 /**
  * Calculate IPv6 UDP pseudo-header checksum
  */
-uint16_t rfc2544_ipv6_udp_checksum(const uint8_t* src_addr, const uint8_t* dst_addr,
-                                   uint16_t udp_len, const uint8_t* udp_data) {
+uint16_t rfc2544_ipv6_udp_checksum(const uint8_t *src_addr, const uint8_t *dst_addr,
+                                   uint16_t udp_len, const uint8_t *udp_data)
+{
     uint32_t sum = 0;
 
     /* Pseudo-header: source address */
@@ -162,7 +169,7 @@ uint16_t rfc2544_ipv6_udp_checksum(const uint8_t* src_addr, const uint8_t* dst_a
     sum += IPV6_NH_UDP;
 
     /* UDP header + data */
-    const uint16_t* ptr       = (const uint16_t*)udp_data;
+    const uint16_t *ptr       = (const uint16_t *)udp_data;
     int             remaining = udp_len;
 
     while (remaining > 1) {
@@ -172,7 +179,7 @@ uint16_t rfc2544_ipv6_udp_checksum(const uint8_t* src_addr, const uint8_t* dst_a
 
     /* Handle odd byte */
     if (remaining == 1) {
-        sum += *(const uint8_t*)ptr << 8;
+        sum += *(const uint8_t *)ptr << 8;
     }
 
     /* Fold 32-bit sum to 16-bit */

@@ -9,15 +9,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include <unistd.h>
 
 #include "platform_config.h"
 #include "rfc2544.h"
 
 static volatile bool  g_running = true;
-static rfc2544_ctx_t* g_ctx     = NULL;
+static rfc2544_ctx_t *g_ctx     = NULL;
 
-void signal_handler(int sig) {
+void signal_handler(int sig)
+{
     (void)sig;
     g_running = false;
     if (g_ctx) {
@@ -25,13 +27,15 @@ void signal_handler(int sig) {
     }
 }
 
-void progress_callback(const rfc2544_ctx_t* ctx, const char* message, double pct) {
+void progress_callback(const rfc2544_ctx_t *ctx, const char *message, double pct)
+{
     (void)ctx;
     printf("\r[%5.1f%%] %-60s", pct, message);
     fflush(stdout);
 }
 
-void print_usage(const char* prog) {
+void print_usage(const char *prog)
+{
     fprintf(stderr, "RFC 2544 Network Benchmark Test Master v%d.%d.%d\n\n", RFC2544_VERSION_MAJOR,
             RFC2544_VERSION_MINOR, RFC2544_VERSION_PATCH);
     fprintf(stderr, "Usage: %s <interface> [options]\n\n", prog);
@@ -85,7 +89,8 @@ void print_usage(const char* prog) {
     fprintf(stderr, "  %s eth0 -t burst --jumbo       # Back-to-back test including jumbo\n", prog);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv)
+{
     if (argc < 2) {
         print_usage(argv[0]);
         return 1;
@@ -99,7 +104,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    const char*      interface = argv[1];
+    const char      *interface = argv[1];
     rfc2544_config_t config;
     rfc2544_default_config(&config);
     strncpy(config.interface, interface, sizeof(config.interface) - 1);
@@ -221,7 +226,7 @@ int main(int argc, char** argv) {
     }
 
     /* Print test info */
-    const char* test_names[] = {"Throughput", "Latency", "Frame Loss", "Back-to-Back"};
+    const char *test_names[] = {"Throughput", "Latency", "Frame Loss", "Back-to-Back"};
     printf("RFC 2544 Test Master v%d.%d.%d\n", RFC2544_VERSION_MAJOR, RFC2544_VERSION_MINOR,
            RFC2544_VERSION_PATCH);
     printf("Interface: %s\n", interface);

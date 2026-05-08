@@ -12,17 +12,19 @@
  * - Per-queue AF_XDP sockets
  */
 
-#include <bpf/bpf.h>
-#include <bpf/libbpf.h>
 #include <errno.h>
-#include <linux/if_link.h>
-#include <linux/if_xdp.h>
-#include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <linux/if_link.h>
+#include <linux/if_xdp.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
+
+#include <bpf/bpf.h>
+#include <bpf/libbpf.h>
+#include <poll.h>
 #include <unistd.h>
 #include <xdp/xsk.h>
 
@@ -30,7 +32,7 @@
 
 /* Shared BPF resources across all workers (only worker 0 initializes) */
 /* Use atomic operations for thread-safe access between workers */
-static struct bpf_object* g_bpf_obj       = NULL;
+static struct bpf_object *g_bpf_obj       = NULL;
 static int                g_xsks_map_fd   = -1;
 static int                g_mac_map_fd    = -1;
 static int                g_sig_map_fd    = -1;
@@ -46,15 +48,15 @@ struct platform_ctx {
         struct xsk_umem_info {
             struct xsk_ring_prod fq; /* Fill queue */
             struct xsk_ring_cons cq; /* Completion queue */
-            struct xsk_umem*     umem;
-            void*                buffer;
+            struct xsk_umem     *umem;
+            void                *buffer;
             uint64_t             buffer_size;
         } umem;
-        struct xsk_socket* xsk;
+        struct xsk_socket *xsk;
         uint32_t           outstanding_tx;
     } xsk_info;
 
-    struct bpf_object* bpf_obj;
+    struct bpf_object *bpf_obj;
     int                xsks_map_fd;
     int                mac_map_fd;
     int                sig_map_fd;
@@ -69,7 +71,8 @@ struct platform_ctx {
 /*
  * Configure UMEM (User Memory) for zero-copy packet buffers
  */
-static int configure_umem(struct platform_ctx* pctx, void* buffer, uint64_t size) {
+static int configure_umem(struct platform_ctx *pctx, void *buffer, uint64_t size)
+{
     struct xsk_umem_config cfg = {.fill_size      = NUM_FRAMES / 2,
                                   .comp_size      = NUM_FRAMES / 2,
                                   .frame_size     = pctx->frame_size,
@@ -93,7 +96,8 @@ static int configure_umem(struct platform_ctx* pctx, void* buffer, uint64_t size
 /*
  * Populate fill queue with buffers for kernel to use
  */
-static void populate_fill_queue(struct platform_ctx* pctx, uint32_t num) {
+static void populate_fill_queue(struct platform_ctx *pctx, uint32_t num)
+{
     uint32_t idx;
 
     if (xsk_ring_prod__reserve(&pctx->xsk_info.umem.fq, num, &idx) != num) {
@@ -112,9 +116,10 @@ static void populate_fill_queue(struct platform_ctx* pctx, uint32_t num) {
 /*
  * Load and attach XDP program
  */
-static int load_xdp_program(worker_ctx_t* wctx) {
-    struct platform_ctx* pctx = wctx->pctx;
-    reflector_config_t*  cfg  = wctx->config;
+static int load_xdp_program(worker_ctx_t *wctx)
+{
+    struct platform_ctx *pctx = wctx->pctx;
+    reflector_config_t  *cfg  = wctx->config;
     int                  ret;
 
     /* Check if BPF object file exists */
@@ -143,7 +148,7 @@ static int load_xdp_program(worker_ctx_t* wctx) {
     }
 
     /* Get program FD */
-    struct bpf_program* prog = bpf_object__find_program_by_name(pctx->bpf_obj, "xdp_filter_ito");
+    struct bpf_program *prog = bpf_object__find_program_by_name(pctx->bpf_obj, "xdp_filter_ito");
     if (!prog) {
         reflector_log(LOG_ERROR, "Failed to find XDP program");
         bpf_object__close(pctx->bpf_obj);
@@ -174,7 +179,7 @@ static int load_xdp_program(worker_ctx_t* wctx) {
     }
 
     /* Populate signature hash map for O(1) lookup */
-    const char* signatures[] = {"PROBEOT", "DATA:OT", "LATENCY"};
+    const char *signatures[] = {"PROBEOT", "DATA:OT", "LATENCY"};
     uint32_t    sig_value    = 1; /* Value unused, presence in map indicates match */
 
     for (int i = 0; i < 3; i++) {
@@ -218,9 +223,10 @@ static int load_xdp_program(worker_ctx_t* wctx) {
 /*
  * Initialize AF_XDP socket
  */
-static int init_xsk(worker_ctx_t* wctx) {
-    struct platform_ctx* pctx = wctx->pctx;
-    reflector_config_t*  cfg  = wctx->config;
+static int init_xsk(worker_ctx_t *wctx)
+{
+    struct platform_ctx *pctx = wctx->pctx;
+    reflector_config_t  *cfg  = wctx->config;
     int                  ret;
 
     struct xsk_socket_config xsk_cfg = {.rx_size      = NUM_FRAMES / 2,
@@ -262,10 +268,11 @@ static int init_xsk(worker_ctx_t* wctx) {
 /*
  * Initialize platform (AF_XDP)
  */
-int xdp_platform_init(reflector_ctx_t* rctx, worker_ctx_t* wctx) {
+int xdp_platform_init(reflector_ctx_t *rctx, worker_ctx_t *wctx)
+{
     (void)rctx; /* May be used for multi-worker coordination in future */
-    reflector_config_t*  cfg  = wctx->config;
-    struct platform_ctx* pctx = calloc(1, sizeof(*pctx));
+    reflector_config_t  *cfg  = wctx->config;
+    struct platform_ctx *pctx = calloc(1, sizeof(*pctx));
     if (!pctx) {
         reflector_log(LOG_ERROR, "Failed to allocate platform context");
         return -ENOMEM;
@@ -283,7 +290,7 @@ int xdp_platform_init(reflector_ctx_t* rctx, worker_ctx_t* wctx) {
 
     /* Allocate UMEM buffer */
     uint64_t umem_size = pctx->num_frames * pctx->frame_size;
-    void*    umem_buffer;
+    void    *umem_buffer;
 
     /* Try huge pages if enabled in config (better TLB utilization) */
     if (cfg->use_huge_pages) {
@@ -377,8 +384,9 @@ int xdp_platform_init(reflector_ctx_t* rctx, worker_ctx_t* wctx) {
 /*
  * Cleanup platform
  */
-void xdp_platform_cleanup(worker_ctx_t* wctx) {
-    struct platform_ctx* pctx = wctx->pctx;
+void xdp_platform_cleanup(worker_ctx_t *wctx)
+{
+    struct platform_ctx *pctx = wctx->pctx;
     if (!pctx) {
         return;
     }
@@ -407,8 +415,9 @@ void xdp_platform_cleanup(worker_ctx_t* wctx) {
 /*
  * Receive batch of packets (zero-copy)
  */
-int xdp_platform_recv_batch(worker_ctx_t* wctx, packet_t* pkts, int max_pkts) {
-    struct platform_ctx* pctx = wctx->pctx;
+int xdp_platform_recv_batch(worker_ctx_t *wctx, packet_t *pkts, int max_pkts)
+{
+    struct platform_ctx *pctx = wctx->pctx;
     uint32_t             idx_rx;
     int                  rcvd;
 
@@ -447,7 +456,8 @@ int xdp_platform_recv_batch(worker_ctx_t* wctx, packet_t* pkts, int max_pkts) {
  * This enables proper buffer recycling for zero-copy XDP operation.
  * Returns number of buffers recycled.
  */
-static int xdp_recycle_completed_tx(struct platform_ctx* pctx) {
+static int xdp_recycle_completed_tx(struct platform_ctx *pctx)
+{
     uint32_t idx_cq, idx_fq;
 
     /* Poll completion queue to see what TX completed */
@@ -477,8 +487,9 @@ static int xdp_recycle_completed_tx(struct platform_ctx* pctx) {
 /*
  * Send batch of packets (zero-copy)
  */
-int xdp_platform_send_batch(worker_ctx_t* wctx, packet_t* pkts, int num_pkts) {
-    struct platform_ctx* pctx = wctx->pctx;
+int xdp_platform_send_batch(worker_ctx_t *wctx, packet_t *pkts, int num_pkts)
+{
+    struct platform_ctx *pctx = wctx->pctx;
     uint32_t             idx_tx;
 
     /* Validate num_pkts to prevent out-of-bounds access */
@@ -501,7 +512,7 @@ int xdp_platform_send_batch(worker_ctx_t* wctx, packet_t* pkts, int num_pkts) {
     /* Submit packets to TX ring */
     /* Note: Stats are counted in core.c, not here (to avoid double-counting) */
     for (int i = 0; i < reserved; i++) {
-        struct xdp_desc* tx_desc = xsk_ring_prod__tx_desc(&pctx->xsk_info.tx, idx_tx++);
+        struct xdp_desc *tx_desc = xsk_ring_prod__tx_desc(&pctx->xsk_info.tx, idx_tx++);
         tx_desc->addr            = pkts[i].addr;
         tx_desc->len             = pkts[i].len;
     }
@@ -536,8 +547,9 @@ int xdp_platform_send_batch(worker_ctx_t* wctx, packet_t* pkts, int num_pkts) {
  * calls release_batch(&pkt, 1) for non-ITO and release_batch(pkts, sent)
  * after send_batch where sent > 1 for batches.
  */
-void xdp_platform_release_batch(worker_ctx_t* wctx, packet_t* pkts, int num_pkts) {
-    struct platform_ctx* pctx = wctx->pctx;
+void xdp_platform_release_batch(worker_ctx_t *wctx, packet_t *pkts, int num_pkts)
+{
+    struct platform_ctx *pctx = wctx->pctx;
     uint32_t             idx_fq;
 
     /* Validate num_pkts to prevent out-of-bounds access */
@@ -581,6 +593,7 @@ static const platform_ops_t xdp_platform_ops = {
     .release_batch = xdp_platform_release_batch,
 };
 
-const platform_ops_t* get_xdp_platform_ops(void) {
+const platform_ops_t *get_xdp_platform_ops(void)
+{
     return &xdp_platform_ops;
 }

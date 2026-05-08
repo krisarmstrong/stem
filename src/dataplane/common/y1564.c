@@ -12,15 +12,17 @@
  * rather than raw throughput like RFC 2544.
  */
 
-#include <arpa/inet.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <math.h>
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#include <arpa/inet.h>
+
+#include <pthread.h>
 #include <unistd.h>
 
 #include "platform_config.h"
@@ -29,23 +31,23 @@
 
 /* Internal packet structure (matches core.c) */
 typedef struct {
-    uint8_t* data;
+    uint8_t *data;
     uint32_t len;
     uint64_t timestamp;
     uint32_t seq_num;
-    void*    platform_data;
+    void    *platform_data;
 } packet_t;
 
 /* Platform operations interface (matches core.c) */
 struct platform_ops {
-    const char* name;
-    int (*init)(rfc2544_ctx_t* ctx, worker_ctx_t* wctx);
-    void (*cleanup)(worker_ctx_t* wctx);
-    int (*send_batch)(worker_ctx_t* wctx, packet_t* pkts, int count);
-    int (*recv_batch)(worker_ctx_t* wctx, packet_t* pkts, int max_count);
-    void (*release_batch)(worker_ctx_t* wctx, packet_t* pkts, int count);
-    uint64_t (*get_tx_timestamp)(worker_ctx_t* wctx, packet_t* pkt);
-    uint64_t (*get_rx_timestamp)(worker_ctx_t* wctx, packet_t* pkt);
+    const char *name;
+    int (*init)(rfc2544_ctx_t *ctx, worker_ctx_t *wctx);
+    void (*cleanup)(worker_ctx_t *wctx);
+    int (*send_batch)(worker_ctx_t *wctx, packet_t *pkts, int count);
+    int (*recv_batch)(worker_ctx_t *wctx, packet_t *pkts, int max_count);
+    void (*release_batch)(worker_ctx_t *wctx, packet_t *pkts, int count);
+    uint64_t (*get_tx_timestamp)(worker_ctx_t *wctx, packet_t *pkt);
+    uint64_t (*get_rx_timestamp)(worker_ctx_t *wctx, packet_t *pkt);
 };
 
 /* Y.1564 payload structure (matches packet.c) */
@@ -58,58 +60,59 @@ typedef struct __attribute__((packed)) {
 } y1564_payload_t;
 
 /* Forward declarations from packet.c */
-y1564_payload_t* y1564_create_packet_template(uint8_t* buffer, uint32_t frame_size,
-                                              const uint8_t* src_mac, const uint8_t* dst_mac,
+y1564_payload_t *y1564_create_packet_template(uint8_t *buffer, uint32_t frame_size,
+                                              const uint8_t *src_mac, const uint8_t *dst_mac,
                                               uint32_t src_ip, uint32_t dst_ip, uint16_t src_port,
                                               uint16_t dst_port, uint32_t service_id, uint8_t dscp);
-void     y1564_stamp_packet(y1564_payload_t* payload, uint32_t seq_num, uint64_t timestamp_ns);
-bool     y1564_is_valid_response(const uint8_t* data, uint32_t len);
-uint32_t y1564_get_seq_num(const uint8_t* data, uint32_t len);
-uint64_t y1564_get_tx_timestamp(const uint8_t* data, uint32_t len);
-uint32_t y1564_get_service_id(const uint8_t* data, uint32_t len);
+void     y1564_stamp_packet(y1564_payload_t *payload, uint32_t seq_num, uint64_t timestamp_ns);
+bool     y1564_is_valid_response(const uint8_t *data, uint32_t len);
+uint32_t y1564_get_seq_num(const uint8_t *data, uint32_t len);
+uint64_t y1564_get_tx_timestamp(const uint8_t *data, uint32_t len);
+uint32_t y1564_get_service_id(const uint8_t *data, uint32_t len);
 
 /* Forward declarations from pacing.c */
 typedef struct pacing_ctx  pacing_ctx_t;
 typedef struct trial_timer trial_timer_t;
 typedef struct seq_tracker seq_tracker_t;
 
-pacing_ctx_t* pacing_create(uint64_t line_rate_bps, uint32_t frame_size, double rate_pct);
-void          pacing_set_rate(pacing_ctx_t* ctx, double rate_pct);
-uint64_t      pacing_wait(pacing_ctx_t* ctx);
-void          pacing_record_tx(pacing_ctx_t* ctx, uint32_t packets, uint32_t bytes);
-void          pacing_reset(pacing_ctx_t* ctx);
-void          pacing_destroy(pacing_ctx_t* ctx);
+pacing_ctx_t *pacing_create(uint64_t line_rate_bps, uint32_t frame_size, double rate_pct);
+void          pacing_set_rate(pacing_ctx_t *ctx, double rate_pct);
+uint64_t      pacing_wait(pacing_ctx_t *ctx);
+void          pacing_record_tx(pacing_ctx_t *ctx, uint32_t packets, uint32_t bytes);
+void          pacing_reset(pacing_ctx_t *ctx);
+void          pacing_destroy(pacing_ctx_t *ctx);
 
-trial_timer_t* trial_timer_create(uint32_t duration_sec, uint32_t warmup_sec);
-void           trial_timer_start(trial_timer_t* timer);
-bool           trial_timer_expired(trial_timer_t* timer);
-bool           trial_timer_in_warmup(const trial_timer_t* timer);
-double         trial_timer_elapsed(const trial_timer_t* timer);
-void           trial_timer_destroy(trial_timer_t* timer);
+trial_timer_t *trial_timer_create(uint32_t duration_sec, uint32_t warmup_sec);
+void           trial_timer_start(trial_timer_t *timer);
+bool           trial_timer_expired(trial_timer_t *timer);
+bool           trial_timer_in_warmup(const trial_timer_t *timer);
+double         trial_timer_elapsed(const trial_timer_t *timer);
+void           trial_timer_destroy(trial_timer_t *timer);
 
-seq_tracker_t* rfc2544_seq_tracker_create(uint32_t capacity);
-void           rfc2544_seq_tracker_record(seq_tracker_t* tracker, uint32_t seq_num);
-void           rfc2544_seq_tracker_destroy(seq_tracker_t* tracker);
+seq_tracker_t *rfc2544_seq_tracker_create(uint32_t capacity);
+void           rfc2544_seq_tracker_record(seq_tracker_t *tracker, uint32_t seq_num);
+void           rfc2544_seq_tracker_destroy(seq_tracker_t *tracker);
 
 uint64_t calc_max_pps(uint64_t line_rate_bps, uint32_t frame_size);
 
 /* External context access (defined in core.c) */
-extern const platform_ops_t* rfc2544_get_platform(const rfc2544_ctx_t* ctx);
-extern worker_ctx_t*         rfc2544_get_worker(rfc2544_ctx_t* ctx, int index);
-extern uint64_t              rfc2544_get_line_rate_ctx(const rfc2544_ctx_t* ctx);
-extern void rfc2544_get_macs(const rfc2544_ctx_t* ctx, uint8_t* src_mac, uint8_t* dst_mac);
-extern void rfc2544_get_ips(const rfc2544_ctx_t* ctx, uint32_t* src_ip, uint32_t* dst_ip);
-extern bool rfc2544_is_cancelled(const rfc2544_ctx_t* ctx);
+extern const platform_ops_t *rfc2544_get_platform(const rfc2544_ctx_t *ctx);
+extern worker_ctx_t         *rfc2544_get_worker(rfc2544_ctx_t *ctx, int index);
+extern uint64_t              rfc2544_get_line_rate_ctx(const rfc2544_ctx_t *ctx);
+extern void rfc2544_get_macs(const rfc2544_ctx_t *ctx, uint8_t *src_mac, uint8_t *dst_mac);
+extern void rfc2544_get_ips(const rfc2544_ctx_t *ctx, uint32_t *src_ip, uint32_t *dst_ip);
+extern bool rfc2544_is_cancelled(const rfc2544_ctx_t *ctx);
 
 /* Logging (from core.c) */
-extern void rfc2544_log_internal(int level, const char* fmt, ...);
+extern void rfc2544_log_internal(int level, const char *fmt, ...);
 #define y1564_log(level, ...) rfc2544_log_internal(level, "[Y.1564] " __VA_ARGS__)
 
 /* ============================================================================
  * Utility Functions
  * ============================================================================ */
 
-static uint64_t __attribute__((unused)) get_timestamp_ns(void) {
+static uint64_t __attribute__((unused)) get_timestamp_ns(void)
+{
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (uint64_t)ts.tv_sec * NS_PER_SEC + ts.tv_nsec;
@@ -118,7 +121,8 @@ static uint64_t __attribute__((unused)) get_timestamp_ns(void) {
 /**
  * Calculate packets per second for a given rate in Mbps
  */
-static uint64_t __attribute__((unused)) rate_to_pps(double rate_mbps, uint32_t frame_size) {
+static uint64_t __attribute__((unused)) rate_to_pps(double rate_mbps, uint32_t frame_size)
+{
     /* Wire size includes preamble (8) + IFG (12) = 20 bytes */
     uint32_t wire_size       = frame_size + 20;
     uint64_t bits_per_packet = wire_size * 8;
@@ -129,10 +133,11 @@ static uint64_t __attribute__((unused)) rate_to_pps(double rate_mbps, uint32_t f
 /**
  * Calculate achieved rate in Mbps from packet count
  */
-static double calc_rate_mbps(uint64_t packets, uint32_t frame_size, double elapsed_sec) {
+static double calc_rate_mbps(uint64_t packets, uint32_t frame_size, double elapsed_sec)
+{
     if (elapsed_sec <= 0) {
         return 0.0;
-}
+    }
     uint64_t bytes = packets * frame_size;
     return (bytes * 8.0) / (elapsed_sec * 1e6);
 }
@@ -140,23 +145,25 @@ static double calc_rate_mbps(uint64_t packets, uint32_t frame_size, double elaps
 /**
  * Compare latencies for qsort
  */
-static int compare_latency(const void* a, const void* b) {
-    uint64_t la = *(const uint64_t*)a;
-    uint64_t lb = *(const uint64_t*)b;
+static int compare_latency(const void *a, const void *b)
+{
+    uint64_t la = *(const uint64_t *)a;
+    uint64_t lb = *(const uint64_t *)b;
     if (la < lb) {
         return -1;
-}
+    }
     if (la > lb) {
         return 1;
-}
+    }
     return 0;
 }
 
 /**
  * Calculate latency statistics from samples
  */
-static void calc_latency_stats(const uint64_t* samples, uint32_t count, double* avg_ms,
-                               double* min_ms, double* max_ms, double* jitter_ms) {
+static void calc_latency_stats(const uint64_t *samples, uint32_t count, double *avg_ms,
+                               double *min_ms, double *max_ms, double *jitter_ms)
+{
     /* Sanity check: limit to 10M samples (80MB allocation) */
     if (count == 0 || count > 10000000) {
         *avg_ms    = 0.0;
@@ -167,7 +174,7 @@ static void calc_latency_stats(const uint64_t* samples, uint32_t count, double* 
     }
 
     /* Make a copy for sorting */
-    uint64_t* sorted = malloc(count * sizeof(uint64_t));
+    uint64_t *sorted = malloc(count * sizeof(uint64_t));
     if (!sorted) {
         *avg_ms    = 0.0;
         *min_ms    = 0.0;
@@ -198,10 +205,11 @@ static void calc_latency_stats(const uint64_t* samples, uint32_t count, double* 
  * Default Configuration
  * ============================================================================ */
 
-void y1564_default_sla(y1564_sla_t* sla) {
+void y1564_default_sla(y1564_sla_t *sla)
+{
     if (!sla) {
         return;
-}
+    }
 
     memset(sla, 0, sizeof(*sla));
     sla->cir_mbps          = 100.0; /* 100 Mbps default CIR */
@@ -213,10 +221,11 @@ void y1564_default_sla(y1564_sla_t* sla) {
     sla->flr_threshold_pct = 0.01;  /* 0.01% frame loss threshold */
 }
 
-void y1564_default_config(y1564_config_t* config) {
+void y1564_default_config(y1564_config_t *config)
+{
     if (!config) {
         return;
-}
+    }
 
     memset(config, 0, sizeof(*config));
 
@@ -279,20 +288,21 @@ typedef struct {
  * @param result       Output trial result
  * @return 0 on success, negative on error
  */
-static int y1564_run_step(rfc2544_ctx_t* ctx, const y1564_service_t* service, double rate_mbps,
-                          uint32_t duration_sec, uint32_t warmup_sec, y1564_trial_t* result) {
+static int y1564_run_step(rfc2544_ctx_t *ctx, const y1564_service_t *service, double rate_mbps,
+                          uint32_t duration_sec, uint32_t warmup_sec, y1564_trial_t *result)
+{
     if (!ctx || !service || !result) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
 
     /* Get platform and worker */
-    const platform_ops_t* platform = rfc2544_get_platform(ctx);
-    worker_ctx_t*         wctx     = rfc2544_get_worker(ctx, 0);
+    const platform_ops_t *platform = rfc2544_get_platform(ctx);
+    worker_ctx_t         *wctx     = rfc2544_get_worker(ctx, 0);
     if (!platform || !wctx) {
         return -EINVAL;
-}
+    }
 
     uint64_t line_rate  = rfc2544_get_line_rate_ctx(ctx);
     uint32_t frame_size = service->frame_size;
@@ -304,10 +314,10 @@ static int y1564_run_step(rfc2544_ctx_t* ctx, const y1564_service_t* service, do
     }
 
     /* Create packet template */
-    uint8_t* pkt_buffer = malloc(frame_size);
+    uint8_t *pkt_buffer = malloc(frame_size);
     if (!pkt_buffer) {
         return -ENOMEM;
-}
+    }
 
     /* Get MAC and IP addresses */
     uint8_t  src_mac[6], dst_mac[6];
@@ -316,7 +326,7 @@ static int y1564_run_step(rfc2544_ctx_t* ctx, const y1564_service_t* service, do
     rfc2544_get_ips(ctx, &src_ip, &dst_ip);
 
     /* Create Y.1564 packet with service DSCP marking */
-    y1564_payload_t* payload =
+    y1564_payload_t *payload =
         y1564_create_packet_template(pkt_buffer, frame_size, src_mac, dst_mac, src_ip, dst_ip,
                                      12345, 3842, service->service_id, service->cos);
     if (!payload) {
@@ -328,17 +338,17 @@ static int y1564_run_step(rfc2544_ctx_t* ctx, const y1564_service_t* service, do
     double rate_pct = (rate_mbps * 1e6 * 100.0) / line_rate;
     if (rate_pct > 100.0) {
         rate_pct = 100.0;
-}
+    }
 
     /* Create pacing context */
-    pacing_ctx_t* pacer = pacing_create(line_rate, frame_size, rate_pct);
+    pacing_ctx_t *pacer = pacing_create(line_rate, frame_size, rate_pct);
     if (!pacer) {
         free(pkt_buffer);
         return -ENOMEM;
     }
 
     /* Create trial timer */
-    trial_timer_t* timer = trial_timer_create(duration_sec, warmup_sec);
+    trial_timer_t *timer = trial_timer_create(duration_sec, warmup_sec);
     if (!timer) {
         pacing_destroy(pacer);
         free(pkt_buffer);
@@ -347,7 +357,7 @@ static int y1564_run_step(rfc2544_ctx_t* ctx, const y1564_service_t* service, do
 
     /* Allocate latency sample buffer */
     uint32_t  latency_capacity = 100000;
-    uint64_t* latency_samples  = malloc(latency_capacity * sizeof(uint64_t));
+    uint64_t *latency_samples  = malloc(latency_capacity * sizeof(uint64_t));
     if (!latency_samples) {
         trial_timer_destroy(timer);
         pacing_destroy(pacer);
@@ -486,17 +496,18 @@ static int y1564_run_step(rfc2544_ctx_t* ctx, const y1564_service_t* service, do
  * Service Configuration Test
  * ============================================================================ */
 
-int y1564_config_test(rfc2544_ctx_t* ctx, const y1564_service_t* service,
-                      y1564_config_result_t* result) {
+int y1564_config_test(rfc2544_ctx_t *ctx, const y1564_service_t *service,
+                      y1564_config_result_t *result)
+{
     if (!ctx || !service || !result) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
     result->service_id = service->service_id;
 
     /* Get Y.1564 config from context */
-    const y1564_config_t* y1564_cfg     = &ctx->config.y1564;
+    const y1564_config_t *y1564_cfg     = &ctx->config.y1564;
     uint32_t              step_duration = y1564_cfg->step_duration_sec;
     uint32_t              warmup_sec    = 2; /* 2 second warmup per step */
 
@@ -527,7 +538,7 @@ int y1564_config_test(rfc2544_ctx_t* ctx, const y1564_service_t* service,
         }
 
         /* Store step result */
-        y1564_step_result_t* sr = &result->steps[step];
+        y1564_step_result_t *sr = &result->steps[step];
         sr->step                = step + 1;
         sr->offered_rate_pct    = step_pct;
         sr->achieved_rate_mbps  = trial.achieved_mbps;
@@ -568,11 +579,12 @@ int y1564_config_test(rfc2544_ctx_t* ctx, const y1564_service_t* service,
  * Service Performance Test
  * ============================================================================ */
 
-int y1564_perf_test(rfc2544_ctx_t* ctx, const y1564_service_t* service, uint32_t duration_sec,
-                    y1564_perf_result_t* result) {
+int y1564_perf_test(rfc2544_ctx_t *ctx, const y1564_service_t *service, uint32_t duration_sec,
+                    y1564_perf_result_t *result)
+{
     if (!ctx || !service || !result) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
     result->service_id   = service->service_id;
@@ -626,19 +638,20 @@ int y1564_perf_test(rfc2544_ctx_t* ctx, const y1564_service_t* service, uint32_t
  * Multi-Service Test
  * ============================================================================ */
 
-int y1564_multi_service_test(rfc2544_ctx_t* ctx, const y1564_service_t* services,
-                             uint32_t service_count, y1564_config_result_t* config_results,
-                             y1564_perf_result_t* perf_results) {
+int y1564_multi_service_test(rfc2544_ctx_t *ctx, const y1564_service_t *services,
+                             uint32_t service_count, y1564_config_result_t *config_results,
+                             y1564_perf_result_t *perf_results)
+{
     if (!ctx || !services || service_count == 0) {
         return -EINVAL;
-}
+    }
 
     if (service_count > Y1564_MAX_SERVICES) {
         y1564_log(LOG_ERROR, "Too many services: %u (max %d)", service_count, Y1564_MAX_SERVICES);
         return -EINVAL;
     }
 
-    const y1564_config_t* y1564_cfg = &ctx->config.y1564;
+    const y1564_config_t *y1564_cfg = &ctx->config.y1564;
     int                   ret       = 0;
 
     y1564_log(LOG_INFO, "=================================================================");
@@ -654,10 +667,10 @@ int y1564_multi_service_test(rfc2544_ctx_t* ctx, const y1564_service_t* services
         y1564_log(LOG_INFO, "-----------------------------------------------------------------");
 
         for (uint32_t i = 0; i < service_count && !rfc2544_is_cancelled(ctx); i++) {
-            const y1564_service_t* svc = &services[i];
+            const y1564_service_t *svc = &services[i];
             if (!svc->enabled) {
                 continue;
-}
+            }
 
             ret = y1564_config_test(ctx, svc, &config_results[i]);
             if (ret < 0 && ret != -ECANCELED) {
@@ -677,10 +690,10 @@ int y1564_multi_service_test(rfc2544_ctx_t* ctx, const y1564_service_t* services
         uint32_t perf_duration = y1564_cfg->perf_duration_sec;
 
         for (uint32_t i = 0; i < service_count && !rfc2544_is_cancelled(ctx); i++) {
-            const y1564_service_t* svc = &services[i];
+            const y1564_service_t *svc = &services[i];
             if (!svc->enabled) {
                 continue;
-}
+            }
 
             ret = y1564_perf_test(ctx, svc, perf_duration, &perf_results[i]);
             if (ret < 0 && ret != -ECANCELED) {
@@ -707,25 +720,26 @@ int y1564_multi_service_test(rfc2544_ctx_t* ctx, const y1564_service_t* services
  * Results Printing
  * ============================================================================ */
 
-void y1564_print_results(const y1564_config_result_t* config_results,
-                         const y1564_perf_result_t* perf_results, uint32_t service_count,
-                         stats_format_t format) {
+void y1564_print_results(const y1564_config_result_t *config_results,
+                         const y1564_perf_result_t *perf_results, uint32_t service_count,
+                         stats_format_t format)
+{
     /* JSON format */
     if (format == STATS_FORMAT_JSON) {
         printf("{\"type\":\"y1564\",\"service_count\":%u,\"config_results\":[", service_count);
         if (config_results) {
             for (uint32_t s = 0; s < service_count; s++) {
-                const y1564_config_result_t* cr = &config_results[s];
+                const y1564_config_result_t *cr = &config_results[s];
                 if (s > 0) {
                     printf(",");
-}
+                }
                 printf("{\"service_id\":%u,\"service_pass\":%s,\"steps\":[", cr->service_id,
                        cr->service_pass ? "true" : "false");
                 for (int i = 0; i < Y1564_CONFIG_STEPS; i++) {
-                    const y1564_step_result_t* sr = &cr->steps[i];
+                    const y1564_step_result_t *sr = &cr->steps[i];
                     if (i > 0) {
                         printf(",");
-}
+                    }
                     printf("{\"step\":%u,\"offered_rate_pct\":%.1f,\"achieved_rate_mbps\":%.2f,"
                            "\"frames_tx\":%" PRIu64 ",\"frames_rx\":%" PRIu64 ",\"flr_pct\":%.4f,"
                            "\"fd_avg_ms\":%.2f,\"fd_min_ms\":%.2f,\"fd_max_ms\":%.2f,"
@@ -743,10 +757,10 @@ void y1564_print_results(const y1564_config_result_t* config_results,
         printf("],\"perf_results\":[");
         if (perf_results) {
             for (uint32_t s = 0; s < service_count; s++) {
-                const y1564_perf_result_t* pr = &perf_results[s];
+                const y1564_perf_result_t *pr = &perf_results[s];
                 if (s > 0) {
                     printf(",");
-}
+                }
                 printf("{\"service_id\":%u,\"duration_sec\":%u,\"frames_tx\":%" PRIu64 ","
                        "\"frames_rx\":%" PRIu64 ",\"flr_pct\":%.4f,\"fd_avg_ms\":%.2f,"
                        "\"fd_min_ms\":%.2f,\"fd_max_ms\":%.2f,\"fdv_ms\":%.2f,"
@@ -767,9 +781,9 @@ void y1564_print_results(const y1564_config_result_t* config_results,
             "service_id,test_phase,step,offered_pct,achieved_mbps,flr_pct,fd_ms,fdv_ms,result\n");
         if (config_results) {
             for (uint32_t s = 0; s < service_count; s++) {
-                const y1564_config_result_t* cr = &config_results[s];
+                const y1564_config_result_t *cr = &config_results[s];
                 for (int i = 0; i < Y1564_CONFIG_STEPS; i++) {
-                    const y1564_step_result_t* sr = &cr->steps[i];
+                    const y1564_step_result_t *sr = &cr->steps[i];
                     printf("%u,config,%u,%.0f,%.2f,%.4f,%.2f,%.2f,%s\n", cr->service_id, sr->step,
                            sr->offered_rate_pct, sr->achieved_rate_mbps, sr->flr_pct, sr->fd_avg_ms,
                            sr->fdv_ms, sr->step_pass ? "PASS" : "FAIL");
@@ -778,7 +792,7 @@ void y1564_print_results(const y1564_config_result_t* config_results,
         }
         if (perf_results) {
             for (uint32_t s = 0; s < service_count; s++) {
-                const y1564_perf_result_t* pr = &perf_results[s];
+                const y1564_perf_result_t *pr = &perf_results[s];
                 double                     rate_mbps =
                     pr->duration_sec > 0 ? (double)pr->frames_tx * 8 / pr->duration_sec / 1e6 : 0.0;
                 printf("%u,perf,0,100,%.2f,%.4f,%.2f,%.2f,%s\n", pr->service_id, rate_mbps,
@@ -800,7 +814,7 @@ void y1564_print_results(const y1564_config_result_t* config_results,
         printf("-----------------------------------------------------------------\n");
 
         for (uint32_t s = 0; s < service_count; s++) {
-            const y1564_config_result_t* cr = &config_results[s];
+            const y1564_config_result_t *cr = &config_results[s];
 
             printf("\nService %u: %s\n", cr->service_id, cr->service_pass ? "PASS" : "FAIL");
             printf("%-6s %8s %12s %15s %12s %10s %10s %10s %8s\n", "Step", "% CIR", "Rate (Mbps)",
@@ -808,7 +822,7 @@ void y1564_print_results(const y1564_config_result_t* config_results,
             printf("-----------------------------------------------------------------\n");
 
             for (int i = 0; i < Y1564_CONFIG_STEPS; i++) {
-                const y1564_step_result_t* sr = &cr->steps[i];
+                const y1564_step_result_t *sr = &cr->steps[i];
                 printf("%-6u %7.0f%% %12.2f %15" PRIu64 " %11.4f%% %10.2f %10.2f %10s %8s\n",
                        sr->step, sr->offered_rate_pct, sr->achieved_rate_mbps, sr->frames_tx,
                        sr->flr_pct, sr->fd_avg_ms, sr->fdv_ms, sr->step_pass ? "PASS" : "FAIL",
@@ -826,7 +840,7 @@ void y1564_print_results(const y1564_config_result_t* config_results,
         printf("-----------------------------------------------------------------\n");
 
         for (uint32_t s = 0; s < service_count; s++) {
-            const y1564_perf_result_t* pr = &perf_results[s];
+            const y1564_perf_result_t *pr = &perf_results[s];
             printf("%-10u %10um %15" PRIu64 " %11.4f%% %10.2f %10.2f %8s\n", pr->service_id,
                    pr->duration_sec / 60, pr->frames_tx, pr->flr_pct, pr->fd_avg_ms, pr->fdv_ms,
                    pr->service_pass ? "PASS" : "FAIL");

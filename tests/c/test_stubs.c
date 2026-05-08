@@ -18,49 +18,58 @@ typedef void platform_ops_t;
 typedef void worker_ctx_t;
 
 /* Stub implementations - these are not called during config tests */
-platform_ops_t* rfc2544_get_platform(rfc2544_ctx_t* ctx) {
+platform_ops_t *rfc2544_get_platform(rfc2544_ctx_t *ctx)
+{
     (void)ctx;
     return NULL;
 }
 
-worker_ctx_t* rfc2544_get_worker(rfc2544_ctx_t* ctx) {
+worker_ctx_t *rfc2544_get_worker(rfc2544_ctx_t *ctx)
+{
     (void)ctx;
     return NULL;
 }
 
-uint64_t rfc2544_get_line_rate_ctx(rfc2544_ctx_t* ctx) {
+uint64_t rfc2544_get_line_rate_ctx(rfc2544_ctx_t *ctx)
+{
     (void)ctx;
     return 0;
 }
 
-void rfc2544_get_macs(rfc2544_ctx_t* ctx, uint8_t* src, uint8_t* dst) {
+void rfc2544_get_macs(rfc2544_ctx_t *ctx, uint8_t *src, uint8_t *dst)
+{
     (void)ctx;
     (void)src;
     (void)dst;
 }
 
-void rfc2544_get_ips(rfc2544_ctx_t* ctx, uint32_t* src, uint32_t* dst) {
+void rfc2544_get_ips(rfc2544_ctx_t *ctx, uint32_t *src, uint32_t *dst)
+{
     (void)ctx;
     (void)src;
     (void)dst;
 }
 
-void rfc2544_log(rfc2544_ctx_t* ctx, const char* fmt, ...) {
+void rfc2544_log(rfc2544_ctx_t *ctx, const char *fmt, ...)
+{
     (void)ctx;
     (void)fmt;
 }
 
-void rfc2544_log_internal(const char* fmt, ...) {
+void rfc2544_log_internal(const char *fmt, ...)
+{
     (void)fmt;
 }
 
-bool rfc2544_is_cancelled(rfc2544_ctx_t* ctx) {
+bool rfc2544_is_cancelled(rfc2544_ctx_t *ctx)
+{
     (void)ctx;
     return false;
 }
 
-int run_trial(rfc2544_ctx_t* ctx, uint32_t frame_size, uint64_t target_pps, uint32_t duration_ms,
-              uint64_t* rx_count, uint64_t* tx_count, uint64_t* latency_ns, uint64_t* jitter_ns) {
+int run_trial(rfc2544_ctx_t *ctx, uint32_t frame_size, uint64_t target_pps, uint32_t duration_ms,
+              uint64_t *rx_count, uint64_t *tx_count, uint64_t *latency_ns, uint64_t *jitter_ns)
+{
     (void)ctx;
     (void)frame_size;
     (void)target_pps;
@@ -72,7 +81,8 @@ int run_trial(rfc2544_ctx_t* ctx, uint32_t frame_size, uint64_t target_pps, uint
     return 0;
 }
 
-int run_trial_custom(rfc2544_ctx_t* ctx, void* custom_cfg, uint64_t* rx_count, uint64_t* tx_count) {
+int run_trial_custom(rfc2544_ctx_t *ctx, void *custom_cfg, uint64_t *rx_count, uint64_t *tx_count)
+{
     (void)ctx;
     (void)custom_cfg;
     (void)rx_count;
@@ -81,32 +91,37 @@ int run_trial_custom(rfc2544_ctx_t* ctx, void* custom_cfg, uint64_t* rx_count, u
 }
 
 /* Y.1564 packet stubs */
-void* y1564_create_packet_template(void* cfg, uint32_t size) {
+void *y1564_create_packet_template(void *cfg, uint32_t size)
+{
     (void)cfg;
     (void)size;
     return NULL;
 }
 
-void y1564_stamp_packet(void* pkt, uint64_t seq, uint64_t ts) {
+void y1564_stamp_packet(void *pkt, uint64_t seq, uint64_t ts)
+{
     (void)pkt;
     (void)seq;
     (void)ts;
 }
 
-bool y1564_is_valid_response(void* pkt, uint32_t len, void* cfg) {
+bool y1564_is_valid_response(void *pkt, uint32_t len, void *cfg)
+{
     (void)pkt;
     (void)len;
     (void)cfg;
     return false;
 }
 
-int y1564_get_service_id(void* pkt, uint32_t len) {
+int y1564_get_service_id(void *pkt, uint32_t len)
+{
     (void)pkt;
     (void)len;
     return 0;
 }
 
-uint64_t y1564_get_tx_timestamp(void* pkt, uint32_t len) {
+uint64_t y1564_get_tx_timestamp(void *pkt, uint32_t len)
+{
     (void)pkt;
     (void)len;
     return 0;

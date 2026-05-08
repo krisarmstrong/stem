@@ -10,6 +10,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+
 #include <sys/types.h>
 
 /* Threading support: GCD on macOS, pthreads elsewhere */
@@ -146,7 +147,11 @@
 // NOLINTEND(cppcoreguidelines-macro-to-enum,modernize-macro-to-enum)
 
 /* Reflection mode */
-typedef enum { REFLECT_MODE_MAC = 0, REFLECT_MODE_MAC_IP = 1, REFLECT_MODE_ALL = 2 } reflect_mode_t;
+typedef enum {
+    REFLECT_MODE_MAC    = 0,
+    REFLECT_MODE_MAC_IP = 1,
+    REFLECT_MODE_ALL    = 2
+} reflect_mode_t;
 
 /* Signature filter mode */
 typedef enum {
@@ -238,7 +243,11 @@ typedef struct {
 } reflector_stats_t;
 
 /* Statistics output format */
-typedef enum { STATS_FORMAT_TEXT, STATS_FORMAT_JSON, STATS_FORMAT_CSV } stats_format_t;
+typedef enum {
+    STATS_FORMAT_TEXT,
+    STATS_FORMAT_JSON,
+    STATS_FORMAT_CSV
+} stats_format_t;
 
 /* Configuration structure */
 typedef struct {
@@ -263,7 +272,7 @@ typedef struct {
     bool           software_checksum;
 
     bool  use_dpdk;
-    char* dpdk_args;
+    char *dpdk_args;
 
     uint16_t ito_port;
     bool     filter_oui;
@@ -279,7 +288,7 @@ typedef struct {
 
 /* Packet descriptor */
 typedef struct {
-    uint8_t* data;
+    uint8_t *data;
     uint32_t len;
     uint64_t addr;
     uint64_t timestamp;
@@ -293,8 +302,8 @@ typedef struct {
     int                 worker_id;
     int                 queue_id;
     int                 cpu_id;
-    platform_ctx_t*     pctx;
-    reflector_config_t* config;
+    platform_ctx_t     *pctx;
+    reflector_config_t *config;
     reflector_stats_t   stats;
     volatile bool       running;
 } worker_ctx_t;
@@ -302,13 +311,13 @@ typedef struct {
 /* Reflector context */
 typedef struct {
     reflector_config_t config;
-    platform_ctx_t**   platform_contexts;
-    worker_ctx_t*      workers;
+    platform_ctx_t   **platform_contexts;
+    worker_ctx_t      *workers;
 #ifdef __APPLE__
     dispatch_group_t  worker_group;
-    dispatch_queue_t* worker_queues;
+    dispatch_queue_t *worker_queues;
 #else
-    pthread_t* worker_tids;
+    pthread_t *worker_tids;
 #endif
     reflector_stats_t global_stats;
     volatile bool     running;
@@ -317,60 +326,65 @@ typedef struct {
 
 /* Platform abstraction interface */
 typedef struct {
-    const char* name;
-    int (*init)(reflector_ctx_t* rctx, worker_ctx_t* wctx);
-    void (*cleanup)(worker_ctx_t* wctx);
-    int (*recv_batch)(worker_ctx_t* wctx, packet_t* pkts, int max_pkts);
-    int (*send_batch)(worker_ctx_t* wctx, packet_t* pkts, int num_pkts);
-    void (*release_batch)(worker_ctx_t* wctx, packet_t* pkts, int num_pkts);
+    const char *name;
+    int (*init)(reflector_ctx_t *rctx, worker_ctx_t *wctx);
+    void (*cleanup)(worker_ctx_t *wctx);
+    int (*recv_batch)(worker_ctx_t *wctx, packet_t *pkts, int max_pkts);
+    int (*send_batch)(worker_ctx_t *wctx, packet_t *pkts, int num_pkts);
+    void (*release_batch)(worker_ctx_t *wctx, packet_t *pkts, int num_pkts);
 } platform_ops_t;
 
 /* Function declarations */
-int  reflector_init(reflector_ctx_t* rctx, const char* ifname);
-void reflector_cleanup(reflector_ctx_t* rctx);
-int  reflector_start(reflector_ctx_t* rctx);
-void reflector_stop(reflector_ctx_t* rctx);
-int  reflector_set_config(reflector_ctx_t* rctx, const reflector_config_t* config);
-void reflector_get_config(const reflector_ctx_t* rctx, reflector_config_t* config);
-void reflector_get_stats(const reflector_ctx_t* rctx, reflector_stats_t* stats);
-void reflector_reset_stats(reflector_ctx_t* rctx);
+int  reflector_init(reflector_ctx_t *rctx, const char *ifname);
+void reflector_cleanup(reflector_ctx_t *rctx);
+int  reflector_start(reflector_ctx_t *rctx);
+void reflector_stop(reflector_ctx_t *rctx);
+int  reflector_set_config(reflector_ctx_t *rctx, const reflector_config_t *config);
+void reflector_get_config(const reflector_ctx_t *rctx, reflector_config_t *config);
+void reflector_get_stats(const reflector_ctx_t *rctx, reflector_stats_t *stats);
+void reflector_reset_stats(reflector_ctx_t *rctx);
 
-int      get_interface_index(const char* ifname);
-int      get_interface_mac(const char* ifname, uint8_t mac[6]);
-int      get_num_rx_queues(const char* ifname);
-void     print_nic_recommendations(const char* ifname);
+int      get_interface_index(const char *ifname);
+int      get_interface_mac(const char *ifname, uint8_t mac[6]);
+int      get_num_rx_queues(const char *ifname);
+void     print_nic_recommendations(const char *ifname);
 bool     is_dpdk_available(void);
-int      get_nic_vendor(const char* ifname, uint16_t* vendor_id, uint16_t* device_id);
-int      get_nic_speed(const char* ifname);
-void     print_af_packet_warning(const char* ifname);
+int      get_nic_vendor(const char *ifname, uint16_t *vendor_id, uint16_t *device_id);
+int      get_nic_speed(const char *ifname);
+void     print_af_packet_warning(const char *ifname);
 void     print_recommended_nics(void);
-int      get_queue_cpu_affinity(const char* ifname, int queue_id);
+int      get_queue_cpu_affinity(const char *ifname, int queue_id);
 uint64_t get_timestamp_ns(void);
 int      drop_privileges(void);
 
-bool is_ito_packet(const uint8_t* data, uint32_t len, const reflector_config_t* config);
-bool is_ito_packet_extended(const uint8_t* data, uint32_t len, const reflector_config_t* config,
-                            bool* is_ipv6, bool* is_vlan);
-ito_sig_type_t get_ito_signature_type(const uint8_t* data, uint32_t len);
-void           reflect_packet_inplace(uint8_t* data, uint32_t len);
-void           reflect_packet_with_checksum(uint8_t* data, uint32_t len, bool software_checksum);
-void           reflect_packet_with_mode(uint8_t* data, uint32_t len, reflect_mode_t mode,
+bool is_ito_packet(const uint8_t *data, uint32_t len, const reflector_config_t *config);
+bool is_ito_packet_extended(const uint8_t *data, uint32_t len, const reflector_config_t *config,
+                            bool *is_ipv6, bool *is_vlan);
+ito_sig_type_t get_ito_signature_type(const uint8_t *data, uint32_t len);
+void           reflect_packet_inplace(uint8_t *data, uint32_t len);
+void           reflect_packet_with_checksum(uint8_t *data, uint32_t len, bool software_checksum);
+void           reflect_packet_with_mode(uint8_t *data, uint32_t len, reflect_mode_t mode,
                                         bool software_checksum);
-void reflect_packet_ipv6(uint8_t* data, uint32_t len, reflect_mode_t mode, bool software_checksum);
-bool is_vlan_tagged(const uint8_t* data, uint32_t len, uint16_t* inner_ethertype,
-                    uint32_t* vlan_offset);
+void reflect_packet_ipv6(uint8_t *data, uint32_t len, reflect_mode_t mode, bool software_checksum);
+bool is_vlan_tagged(const uint8_t *data, uint32_t len, uint16_t *inner_ethertype,
+                    uint32_t *vlan_offset);
 
-void update_signature_stats(reflector_stats_t* stats, ito_sig_type_t sig_type);
-void update_latency_stats(latency_stats_t* latency, uint64_t latency_ns);
-void update_error_stats(reflector_stats_t* stats, error_category_t err_cat);
-void reflector_print_stats_formatted(const reflector_stats_t* stats, stats_format_t format);
-void reflector_print_stats_json(const reflector_stats_t* stats);
-void reflector_print_stats_csv(const reflector_stats_t* stats);
+void update_signature_stats(reflector_stats_t *stats, ito_sig_type_t sig_type);
+void update_latency_stats(latency_stats_t *latency, uint64_t latency_ns);
+void update_error_stats(reflector_stats_t *stats, error_category_t err_cat);
+void reflector_print_stats_formatted(const reflector_stats_t *stats, stats_format_t format);
+void reflector_print_stats_json(const reflector_stats_t *stats);
+void reflector_print_stats_csv(const reflector_stats_t *stats);
 
-const platform_ops_t* get_platform_ops(void);
+const platform_ops_t *get_platform_ops(void);
 
-typedef enum { LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR } log_level_t;
-void reflector_log(log_level_t level, const char* fmt, ...);
+typedef enum {
+    LOG_DEBUG,
+    LOG_INFO,
+    LOG_WARN,
+    LOG_ERROR
+} log_level_t;
+void reflector_log(log_level_t level, const char *fmt, ...);
 void reflector_set_log_level(log_level_t level);
 
 #endif /* REFLECTOR_H */

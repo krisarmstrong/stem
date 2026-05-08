@@ -52,8 +52,8 @@ static int         test_passed     = 0;
 static int         test_failed     = 0;
 static int         test_total      = 0;
 static int         test_assertions = 0;
-static const char* current_suite   = "Default";
-static const char* current_test    = NULL;
+static const char *current_suite   = "Default";
+static const char *current_test    = NULL;
 
 /* Alias for compatibility */
 #define test_failures test_failed
@@ -227,16 +227,16 @@ static const char* current_test    = NULL;
     } while (0)
 
 /* Assert NULL */
-#define ASSERT_NULL(ptr)                                                                    \
-    do {                                                                                    \
-        test_assertions++;                                                                  \
-        if ((ptr) != NULL) {                                                                \
-            printf(TERM_RED "FAIL" TERM_RESET "\n");                                        \
-            printf("    " TERM_RED "Expected NULL, got:" TERM_RESET " %p\n", (void*)(ptr)); \
-            printf("    at %s:%d\n", __FILE__, __LINE__);                                   \
-            test_failed++;                                                                  \
-            return;                                                                         \
-        }                                                                                   \
+#define ASSERT_NULL(ptr)                                                                     \
+    do {                                                                                     \
+        test_assertions++;                                                                   \
+        if ((ptr) != NULL) {                                                                 \
+            printf(TERM_RED "FAIL" TERM_RESET "\n");                                         \
+            printf("    " TERM_RED "Expected NULL, got:" TERM_RESET " %p\n", (void *)(ptr)); \
+            printf("    at %s:%d\n", __FILE__, __LINE__);                                    \
+            test_failed++;                                                                   \
+            return;                                                                          \
+        }                                                                                    \
     } while (0)
 
 /* Assert not NULL */
@@ -303,8 +303,8 @@ static const char* current_test    = NULL;
 #define ASSERT_STR_EQ(expected, actual)                                                         \
     do {                                                                                        \
         test_assertions++;                                                                      \
-        const char* _exp = (expected);                                                          \
-        const char* _act = (actual);                                                            \
+        const char *_exp = (expected);                                                          \
+        const char *_act = (actual);                                                            \
         if (_exp == NULL || _act == NULL || strcmp(_exp, _act) != 0) {                          \
             printf(TERM_RED "FAIL" TERM_RESET "\n");                                            \
             printf("    " TERM_RED "Expected:" TERM_RESET " \"%s\"\n", _exp ? _exp : "(null)"); \
@@ -319,8 +319,8 @@ static const char* current_test    = NULL;
 #define ASSERT_STR_NE(expected, actual)                                                          \
     do {                                                                                         \
         test_assertions++;                                                                       \
-        const char* _exp = (expected);                                                           \
-        const char* _act = (actual);                                                             \
+        const char *_exp = (expected);                                                           \
+        const char *_act = (actual);                                                             \
         if (_exp != NULL && _act != NULL && strcmp(_exp, _act) == 0) {                           \
             printf(TERM_RED "FAIL" TERM_RESET "\n");                                             \
             printf("    " TERM_RED "Strings should differ but both are:" TERM_RESET " \"%s\"\n", \
@@ -388,8 +388,9 @@ static const char* current_test    = NULL;
  * ============================================================================ */
 
 /* Print a hex dump for debugging */
-static inline void test_hexdump(const char* label, const void* data, size_t len) {
-    const uint8_t* p = (const uint8_t*)data;
+static inline void test_hexdump(const char *label, const void *data, size_t len)
+{
+    const uint8_t *p = (const uint8_t *)data;
     printf("    %s (%zu bytes): ", label, len);
     for (size_t i = 0; i < len && i < 32; i++) {
         printf("%02x ", p[i]);
@@ -401,13 +402,15 @@ static inline void test_hexdump(const char* label, const void* data, size_t len)
 }
 
 /* Print MAC address for debugging */
-static inline void test_print_mac(const char* label, const uint8_t* mac) {
+static inline void test_print_mac(const char *label, const uint8_t *mac)
+{
     printf("    %s: %02x:%02x:%02x:%02x:%02x:%02x\n", label, mac[0], mac[1], mac[2], mac[3], mac[4],
            mac[5]);
 }
 
 /* Print IPv4 address for debugging */
-static inline void test_print_ipv4(const char* label, const uint8_t* ip) {
+static inline void test_print_ipv4(const char *label, const uint8_t *ip)
+{
     printf("    %s: %u.%u.%u.%u\n", label, ip[0], ip[1], ip[2], ip[3]);
 }
 

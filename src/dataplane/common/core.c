@@ -9,14 +9,16 @@
  * - Test execution coordination
  */
 
-#include <arpa/inet.h>
 #include <errno.h>
-#include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#include <arpa/inet.h>
+
+#include <pthread.h>
 #include <unistd.h>
 
 #include "platform_config.h"
@@ -26,30 +28,31 @@
 #if PLATFORM_LINUX
 #include <linux/ethtool.h>
 #include <linux/sockios.h>
-#include <net/if.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+
+#include <net/if.h>
 #endif
 
 /* Internal packet structure */
 typedef struct {
-    uint8_t* data;
+    uint8_t *data;
     uint32_t len;
     uint64_t timestamp; /* TX or RX timestamp in nanoseconds */
     uint32_t seq_num;
-    void*    platform_data;
+    void    *platform_data;
 } packet_t;
 
 /* Platform operations interface */
 struct platform_ops {
-    const char* name;
-    int (*init)(rfc2544_ctx_t* ctx, worker_ctx_t* wctx);
-    void (*cleanup)(worker_ctx_t* wctx);
-    int (*send_batch)(worker_ctx_t* wctx, packet_t* pkts, int count);
-    int (*recv_batch)(worker_ctx_t* wctx, packet_t* pkts, int max_count);
-    void (*release_batch)(worker_ctx_t* wctx, packet_t* pkts, int count);
-    uint64_t (*get_tx_timestamp)(worker_ctx_t* wctx, packet_t* pkt);
-    uint64_t (*get_rx_timestamp)(worker_ctx_t* wctx, packet_t* pkt);
+    const char *name;
+    int (*init)(rfc2544_ctx_t *ctx, worker_ctx_t *wctx);
+    void (*cleanup)(worker_ctx_t *wctx);
+    int (*send_batch)(worker_ctx_t *wctx, packet_t *pkts, int count);
+    int (*recv_batch)(worker_ctx_t *wctx, packet_t *pkts, int max_count);
+    void (*release_batch)(worker_ctx_t *wctx, packet_t *pkts, int count);
+    uint64_t (*get_tx_timestamp)(worker_ctx_t *wctx, packet_t *pkt);
+    uint64_t (*get_rx_timestamp)(worker_ctx_t *wctx, packet_t *pkt);
 };
 
 /* Forward declarations for packet.c */
@@ -61,66 +64,66 @@ typedef struct __attribute__((packed)) {
     uint8_t  flags;
 } rfc2544_payload_t;
 
-rfc2544_payload_t* rfc2544_create_packet_template(uint8_t* buffer, uint32_t frame_size,
-                                                  const uint8_t* src_mac, const uint8_t* dst_mac,
+rfc2544_payload_t *rfc2544_create_packet_template(uint8_t *buffer, uint32_t frame_size,
+                                                  const uint8_t *src_mac, const uint8_t *dst_mac,
                                                   uint32_t src_ip, uint32_t dst_ip,
                                                   uint16_t src_port, uint16_t dst_port,
                                                   uint32_t stream_id);
-rfc2544_payload_t* custom_create_packet_template(uint8_t* buffer, uint32_t frame_size,
-                                                 const uint8_t* src_mac, const uint8_t* dst_mac,
+rfc2544_payload_t *custom_create_packet_template(uint8_t *buffer, uint32_t frame_size,
+                                                 const uint8_t *src_mac, const uint8_t *dst_mac,
                                                  uint32_t src_ip, uint32_t dst_ip,
                                                  uint16_t src_port, uint16_t dst_port,
-                                                 uint32_t stream_id, const char* signature);
-void     rfc2544_stamp_packet(rfc2544_payload_t* payload, uint32_t seq_num, uint64_t timestamp_ns);
-bool     rfc2544_is_valid_response(const uint8_t* data, uint32_t len);
-bool     custom_is_valid_response(const uint8_t* data, uint32_t len, const char* signature);
-uint32_t rfc2544_get_seq_num(const uint8_t* data, uint32_t len);
-uint32_t custom_get_seq_num(const uint8_t* data, uint32_t len, const char* signature);
-uint64_t rfc2544_get_tx_timestamp(const uint8_t* data, uint32_t len);
-uint64_t custom_get_tx_timestamp(const uint8_t* data, uint32_t len, const char* signature);
-void rfc2544_calc_latency_stats(const uint64_t* samples, uint32_t count, latency_stats_t* stats);
+                                                 uint32_t stream_id, const char *signature);
+void     rfc2544_stamp_packet(rfc2544_payload_t *payload, uint32_t seq_num, uint64_t timestamp_ns);
+bool     rfc2544_is_valid_response(const uint8_t *data, uint32_t len);
+bool     custom_is_valid_response(const uint8_t *data, uint32_t len, const char *signature);
+uint32_t rfc2544_get_seq_num(const uint8_t *data, uint32_t len);
+uint32_t custom_get_seq_num(const uint8_t *data, uint32_t len, const char *signature);
+uint64_t rfc2544_get_tx_timestamp(const uint8_t *data, uint32_t len);
+uint64_t custom_get_tx_timestamp(const uint8_t *data, uint32_t len, const char *signature);
+void rfc2544_calc_latency_stats(const uint64_t *samples, uint32_t count, latency_stats_t *stats);
 
 /* Forward declarations for pacing.c */
 typedef struct pacing_ctx  pacing_ctx_t;
 typedef struct trial_timer trial_timer_t;
 typedef struct seq_tracker seq_tracker_t;
 
-pacing_ctx_t* pacing_create(uint64_t line_rate_bps, uint32_t frame_size, double rate_pct);
-void          pacing_set_rate(pacing_ctx_t* ctx, double rate_pct);
-void          pacing_set_batch_size(pacing_ctx_t* ctx, uint32_t batch_size);
-void          pacing_set_busy_wait(pacing_ctx_t* ctx, bool enable);
-uint64_t      pacing_wait(pacing_ctx_t* ctx);
-uint64_t      pacing_wait_batch(pacing_ctx_t* ctx, uint32_t batch_size);
-void          pacing_record_tx(pacing_ctx_t* ctx, uint32_t packets, uint32_t bytes);
-void          pacing_get_rate(const pacing_ctx_t* ctx, double* pps, double* mbps);
-void          pacing_reset(pacing_ctx_t* ctx);
-void          pacing_destroy(pacing_ctx_t* ctx);
+pacing_ctx_t *pacing_create(uint64_t line_rate_bps, uint32_t frame_size, double rate_pct);
+void          pacing_set_rate(pacing_ctx_t *ctx, double rate_pct);
+void          pacing_set_batch_size(pacing_ctx_t *ctx, uint32_t batch_size);
+void          pacing_set_busy_wait(pacing_ctx_t *ctx, bool enable);
+uint64_t      pacing_wait(pacing_ctx_t *ctx);
+uint64_t      pacing_wait_batch(pacing_ctx_t *ctx, uint32_t batch_size);
+void          pacing_record_tx(pacing_ctx_t *ctx, uint32_t packets, uint32_t bytes);
+void          pacing_get_rate(const pacing_ctx_t *ctx, double *pps, double *mbps);
+void          pacing_reset(pacing_ctx_t *ctx);
+void          pacing_destroy(pacing_ctx_t *ctx);
 
-trial_timer_t* trial_timer_create(uint32_t duration_sec, uint32_t warmup_sec);
-void           trial_timer_start(trial_timer_t* timer);
-bool           trial_timer_expired(trial_timer_t* timer);
-bool           trial_timer_in_warmup(const trial_timer_t* timer);
-double         trial_timer_elapsed(const trial_timer_t* timer);
-void           trial_timer_destroy(trial_timer_t* timer);
+trial_timer_t *trial_timer_create(uint32_t duration_sec, uint32_t warmup_sec);
+void           trial_timer_start(trial_timer_t *timer);
+bool           trial_timer_expired(trial_timer_t *timer);
+bool           trial_timer_in_warmup(const trial_timer_t *timer);
+double         trial_timer_elapsed(const trial_timer_t *timer);
+void           trial_timer_destroy(trial_timer_t *timer);
 
-seq_tracker_t* rfc2544_seq_tracker_create(uint32_t capacity);
-void           rfc2544_seq_tracker_record(seq_tracker_t* tracker, uint32_t seq_num);
-void rfc2544_seq_tracker_stats(const seq_tracker_t* tracker, uint32_t expected, uint32_t* received,
-                               uint32_t* lost, double* loss_pct);
-void rfc2544_seq_tracker_destroy(seq_tracker_t* tracker);
+seq_tracker_t *rfc2544_seq_tracker_create(uint32_t capacity);
+void           rfc2544_seq_tracker_record(seq_tracker_t *tracker, uint32_t seq_num);
+void rfc2544_seq_tracker_stats(const seq_tracker_t *tracker, uint32_t expected, uint32_t *received,
+                               uint32_t *lost, double *loss_pct);
+void rfc2544_seq_tracker_destroy(seq_tracker_t *tracker);
 
 uint64_t calc_max_pps(uint64_t line_rate_bps, uint32_t frame_size);
 
 /* Forward declarations for y1564.c */
-int  y1564_config_test(rfc2544_ctx_t* ctx, const y1564_service_t* service,
-                       y1564_config_result_t* result);
-int  y1564_perf_test(rfc2544_ctx_t* ctx, const y1564_service_t* service, uint32_t duration_sec,
-                     y1564_perf_result_t* result);
-int  y1564_multi_service_test(rfc2544_ctx_t* ctx, const y1564_service_t* services,
-                              uint32_t service_count, y1564_config_result_t* config_results,
-                              y1564_perf_result_t* perf_results);
-void y1564_print_results(const y1564_config_result_t* config_results,
-                         const y1564_perf_result_t* perf_results, uint32_t service_count,
+int  y1564_config_test(rfc2544_ctx_t *ctx, const y1564_service_t *service,
+                       y1564_config_result_t *result);
+int  y1564_perf_test(rfc2544_ctx_t *ctx, const y1564_service_t *service, uint32_t duration_sec,
+                     y1564_perf_result_t *result);
+int  y1564_multi_service_test(rfc2544_ctx_t *ctx, const y1564_service_t *services,
+                              uint32_t service_count, y1564_config_result_t *config_results,
+                              y1564_perf_result_t *perf_results);
+void y1564_print_results(const y1564_config_result_t *config_results,
+                         const y1564_perf_result_t *perf_results, uint32_t service_count,
                          stats_format_t format);
 
 /* struct rfc2544_ctx is defined in rfc2544_internal.h */
@@ -132,22 +135,24 @@ static log_level_t g_log_level = LOG_INFO;
  * Logging
  * ============================================================================ */
 
-void rfc2544_set_log_level(log_level_t level) {
+void rfc2544_set_log_level(log_level_t level)
+{
     g_log_level = level;
 }
 
-void rfc2544_log(log_level_t level, const char* fmt, ...) {
+void rfc2544_log(log_level_t level, const char *fmt, ...)
+{
     if (level > g_log_level) {
         return;
-}
+    }
 
-    const char*     level_str[] = {"ERROR", "WARN", "INFO", "DEBUG"};
+    const char     *level_str[] = {"ERROR", "WARN", "INFO", "DEBUG"};
     const size_t    num_levels  = sizeof(level_str) / sizeof(level_str[0]);
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
 
     /* Bounds check level to prevent array overrun */
-    const char* level_name = (level < num_levels) ? level_str[level] : "???";
+    const char *level_name = (level < num_levels) ? level_str[level] : "???";
     fprintf(stderr, "[%ld.%03ld] [%s] ", ts.tv_sec, ts.tv_nsec / 1000000, level_name);
 
     va_list args;
@@ -163,18 +168,19 @@ void rfc2544_log(log_level_t level, const char* fmt, ...) {
  * ============================================================================ */
 
 #if HAVE_AF_XDP
-extern const platform_ops_t* get_xdp_platform_ops(void);
+extern const platform_ops_t *get_xdp_platform_ops(void);
 #endif
 
 #if PLATFORM_LINUX
-extern const platform_ops_t* get_packet_platform_ops(void);
+extern const platform_ops_t *get_packet_platform_ops(void);
 #endif
 
 #if HAVE_DPDK
-extern const platform_ops_t* get_dpdk_platform_ops(void);
+extern const platform_ops_t *get_dpdk_platform_ops(void);
 #endif
 
-static const platform_ops_t* select_platform(rfc2544_ctx_t* ctx) {
+static const platform_ops_t *select_platform(rfc2544_ctx_t *ctx)
+{
 #if HAVE_DPDK
     if (ctx->config.use_dpdk) {
         rfc2544_log(LOG_INFO, "Platform: DPDK (line-rate mode)");
@@ -206,7 +212,8 @@ static const platform_ops_t* select_platform(rfc2544_ctx_t* ctx) {
  * Utility Functions
  * ============================================================================ */
 
-void rfc2544_default_config(rfc2544_config_t* config) {
+void rfc2544_default_config(rfc2544_config_t *config)
+{
     memset(config, 0, sizeof(*config));
 
     /* Defaults */
@@ -250,20 +257,22 @@ void rfc2544_default_config(rfc2544_config_t* config) {
     config->batch_size = DEFAULT_BATCH_SIZE;
 }
 
-uint64_t rfc2544_calc_pps(uint64_t line_rate, uint32_t frame_size) {
+uint64_t rfc2544_calc_pps(uint64_t line_rate, uint32_t frame_size)
+{
     /* Ethernet overhead: preamble (8) + IFG (12) = 20 bytes */
     uint32_t wire_size       = frame_size + 20;
     uint64_t bits_per_packet = wire_size * 8;
     return line_rate / bits_per_packet;
 }
 
-uint64_t rfc2544_get_line_rate(const char* interface) {
+uint64_t rfc2544_get_line_rate(const char *interface)
+{
 #if PLATFORM_LINUX
     /* Try sysfs first - most reliable on modern Linux */
     char path[256];
     snprintf(path, sizeof(path), "/sys/class/net/%s/speed", interface);
 
-    FILE* f = fopen(path, "r");
+    FILE *f = fopen(path, "r");
     if (f) {
         int speed_mbps = 0;
         if (fscanf(f, "%d", &speed_mbps) == 1 && speed_mbps > 0) {
@@ -285,7 +294,7 @@ uint64_t rfc2544_get_line_rate(const char* interface) {
         strncpy(ifr.ifr_name, interface, IFNAMSIZ - 1);
 
         ecmd.cmd     = ETHTOOL_GSET;
-        ifr.ifr_data = (void*)&ecmd;
+        ifr.ifr_data = (void *)&ecmd;
 
         if (ioctl(sock, SIOCETHTOOL, &ifr) == 0) {
             uint32_t speed = ethtool_cmd_speed(&ecmd);
@@ -305,7 +314,8 @@ uint64_t rfc2544_get_line_rate(const char* interface) {
     return 10000000000ULL;
 }
 
-static uint64_t get_timestamp_ns(void) {
+static uint64_t get_timestamp_ns(void)
+{
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (uint64_t)ts.tv_sec * NS_PER_SEC + ts.tv_nsec;
@@ -315,61 +325,68 @@ static uint64_t get_timestamp_ns(void) {
  * Context Accessor Functions (for y1564.c and other modules)
  * ============================================================================ */
 
-const platform_ops_t* rfc2544_get_platform(const rfc2544_ctx_t* ctx) {
+const platform_ops_t *rfc2544_get_platform(const rfc2544_ctx_t *ctx)
+{
     return ctx ? ctx->platform : NULL;
 }
 
-worker_ctx_t* rfc2544_get_worker(rfc2544_ctx_t* ctx, int index) {
+worker_ctx_t *rfc2544_get_worker(rfc2544_ctx_t *ctx, int index)
+{
     if (!ctx || !ctx->workers || index < 0 || index >= ctx->num_workers) {
         return NULL;
-}
+    }
     return &ctx->workers[index];
 }
 
-uint64_t rfc2544_get_line_rate_ctx(const rfc2544_ctx_t* ctx) {
+uint64_t rfc2544_get_line_rate_ctx(const rfc2544_ctx_t *ctx)
+{
     return ctx ? ctx->line_rate : 0;
 }
 
-void rfc2544_get_macs(const rfc2544_ctx_t* ctx, uint8_t* src_mac, uint8_t* dst_mac) {
+void rfc2544_get_macs(const rfc2544_ctx_t *ctx, uint8_t *src_mac, uint8_t *dst_mac)
+{
     if (!ctx) {
         return;
-}
+    }
     if (src_mac) {
         memcpy(src_mac, ctx->local_mac, 6);
-}
+    }
     if (dst_mac) {
         memcpy(dst_mac, ctx->remote_mac, 6);
-}
+    }
 }
 
-void rfc2544_get_ips(const rfc2544_ctx_t* ctx, uint32_t* src_ip, uint32_t* dst_ip) {
+void rfc2544_get_ips(const rfc2544_ctx_t *ctx, uint32_t *src_ip, uint32_t *dst_ip)
+{
     if (!ctx) {
         return;
-}
+    }
     if (src_ip) {
         *src_ip = ctx->local_ip;
-}
+    }
     if (dst_ip) {
         *dst_ip = ctx->remote_ip;
-}
+    }
 }
 
-bool rfc2544_is_cancelled(const rfc2544_ctx_t* ctx) {
+bool rfc2544_is_cancelled(const rfc2544_ctx_t *ctx)
+{
     return ctx ? ctx->cancel_requested : true;
 }
 
-void rfc2544_log_internal(log_level_t level, const char* fmt, ...) {
+void rfc2544_log_internal(log_level_t level, const char *fmt, ...)
+{
     if (level > g_log_level) {
         return;
-}
+    }
 
-    const char*     level_str[] = {"ERROR", "WARN", "INFO", "DEBUG"};
+    const char     *level_str[] = {"ERROR", "WARN", "INFO", "DEBUG"};
     const size_t    num_levels  = sizeof(level_str) / sizeof(level_str[0]);
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
 
     /* Bounds check level to prevent array overrun */
-    const char* level_name = (level < num_levels) ? level_str[level] : "???";
+    const char *level_name = (level < num_levels) ? level_str[level] : "???";
     fprintf(stderr, "[%ld.%03ld] [%s] ", ts.tv_sec, ts.tv_nsec / 1000000, level_name);
 
     va_list args;
@@ -384,8 +401,9 @@ void rfc2544_log_internal(log_level_t level, const char* fmt, ...) {
  * Core API Implementation
  * ============================================================================ */
 
-int rfc2544_init(rfc2544_ctx_t** ctx_out, const char* interface) {
-    rfc2544_ctx_t* ctx = calloc(1, sizeof(rfc2544_ctx_t));
+int rfc2544_init(rfc2544_ctx_t **ctx_out, const char *interface)
+{
+    rfc2544_ctx_t *ctx = calloc(1, sizeof(rfc2544_ctx_t));
     if (!ctx) {
         rfc2544_log(LOG_ERROR, "Failed to allocate context");
         return -ENOMEM;
@@ -425,10 +443,11 @@ int rfc2544_init(rfc2544_ctx_t** ctx_out, const char* interface) {
     return 0;
 }
 
-int rfc2544_configure(rfc2544_ctx_t* ctx, const rfc2544_config_t* config) {
+int rfc2544_configure(rfc2544_ctx_t *ctx, const rfc2544_config_t *config)
+{
     if (!ctx || !config) {
         return -EINVAL;
-}
+    }
 
     if (ctx->state == STATE_RUNNING) {
         rfc2544_log(LOG_ERROR, "Cannot configure while test is running");
@@ -451,27 +470,31 @@ int rfc2544_configure(rfc2544_ctx_t* ctx, const rfc2544_config_t* config) {
     return 0;
 }
 
-void rfc2544_set_progress_callback(rfc2544_ctx_t* ctx, progress_callback_t callback) {
+void rfc2544_set_progress_callback(rfc2544_ctx_t *ctx, progress_callback_t callback)
+{
     if (ctx) {
         ctx->progress_cb = callback;
-}
+    }
 }
 
-test_state_t rfc2544_get_state(const rfc2544_ctx_t* ctx) {
+test_state_t rfc2544_get_state(const rfc2544_ctx_t *ctx)
+{
     return ctx ? ctx->state : STATE_IDLE;
 }
 
-void rfc2544_cancel(rfc2544_ctx_t* ctx) {
+void rfc2544_cancel(rfc2544_ctx_t *ctx)
+{
     if (ctx) {
         ctx->cancel_requested = true;
         rfc2544_log(LOG_INFO, "Cancellation requested");
     }
 }
 
-void rfc2544_cleanup(rfc2544_ctx_t* ctx) {
+void rfc2544_cleanup(rfc2544_ctx_t *ctx)
+{
     if (!ctx) {
         return;
-}
+    }
 
     /* Cancel if running */
     if (ctx->state == STATE_RUNNING) {
@@ -508,7 +531,8 @@ void rfc2544_cleanup(rfc2544_ctx_t* ctx) {
  * Test Execution
  * ============================================================================ */
 
-void report_progress(rfc2544_ctx_t* ctx, const char* message, double pct) {
+void report_progress(rfc2544_ctx_t *ctx, const char *message, double pct)
+{
     if (ctx->progress_cb) {
         ctx->progress_cb(ctx, message, pct);
     }
@@ -517,10 +541,11 @@ void report_progress(rfc2544_ctx_t* ctx, const char* message, double pct) {
     }
 }
 
-int rfc2544_run(rfc2544_ctx_t* ctx) {
+int rfc2544_run(rfc2544_ctx_t *ctx)
+{
     if (!ctx) {
         return -EINVAL;
-}
+    }
 
     if (ctx->state == STATE_RUNNING) {
         rfc2544_log(LOG_ERROR, "Test already running");
@@ -597,7 +622,7 @@ int rfc2544_run(rfc2544_ctx_t* ctx) {
                                           &ctx->throughput_results[ctx->throughput_count], NULL);
             if (ret < 0) {
                 break;
-}
+            }
             ctx->throughput_count++;
         }
         break;
@@ -611,7 +636,7 @@ int rfc2544_run(rfc2544_ctx_t* ctx) {
                                            &ctx->latency_results[ctx->latency_count]);
                 if (ret < 0) {
                     break;
-}
+                }
                 ctx->latency_count++;
             }
         }
@@ -625,7 +650,7 @@ int rfc2544_run(rfc2544_ctx_t* ctx) {
                                           &count);
             if (ret < 0) {
                 break;
-}
+            }
             ctx->loss_count += count;
         }
         break;
@@ -637,7 +662,7 @@ int rfc2544_run(rfc2544_ctx_t* ctx) {
                                             &ctx->burst_results[ctx->burst_count]);
             if (ret < 0) {
                 break;
-}
+            }
             ctx->burst_count++;
         }
         break;
@@ -645,16 +670,16 @@ int rfc2544_run(rfc2544_ctx_t* ctx) {
     case TEST_Y1564_CONFIG:
         report_progress(ctx, "Starting Y.1564 Configuration test", 0);
         {
-            const y1564_config_t* y1564_cfg = &ctx->config.y1564;
+            const y1564_config_t *y1564_cfg = &ctx->config.y1564;
             for (uint32_t i = 0; i < y1564_cfg->service_count && !ctx->cancel_requested; i++) {
                 if (!y1564_cfg->services[i].enabled) {
                     continue;
-}
+                }
                 y1564_config_result_t config_result;
                 ret = y1564_config_test(ctx, &y1564_cfg->services[i], &config_result);
                 if (ret < 0) {
                     break;
-}
+                }
             }
         }
         break;
@@ -662,17 +687,17 @@ int rfc2544_run(rfc2544_ctx_t* ctx) {
     case TEST_Y1564_PERF:
         report_progress(ctx, "Starting Y.1564 Performance test", 0);
         {
-            const y1564_config_t* y1564_cfg = &ctx->config.y1564;
+            const y1564_config_t *y1564_cfg = &ctx->config.y1564;
             for (uint32_t i = 0; i < y1564_cfg->service_count && !ctx->cancel_requested; i++) {
                 if (!y1564_cfg->services[i].enabled) {
                     continue;
-}
+                }
                 y1564_perf_result_t perf_result;
                 ret = y1564_perf_test(ctx, &y1564_cfg->services[i], y1564_cfg->perf_duration_sec,
                                       &perf_result);
                 if (ret < 0) {
                     break;
-}
+                }
             }
         }
         break;
@@ -680,7 +705,7 @@ int rfc2544_run(rfc2544_ctx_t* ctx) {
     case TEST_Y1564_FULL:
         report_progress(ctx, "Starting Y.1564 Full test suite", 0);
         {
-            const y1564_config_t* y1564_cfg = &ctx->config.y1564;
+            const y1564_config_t *y1564_cfg = &ctx->config.y1564;
             y1564_config_result_t config_results[Y1564_MAX_SERVICES];
             y1564_perf_result_t   perf_results[Y1564_MAX_SERVICES];
             memset(config_results, 0, sizeof(config_results));
@@ -746,21 +771,22 @@ int rfc2544_run(rfc2544_ctx_t* ctx) {
  * @param result Output trial result
  * @return 0 on success, negative on error
  */
-int run_trial(rfc2544_ctx_t* ctx, uint32_t frame_size, double rate_pct, uint32_t duration_sec,
-              uint32_t warmup_sec, trial_result_t* result) {
+int run_trial(rfc2544_ctx_t *ctx, uint32_t frame_size, double rate_pct, uint32_t duration_sec,
+              uint32_t warmup_sec, trial_result_t *result)
+{
     if (!ctx || !result) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
 
-    worker_ctx_t* wctx = &ctx->workers[0];
+    worker_ctx_t *wctx = &ctx->workers[0];
 
     /* Create packet template */
-    uint8_t* pkt_buffer = malloc(frame_size);
+    uint8_t *pkt_buffer = malloc(frame_size);
     if (!pkt_buffer) {
         return -ENOMEM;
-}
+    }
 
     /* Default addresses - in real use, would be configured */
     uint8_t  src_mac[6] = {0x02, 0x00, 0x00, 0x00, 0x00, 0x01};
@@ -776,7 +802,7 @@ int run_trial(rfc2544_ctx_t* ctx, uint32_t frame_size, double rate_pct, uint32_t
         memcpy(dst_mac, ctx->remote_mac, 6);
     }
 
-    rfc2544_payload_t* payload = rfc2544_create_packet_template(
+    rfc2544_payload_t *payload = rfc2544_create_packet_template(
         pkt_buffer, frame_size, src_mac, dst_mac, src_ip, dst_ip, 12345, 3842, 0);
 
     if (!payload) {
@@ -785,14 +811,14 @@ int run_trial(rfc2544_ctx_t* ctx, uint32_t frame_size, double rate_pct, uint32_t
     }
 
     /* Create pacing context */
-    pacing_ctx_t* pacer = pacing_create(ctx->line_rate, frame_size, rate_pct);
+    pacing_ctx_t *pacer = pacing_create(ctx->line_rate, frame_size, rate_pct);
     if (!pacer) {
         free(pkt_buffer);
         return -ENOMEM;
     }
 
     /* Create trial timer */
-    trial_timer_t* timer = trial_timer_create(duration_sec, warmup_sec);
+    trial_timer_t *timer = trial_timer_create(duration_sec, warmup_sec);
     if (!timer) {
         pacing_destroy(pacer);
         free(pkt_buffer);
@@ -805,7 +831,7 @@ int run_trial(rfc2544_ctx_t* ctx, uint32_t frame_size, double rate_pct, uint32_t
     /* Cap tracker capacity to uint32_t max (4B packets is sufficient for any test) */
     uint32_t tracker_capacity =
         (expected_packets + 1000 > UINT32_MAX) ? UINT32_MAX : (uint32_t)(expected_packets + 1000);
-    seq_tracker_t* tracker = rfc2544_seq_tracker_create(tracker_capacity);
+    seq_tracker_t *tracker = rfc2544_seq_tracker_create(tracker_capacity);
     if (!tracker) {
         trial_timer_destroy(timer);
         pacing_destroy(pacer);
@@ -823,7 +849,7 @@ int run_trial(rfc2544_ctx_t* ctx, uint32_t frame_size, double rate_pct, uint32_t
     memset(rx_pkts, 0, sizeof(rx_pkts));
 
     /* Latency samples */
-    uint64_t* latency_samples  = NULL;
+    uint64_t *latency_samples  = NULL;
     uint32_t  latency_count    = 0;
     uint32_t  latency_capacity = 10000;
     if (ctx->config.measure_latency) {
@@ -966,22 +992,23 @@ int run_trial(rfc2544_ctx_t* ctx, uint32_t frame_size, double rate_pct, uint32_t
  * @param result Output trial result
  * @return 0 on success, negative on error
  */
-int run_trial_custom(rfc2544_ctx_t* ctx, uint32_t frame_size, double rate_pct,
-                     uint32_t duration_sec, uint32_t warmup_sec, const char* signature,
-                     uint32_t stream_id, trial_result_t* result) {
+int run_trial_custom(rfc2544_ctx_t *ctx, uint32_t frame_size, double rate_pct,
+                     uint32_t duration_sec, uint32_t warmup_sec, const char *signature,
+                     uint32_t stream_id, trial_result_t *result)
+{
     if (!ctx || !result || !signature) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
 
-    worker_ctx_t* wctx = &ctx->workers[0];
+    worker_ctx_t *wctx = &ctx->workers[0];
 
     /* Create packet template */
-    uint8_t* pkt_buffer = malloc(frame_size);
+    uint8_t *pkt_buffer = malloc(frame_size);
     if (!pkt_buffer) {
         return -ENOMEM;
-}
+    }
 
     /* Default addresses - in real use, would be configured */
     uint8_t  src_mac[6] = {0x02, 0x00, 0x00, 0x00, 0x00, 0x01};
@@ -998,7 +1025,7 @@ int run_trial_custom(rfc2544_ctx_t* ctx, uint32_t frame_size, double rate_pct,
     }
 
     /* Create packet with custom signature */
-    rfc2544_payload_t* payload =
+    rfc2544_payload_t *payload =
         custom_create_packet_template(pkt_buffer, frame_size, src_mac, dst_mac, src_ip, dst_ip,
                                       12345, 3842, stream_id, signature);
 
@@ -1008,14 +1035,14 @@ int run_trial_custom(rfc2544_ctx_t* ctx, uint32_t frame_size, double rate_pct,
     }
 
     /* Create pacing context */
-    pacing_ctx_t* pacer = pacing_create(ctx->line_rate, frame_size, rate_pct);
+    pacing_ctx_t *pacer = pacing_create(ctx->line_rate, frame_size, rate_pct);
     if (!pacer) {
         free(pkt_buffer);
         return -ENOMEM;
     }
 
     /* Create trial timer */
-    trial_timer_t* timer = trial_timer_create(duration_sec, warmup_sec);
+    trial_timer_t *timer = trial_timer_create(duration_sec, warmup_sec);
     if (!timer) {
         pacing_destroy(pacer);
         free(pkt_buffer);
@@ -1027,7 +1054,7 @@ int run_trial_custom(rfc2544_ctx_t* ctx, uint32_t frame_size, double rate_pct,
         (uint64_t)(calc_max_pps(ctx->line_rate, frame_size) * rate_pct / 100.0 * duration_sec);
     uint32_t tracker_capacity =
         (expected_packets + 1000 > UINT32_MAX) ? UINT32_MAX : (uint32_t)(expected_packets + 1000);
-    seq_tracker_t* tracker = rfc2544_seq_tracker_create(tracker_capacity);
+    seq_tracker_t *tracker = rfc2544_seq_tracker_create(tracker_capacity);
     if (!tracker) {
         trial_timer_destroy(timer);
         pacing_destroy(pacer);
@@ -1045,7 +1072,7 @@ int run_trial_custom(rfc2544_ctx_t* ctx, uint32_t frame_size, double rate_pct,
     memset(rx_pkts, 0, sizeof(rx_pkts));
 
     /* Latency samples */
-    uint64_t* latency_samples  = NULL;
+    uint64_t *latency_samples  = NULL;
     uint32_t  latency_count    = 0;
     uint32_t  latency_capacity = 10000;
     if (ctx->config.measure_latency) {
@@ -1175,11 +1202,12 @@ int run_trial_custom(rfc2544_ctx_t* ctx, uint32_t frame_size, double rate_pct,
  * Throughput Test (Section 26.1)
  * ============================================================================ */
 
-int rfc2544_throughput_test(rfc2544_ctx_t* ctx, uint32_t frame_size, throughput_result_t* result,
-                            uint32_t* result_count) {
+int rfc2544_throughput_test(rfc2544_ctx_t *ctx, uint32_t frame_size, throughput_result_t *result,
+                            uint32_t *result_count)
+{
     if (!ctx || !result) {
         return -EINVAL;
-}
+    }
 
     rfc2544_log(LOG_INFO, "Throughput test: frame_size=%u", frame_size);
 
@@ -1243,7 +1271,7 @@ int rfc2544_throughput_test(rfc2544_ctx_t* ctx, uint32_t frame_size, throughput_
 
     if (result_count) {
         *result_count = 1;
-}
+    }
 
     return 0;
 }
@@ -1252,11 +1280,12 @@ int rfc2544_throughput_test(rfc2544_ctx_t* ctx, uint32_t frame_size, throughput_
  * Latency Test (Section 26.2)
  * ============================================================================ */
 
-int rfc2544_latency_test(rfc2544_ctx_t* ctx, uint32_t frame_size, double load_pct,
-                         latency_result_t* result) {
+int rfc2544_latency_test(rfc2544_ctx_t *ctx, uint32_t frame_size, double load_pct,
+                         latency_result_t *result)
+{
     if (!ctx || !result) {
         return -EINVAL;
-}
+    }
 
     rfc2544_log(LOG_INFO, "Latency test: frame_size=%u, load=%.1f%%", frame_size, load_pct);
 
@@ -1291,11 +1320,12 @@ int rfc2544_latency_test(rfc2544_ctx_t* ctx, uint32_t frame_size, double load_pc
  * Frame Loss Test (Section 26.3)
  * ============================================================================ */
 
-int rfc2544_frame_loss_test(rfc2544_ctx_t* ctx, uint32_t frame_size, frame_loss_point_t* results,
-                            uint32_t* result_count) {
+int rfc2544_frame_loss_test(rfc2544_ctx_t *ctx, uint32_t frame_size, frame_loss_point_t *results,
+                            uint32_t *result_count)
+{
     if (!ctx || !results || !result_count) {
         return -EINVAL;
-}
+    }
 
     rfc2544_log(LOG_INFO, "Frame loss test: frame_size=%u", frame_size);
 
@@ -1336,10 +1366,11 @@ int rfc2544_frame_loss_test(rfc2544_ctx_t* ctx, uint32_t frame_size, frame_loss_
  * Back-to-Back Test (Section 26.4)
  * ============================================================================ */
 
-int rfc2544_back_to_back_test(rfc2544_ctx_t* ctx, uint32_t frame_size, burst_result_t* result) {
+int rfc2544_back_to_back_test(rfc2544_ctx_t *ctx, uint32_t frame_size, burst_result_t *result)
+{
     if (!ctx || !result) {
         return -EINVAL;
-}
+    }
 
     rfc2544_log(LOG_INFO, "Back-to-back test: frame_size=%u", frame_size);
 
@@ -1371,7 +1402,7 @@ int rfc2544_back_to_back_test(rfc2544_ctx_t* ctx, uint32_t frame_size, burst_res
                 (max_pps > 0) ? (uint32_t)(((uint64_t)current_burst * 1000) / max_pps) : 1;
             if (burst_duration_ms < 1) {
                 burst_duration_ms = 1;
-}
+            }
 
             /* Use trial helper with short duration */
             int ret =
@@ -1413,11 +1444,12 @@ int rfc2544_back_to_back_test(rfc2544_ctx_t* ctx, uint32_t frame_size, burst_res
  * System Recovery Test (Section 26.5)
  * ============================================================================ */
 
-int rfc2544_system_recovery_test(rfc2544_ctx_t* ctx, uint32_t frame_size, double throughput_pct,
-                                 uint32_t overload_sec, recovery_result_t* result) {
+int rfc2544_system_recovery_test(rfc2544_ctx_t *ctx, uint32_t frame_size, double throughput_pct,
+                                 uint32_t overload_sec, recovery_result_t *result)
+{
     if (!ctx || !result) {
         return -EINVAL;
-}
+    }
 
     rfc2544_log(LOG_INFO, "System recovery test: frame_size=%u, throughput=%.2f%%", frame_size,
                 throughput_pct);
@@ -1460,14 +1492,14 @@ int rfc2544_system_recovery_test(rfc2544_ctx_t* ctx, uint32_t frame_size, double
     for (uint32_t i = 0; i < (max_recovery_sec * 1000 / check_interval_ms); i++) {
         if (ctx->cancel_requested) {
             break;
-}
+        }
 
         trial_result_t recovery_trial;
         /* Run short trial at recovery rate */
         ret = run_trial(ctx, frame_size, result->recovery_rate_pct, 1, 0, &recovery_trial);
         if (ret < 0) {
             break;
-}
+        }
 
         if (recovery_trial.loss_pct <= 0.001) { /* Effectively zero loss */
             recovered                = true;
@@ -1500,10 +1532,11 @@ int rfc2544_system_recovery_test(rfc2544_ctx_t* ctx, uint32_t frame_size, double
  * Reset Test (Section 26.6)
  * ============================================================================ */
 
-int rfc2544_reset_test(rfc2544_ctx_t* ctx, uint32_t frame_size, reset_result_t* result) {
+int rfc2544_reset_test(rfc2544_ctx_t *ctx, uint32_t frame_size, reset_result_t *result)
+{
     if (!ctx || !result) {
         return -EINVAL;
-}
+    }
 
     rfc2544_log(LOG_INFO, "Reset test: frame_size=%u", frame_size);
     rfc2544_log(LOG_WARN, "NOTE: Reset test requires external reset trigger");
@@ -1589,10 +1622,11 @@ int rfc2544_reset_test(rfc2544_ctx_t* ctx, uint32_t frame_size, reset_result_t* 
  * Results Printing
  * ============================================================================ */
 
-void rfc2544_print_results(const rfc2544_ctx_t* ctx) {
+void rfc2544_print_results(const rfc2544_ctx_t *ctx)
+{
     if (!ctx) {
         return;
-}
+    }
 
     printf("\n");
     printf("=================================================================\n");
@@ -1610,7 +1644,7 @@ void rfc2544_print_results(const rfc2544_ctx_t* ctx) {
         printf("%-10s %12s %12s %15s %10s\n", "Size", "(%)", "(Mbps)", "(pps)", "");
         printf("-----------------------------------------------------------------\n");
         for (uint32_t i = 0; i < ctx->throughput_count; i++) {
-            const throughput_result_t* r = &ctx->throughput_results[i];
+            const throughput_result_t *r = &ctx->throughput_results[i];
             printf("%-10u %11.2f%% %12.2f %15.0f %10u\n", r->frame_size, r->max_rate_pct,
                    r->max_rate_mbps, r->max_rate_pps, r->iterations);
         }
@@ -1625,7 +1659,7 @@ void rfc2544_print_results(const rfc2544_ctx_t* ctx) {
         printf("%-10s %10s %12s %12s %12s\n", "Size", "(%)", "(us)", "(us)", "(us)");
         printf("-----------------------------------------------------------------\n");
         for (uint32_t i = 0; i < ctx->latency_count; i++) {
-            const latency_result_t* r = &ctx->latency_results[i];
+            const latency_result_t *r = &ctx->latency_results[i];
             printf("%-10u %9.1f%% %12.1f %12.1f %12.1f\n", r->frame_size, r->offered_rate_pct,
                    r->latency.min_ns / 1000.0, r->latency.avg_ns / 1000.0,
                    r->latency.max_ns / 1000.0);
@@ -1641,7 +1675,7 @@ void rfc2544_print_results(const rfc2544_ctx_t* ctx) {
         printf("%-12s %15s %15s %12s\n", "Load (%)", "Sent", "Received", "(%)");
         printf("-----------------------------------------------------------------\n");
         for (uint32_t i = 0; i < ctx->loss_count; i++) {
-            const frame_loss_point_t* r = &ctx->loss_results[i];
+            const frame_loss_point_t *r = &ctx->loss_results[i];
             printf("%11.1f%% %15llu %15llu %11.4f%%\n", r->offered_rate_pct,
                    (unsigned long long)r->frames_sent, (unsigned long long)r->frames_recv,
                    r->loss_pct);
@@ -1657,7 +1691,7 @@ void rfc2544_print_results(const rfc2544_ctx_t* ctx) {
         printf("%-10s %15s %15s %10s\n", "Size", "(frames)", "(us)", "");
         printf("-----------------------------------------------------------------\n");
         for (uint32_t i = 0; i < ctx->burst_count; i++) {
-            const burst_result_t* r = &ctx->burst_results[i];
+            const burst_result_t *r = &ctx->burst_results[i];
             printf("%-10u %15llu %15.1f %10u\n", r->frame_size, (unsigned long long)r->max_burst,
                    r->burst_duration, r->trials);
         }

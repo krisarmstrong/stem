@@ -9,12 +9,13 @@
  * - Packet validation and response matching
  */
 
-#include <arpa/inet.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#include <arpa/inet.h>
 
 #include "platform_config.h"
 #include "rfc2544.h"
@@ -78,8 +79,9 @@ typedef struct {
  * Checksum Calculation
  * ============================================================================ */
 
-static uint16_t ip_checksum(const void* data, size_t len) {
-    const uint16_t* ptr = data;
+static uint16_t ip_checksum(const void *data, size_t len)
+{
+    const uint16_t *ptr = data;
     uint32_t        sum = 0;
 
     while (len > 1) {
@@ -88,7 +90,7 @@ static uint16_t ip_checksum(const void* data, size_t len) {
     }
 
     if (len == 1) {
-        sum += *(const uint8_t*)ptr;
+        sum += *(const uint8_t *)ptr;
     }
 
     while (sum >> 16) {
@@ -116,11 +118,12 @@ static uint16_t ip_checksum(const void* data, size_t len) {
  * @param stream_id Stream identifier
  * @return Pointer to payload area, or NULL on error
  */
-rfc2544_payload_t* rfc2544_create_packet_template(uint8_t* buffer, uint32_t frame_size,
-                                                  const uint8_t* src_mac, const uint8_t* dst_mac,
+rfc2544_payload_t *rfc2544_create_packet_template(uint8_t *buffer, uint32_t frame_size,
+                                                  const uint8_t *src_mac, const uint8_t *dst_mac,
                                                   uint32_t src_ip, uint32_t dst_ip,
                                                   uint16_t src_port, uint16_t dst_port,
-                                                  uint32_t stream_id) {
+                                                  uint32_t stream_id)
+{
     /* Minimum frame size must fit all headers + payload:
      * 14 (Ethernet) + 20 (IPv4) + 8 (UDP) + 24 (payload) = 66 bytes */
     const uint32_t min_frame = sizeof(eth_header_t) + sizeof(ip_header_t) + sizeof(udp_header_t) +
@@ -142,13 +145,13 @@ rfc2544_payload_t* rfc2544_create_packet_template(uint8_t* buffer, uint32_t fram
     memset(buffer, 0, frame_size);
 
     /* Ethernet header */
-    eth_header_t* eth = (eth_header_t*)buffer;
+    eth_header_t *eth = (eth_header_t *)buffer;
     memcpy(eth->dst_mac, dst_mac, 6);
     memcpy(eth->src_mac, src_mac, 6);
     eth->ethertype = htons(ETH_P_IP);
 
     /* IP header */
-    ip_header_t* ip    = (ip_header_t*)(buffer + sizeof(eth_header_t));
+    ip_header_t *ip    = (ip_header_t *)(buffer + sizeof(eth_header_t));
     ip->version_ihl    = 0x45; /* IPv4, 20 byte header */
     ip->tos            = 0;
     ip->total_length   = htons(frame_size - sizeof(eth_header_t));
@@ -162,15 +165,15 @@ rfc2544_payload_t* rfc2544_create_packet_template(uint8_t* buffer, uint32_t fram
     ip->checksum       = ip_checksum(ip, sizeof(ip_header_t));
 
     /* UDP header */
-    udp_header_t* udp = (udp_header_t*)(buffer + sizeof(eth_header_t) + sizeof(ip_header_t));
+    udp_header_t *udp = (udp_header_t *)(buffer + sizeof(eth_header_t) + sizeof(ip_header_t));
     udp->src_port     = htons(src_port);
     udp->dst_port     = htons(dst_port);
     udp->length       = htons(frame_size - sizeof(eth_header_t) - sizeof(ip_header_t));
     udp->checksum     = 0; /* Optional for IPv4 */
 
     /* RFC2544 payload */
-    rfc2544_payload_t* payload = (rfc2544_payload_t*)(buffer + sizeof(eth_header_t) +
-                                                      sizeof(ip_header_t) + sizeof(udp_header_t));
+    rfc2544_payload_t *payload = (rfc2544_payload_t *)(buffer + sizeof(eth_header_t) +
+                                                       sizeof(ip_header_t) + sizeof(udp_header_t));
     memcpy(payload->signature, RFC2544_SIGNATURE, RFC2544_SIG_LEN);
     payload->seq_num   = 0; /* Will be set per-packet */
     payload->timestamp = 0; /* Will be set per-packet */
@@ -178,10 +181,10 @@ rfc2544_payload_t* rfc2544_create_packet_template(uint8_t* buffer, uint32_t fram
     payload->flags     = RFC2544_FLAG_REQ_TIMESTAMP;
 
     /* Fill padding with pattern */
-    uint8_t* padding = buffer + sizeof(eth_header_t) + sizeof(ip_header_t) + sizeof(udp_header_t) +
+    uint8_t *padding = buffer + sizeof(eth_header_t) + sizeof(ip_header_t) + sizeof(udp_header_t) +
                        sizeof(rfc2544_payload_t);
-    size_t padding_len = frame_size - sizeof(eth_header_t) - sizeof(ip_header_t) -
-                         sizeof(udp_header_t) - sizeof(rfc2544_payload_t);
+    size_t   padding_len = frame_size - sizeof(eth_header_t) - sizeof(ip_header_t) -
+                           sizeof(udp_header_t) - sizeof(rfc2544_payload_t);
 
     for (size_t i = 0; i < padding_len; i++) {
         padding[i] = (uint8_t)(i & 0xFF);
@@ -205,13 +208,14 @@ rfc2544_payload_t* rfc2544_create_packet_template(uint8_t* buffer, uint32_t fram
  * @param signature Custom 7-byte signature (NULL uses default RFC2544)
  * @return Pointer to payload area, or NULL on error
  */
-rfc2544_payload_t* custom_create_packet_template(uint8_t* buffer, uint32_t frame_size,
-                                                 const uint8_t* src_mac, const uint8_t* dst_mac,
+rfc2544_payload_t *custom_create_packet_template(uint8_t *buffer, uint32_t frame_size,
+                                                 const uint8_t *src_mac, const uint8_t *dst_mac,
                                                  uint32_t src_ip, uint32_t dst_ip,
                                                  uint16_t src_port, uint16_t dst_port,
-                                                 uint32_t stream_id, const char* signature) {
+                                                 uint32_t stream_id, const char *signature)
+{
     /* Create standard packet template first */
-    rfc2544_payload_t* payload = rfc2544_create_packet_template(
+    rfc2544_payload_t *payload = rfc2544_create_packet_template(
         buffer, frame_size, src_mac, dst_mac, src_ip, dst_ip, src_port, dst_port, stream_id);
 
     if (!payload) {
@@ -239,15 +243,16 @@ rfc2544_payload_t* custom_create_packet_template(uint8_t* buffer, uint32_t frame
  * @param signature Expected signature (7 bytes)
  * @return true if valid packet with matching signature
  */
-bool custom_is_valid_response(const uint8_t* data, uint32_t len, const char* signature) {
+bool custom_is_valid_response(const uint8_t *data, uint32_t len, const char *signature)
+{
     if (!data || len < RFC2544_MIN_FRAME || !signature) {
         return false;
     }
 
     /* Skip to payload */
-    const rfc2544_payload_t* payload =
-        (const rfc2544_payload_t*)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
-                                   sizeof(udp_header_t));
+    const rfc2544_payload_t *payload =
+        (const rfc2544_payload_t *)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
+                                    sizeof(udp_header_t));
 
     /* Build padded signature for comparison */
     char padded_sig[RFC2544_SIG_LEN];
@@ -274,14 +279,15 @@ bool custom_is_valid_response(const uint8_t* data, uint32_t len, const char* sig
  * @param signature Expected signature for validation
  * @return Sequence number, or 0 on error
  */
-uint32_t custom_get_seq_num(const uint8_t* data, uint32_t len, const char* signature) {
+uint32_t custom_get_seq_num(const uint8_t *data, uint32_t len, const char *signature)
+{
     if (!custom_is_valid_response(data, len, signature)) {
         return 0;
     }
 
-    const rfc2544_payload_t* payload =
-        (const rfc2544_payload_t*)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
-                                   sizeof(udp_header_t));
+    const rfc2544_payload_t *payload =
+        (const rfc2544_payload_t *)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
+                                    sizeof(udp_header_t));
 
     return ntohl(payload->seq_num);
 }
@@ -294,14 +300,15 @@ uint32_t custom_get_seq_num(const uint8_t* data, uint32_t len, const char* signa
  * @param signature Expected signature for validation
  * @return TX timestamp in nanoseconds, or 0 on error
  */
-uint64_t custom_get_tx_timestamp(const uint8_t* data, uint32_t len, const char* signature) {
+uint64_t custom_get_tx_timestamp(const uint8_t *data, uint32_t len, const char *signature)
+{
     if (!custom_is_valid_response(data, len, signature)) {
         return 0;
     }
 
-    const rfc2544_payload_t* payload =
-        (const rfc2544_payload_t*)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
-                                   sizeof(udp_header_t));
+    const rfc2544_payload_t *payload =
+        (const rfc2544_payload_t *)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
+                                    sizeof(udp_header_t));
 
     /* Convert from network byte order */
     uint64_t ts_be = payload->timestamp;
@@ -315,10 +322,11 @@ uint64_t custom_get_tx_timestamp(const uint8_t* data, uint32_t len, const char* 
  * @param seq_num Sequence number
  * @param timestamp_ns TX timestamp in nanoseconds
  */
-void rfc2544_stamp_packet(rfc2544_payload_t* payload, uint32_t seq_num, uint64_t timestamp_ns) {
+void rfc2544_stamp_packet(rfc2544_payload_t *payload, uint32_t seq_num, uint64_t timestamp_ns)
+{
     if (!payload) {
         return;
-}
+    }
 
     payload->seq_num = htonl(seq_num);
 
@@ -334,15 +342,16 @@ void rfc2544_stamp_packet(rfc2544_payload_t* payload, uint32_t seq_num, uint64_t
  * @param len Packet length
  * @return true if valid RFC2544 packet
  */
-bool rfc2544_is_valid_response(const uint8_t* data, uint32_t len) {
+bool rfc2544_is_valid_response(const uint8_t *data, uint32_t len)
+{
     if (!data || len < RFC2544_MIN_FRAME) {
         return false;
     }
 
     /* Skip to payload */
-    const rfc2544_payload_t* payload =
-        (const rfc2544_payload_t*)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
-                                   sizeof(udp_header_t));
+    const rfc2544_payload_t *payload =
+        (const rfc2544_payload_t *)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
+                                    sizeof(udp_header_t));
 
     /* Check signature */
     if (memcmp(payload->signature, RFC2544_SIGNATURE, RFC2544_SIG_LEN) != 0) {
@@ -359,14 +368,15 @@ bool rfc2544_is_valid_response(const uint8_t* data, uint32_t len) {
  * @param len Packet length
  * @return Sequence number, or 0 on error
  */
-uint32_t rfc2544_get_seq_num(const uint8_t* data, uint32_t len) {
+uint32_t rfc2544_get_seq_num(const uint8_t *data, uint32_t len)
+{
     if (!rfc2544_is_valid_response(data, len)) {
         return 0;
     }
 
-    const rfc2544_payload_t* payload =
-        (const rfc2544_payload_t*)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
-                                   sizeof(udp_header_t));
+    const rfc2544_payload_t *payload =
+        (const rfc2544_payload_t *)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
+                                    sizeof(udp_header_t));
 
     return ntohl(payload->seq_num);
 }
@@ -378,14 +388,15 @@ uint32_t rfc2544_get_seq_num(const uint8_t* data, uint32_t len) {
  * @param len Packet length
  * @return TX timestamp in nanoseconds, or 0 on error
  */
-uint64_t rfc2544_get_tx_timestamp(const uint8_t* data, uint32_t len) {
+uint64_t rfc2544_get_tx_timestamp(const uint8_t *data, uint32_t len)
+{
     if (!rfc2544_is_valid_response(data, len)) {
         return 0;
     }
 
-    const rfc2544_payload_t* payload =
-        (const rfc2544_payload_t*)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
-                                   sizeof(udp_header_t));
+    const rfc2544_payload_t *payload =
+        (const rfc2544_payload_t *)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
+                                    sizeof(udp_header_t));
 
     /* Convert from network byte order */
     uint64_t ts_be = payload->timestamp;
@@ -399,7 +410,8 @@ uint64_t rfc2544_get_tx_timestamp(const uint8_t* data, uint32_t len) {
  * @param rx_timestamp_ns RX timestamp (current time)
  * @return Round-trip latency in nanoseconds
  */
-uint64_t rfc2544_calc_latency(uint64_t tx_timestamp_ns, uint64_t rx_timestamp_ns) {
+uint64_t rfc2544_calc_latency(uint64_t tx_timestamp_ns, uint64_t rx_timestamp_ns)
+{
     if (rx_timestamp_ns > tx_timestamp_ns) {
         return rx_timestamp_ns - tx_timestamp_ns;
     }
@@ -412,7 +424,7 @@ uint64_t rfc2544_calc_latency(uint64_t tx_timestamp_ns, uint64_t rx_timestamp_ns
 
 /* Bitmap for tracking received sequences */
 struct seq_tracker {
-    uint64_t* bitmap;
+    uint64_t *bitmap;
     uint32_t  base_seq;
     uint32_t  capacity;
     uint32_t  received;
@@ -427,11 +439,12 @@ typedef struct seq_tracker seq_tracker_t;
  * @param capacity Maximum number of sequences to track
  * @return Tracker, or NULL on error
  */
-seq_tracker_t* rfc2544_seq_tracker_create(uint32_t capacity) {
-    seq_tracker_t* tracker = calloc(1, sizeof(seq_tracker_t));
+seq_tracker_t *rfc2544_seq_tracker_create(uint32_t capacity)
+{
+    seq_tracker_t *tracker = calloc(1, sizeof(seq_tracker_t));
     if (!tracker) {
         return NULL;
-}
+    }
 
     /* Allocate bitmap (64 sequences per uint64_t) */
     size_t bitmap_size = (capacity + 63) / 64;
@@ -456,10 +469,11 @@ seq_tracker_t* rfc2544_seq_tracker_create(uint32_t capacity) {
  * @param tracker Sequence tracker
  * @param seq_num Sequence number
  */
-void rfc2544_seq_tracker_record(seq_tracker_t* tracker, uint32_t seq_num) {
+void rfc2544_seq_tracker_record(seq_tracker_t *tracker, uint32_t seq_num)
+{
     if (!tracker) {
         return;
-}
+    }
 
     uint32_t offset = seq_num - tracker->base_seq;
     if (offset >= tracker->capacity) {
@@ -490,27 +504,29 @@ void rfc2544_seq_tracker_record(seq_tracker_t* tracker, uint32_t seq_num) {
  * @param lost Output: lost count
  * @param loss_pct Output: loss percentage
  */
-void rfc2544_seq_tracker_stats(const seq_tracker_t* tracker, uint32_t expected, uint32_t* received,
-                               uint32_t* lost, double* loss_pct) {
+void rfc2544_seq_tracker_stats(const seq_tracker_t *tracker, uint32_t expected, uint32_t *received,
+                               uint32_t *lost, double *loss_pct)
+{
     if (!tracker) {
         return;
-}
+    }
 
     if (received) {
         *received = tracker->received;
-}
+    }
     if (lost) {
         *lost = expected - tracker->received;
-}
+    }
     if (loss_pct && expected > 0) {
         *loss_pct = 100.0 * (expected - tracker->received) / expected;
-}
+    }
 }
 
 /**
  * Destroy sequence tracker
  */
-void rfc2544_seq_tracker_destroy(seq_tracker_t* tracker) {
+void rfc2544_seq_tracker_destroy(seq_tracker_t *tracker)
+{
     if (tracker) {
         free(tracker->bitmap);
         free(tracker);
@@ -528,11 +544,12 @@ void rfc2544_seq_tracker_destroy(seq_tracker_t* tracker) {
  * @param count Number of samples
  * @param stats Output statistics
  */
-void rfc2544_calc_latency_stats(const uint64_t* samples, uint32_t count, latency_stats_t* stats) {
+void rfc2544_calc_latency_stats(const uint64_t *samples, uint32_t count, latency_stats_t *stats)
+{
     if (!samples || count == 0 || !stats) {
         if (stats) {
             memset(stats, 0, sizeof(*stats));
-}
+        }
         return;
     }
 
@@ -544,10 +561,10 @@ void rfc2544_calc_latency_stats(const uint64_t* samples, uint32_t count, latency
     for (uint32_t i = 0; i < count; i++) {
         if (samples[i] < min_ns) {
             min_ns = samples[i];
-}
+        }
         if (samples[i] > max_ns) {
             max_ns = samples[i];
-}
+        }
         sum_ns += samples[i];
     }
 
@@ -605,11 +622,11 @@ typedef struct __attribute__((packed)) {
  * @param dscp DSCP value for CoS marking (0-63)
  * @return Pointer to payload area, or NULL on error
  */
-y1564_payload_t* y1564_create_packet_template(uint8_t* buffer, uint32_t frame_size,
-                                              const uint8_t* src_mac, const uint8_t* dst_mac,
+y1564_payload_t *y1564_create_packet_template(uint8_t *buffer, uint32_t frame_size,
+                                              const uint8_t *src_mac, const uint8_t *dst_mac,
                                               uint32_t src_ip, uint32_t dst_ip, uint16_t src_port,
-                                              uint16_t dst_port, uint32_t service_id,
-                                              uint8_t dscp) {
+                                              uint16_t dst_port, uint32_t service_id, uint8_t dscp)
+{
     /* Minimum frame size must fit all headers + payload */
     const uint32_t min_frame =
         sizeof(eth_header_t) + sizeof(ip_header_t) + sizeof(udp_header_t) + sizeof(y1564_payload_t);
@@ -622,15 +639,15 @@ y1564_payload_t* y1564_create_packet_template(uint8_t* buffer, uint32_t frame_si
     memset(buffer, 0, frame_size);
 
     /* Ethernet header */
-    eth_header_t* eth = (eth_header_t*)buffer;
+    eth_header_t *eth = (eth_header_t *)buffer;
     memcpy(eth->dst_mac, dst_mac, 6);
     memcpy(eth->src_mac, src_mac, 6);
     eth->ethertype = htons(ETH_P_IP);
 
     /* IP header */
-    ip_header_t* ip    = (ip_header_t*)(buffer + sizeof(eth_header_t));
-    ip->version_ihl    = 0x45;        /* IPv4, 20 byte header */
-    ip->tos            = (dscp << 2); /* DSCP in upper 6 bits, ECN = 0 */
+    ip_header_t *ip    = (ip_header_t *)(buffer + sizeof(eth_header_t));
+    ip->version_ihl    = 0x45;          /* IPv4, 20 byte header */
+    ip->tos            = (dscp << 2);   /* DSCP in upper 6 bits, ECN = 0 */
     ip->total_length   = htons(frame_size - sizeof(eth_header_t));
     ip->identification = htons(0x1564); /* Y.1564 marker */
     ip->flags_fragment = htons(0x4000); /* Don't fragment */
@@ -642,15 +659,15 @@ y1564_payload_t* y1564_create_packet_template(uint8_t* buffer, uint32_t frame_si
     ip->checksum       = ip_checksum(ip, sizeof(ip_header_t));
 
     /* UDP header */
-    udp_header_t* udp = (udp_header_t*)(buffer + sizeof(eth_header_t) + sizeof(ip_header_t));
+    udp_header_t *udp = (udp_header_t *)(buffer + sizeof(eth_header_t) + sizeof(ip_header_t));
     udp->src_port     = htons(src_port);
     udp->dst_port     = htons(dst_port);
     udp->length       = htons(frame_size - sizeof(eth_header_t) - sizeof(ip_header_t));
     udp->checksum     = 0; /* Optional for IPv4 */
 
     /* Y.1564 payload */
-    y1564_payload_t* payload = (y1564_payload_t*)(buffer + sizeof(eth_header_t) +
-                                                  sizeof(ip_header_t) + sizeof(udp_header_t));
+    y1564_payload_t *payload = (y1564_payload_t *)(buffer + sizeof(eth_header_t) +
+                                                   sizeof(ip_header_t) + sizeof(udp_header_t));
     memcpy(payload->signature, Y1564_SIGNATURE, Y1564_SIG_LEN);
     payload->seq_num    = 0; /* Will be set per-packet */
     payload->timestamp  = 0; /* Will be set per-packet */
@@ -658,10 +675,10 @@ y1564_payload_t* y1564_create_packet_template(uint8_t* buffer, uint32_t frame_si
     payload->flags      = Y1564_FLAG_REQ_TIMESTAMP;
 
     /* Fill padding with pattern */
-    uint8_t* padding = buffer + sizeof(eth_header_t) + sizeof(ip_header_t) + sizeof(udp_header_t) +
+    uint8_t *padding = buffer + sizeof(eth_header_t) + sizeof(ip_header_t) + sizeof(udp_header_t) +
                        sizeof(y1564_payload_t);
-    size_t padding_len = frame_size - sizeof(eth_header_t) - sizeof(ip_header_t) -
-                         sizeof(udp_header_t) - sizeof(y1564_payload_t);
+    size_t   padding_len = frame_size - sizeof(eth_header_t) - sizeof(ip_header_t) -
+                           sizeof(udp_header_t) - sizeof(y1564_payload_t);
 
     for (size_t i = 0; i < padding_len; i++) {
         padding[i] = (uint8_t)(i & 0xFF);
@@ -677,10 +694,11 @@ y1564_payload_t* y1564_create_packet_template(uint8_t* buffer, uint32_t frame_si
  * @param seq_num Sequence number
  * @param timestamp_ns TX timestamp in nanoseconds
  */
-void y1564_stamp_packet(y1564_payload_t* payload, uint32_t seq_num, uint64_t timestamp_ns) {
+void y1564_stamp_packet(y1564_payload_t *payload, uint32_t seq_num, uint64_t timestamp_ns)
+{
     if (!payload) {
         return;
-}
+    }
 
     payload->seq_num = htonl(seq_num);
 
@@ -696,15 +714,16 @@ void y1564_stamp_packet(y1564_payload_t* payload, uint32_t seq_num, uint64_t tim
  * @param len Packet length
  * @return true if valid Y.1564 packet
  */
-bool y1564_is_valid_response(const uint8_t* data, uint32_t len) {
+bool y1564_is_valid_response(const uint8_t *data, uint32_t len)
+{
     if (!data || len < Y1564_MIN_FRAME) {
         return false;
     }
 
     /* Skip to payload */
-    const y1564_payload_t* payload =
-        (const y1564_payload_t*)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
-                                 sizeof(udp_header_t));
+    const y1564_payload_t *payload =
+        (const y1564_payload_t *)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
+                                  sizeof(udp_header_t));
 
     /* Check signature */
     if (memcmp(payload->signature, Y1564_SIGNATURE, Y1564_SIG_LEN) != 0) {
@@ -721,14 +740,15 @@ bool y1564_is_valid_response(const uint8_t* data, uint32_t len) {
  * @param len Packet length
  * @return Sequence number, or 0 on error
  */
-uint32_t y1564_get_seq_num(const uint8_t* data, uint32_t len) {
+uint32_t y1564_get_seq_num(const uint8_t *data, uint32_t len)
+{
     if (!y1564_is_valid_response(data, len)) {
         return 0;
     }
 
-    const y1564_payload_t* payload =
-        (const y1564_payload_t*)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
-                                 sizeof(udp_header_t));
+    const y1564_payload_t *payload =
+        (const y1564_payload_t *)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
+                                  sizeof(udp_header_t));
 
     return ntohl(payload->seq_num);
 }
@@ -740,14 +760,15 @@ uint32_t y1564_get_seq_num(const uint8_t* data, uint32_t len) {
  * @param len Packet length
  * @return TX timestamp in nanoseconds, or 0 on error
  */
-uint64_t y1564_get_tx_timestamp(const uint8_t* data, uint32_t len) {
+uint64_t y1564_get_tx_timestamp(const uint8_t *data, uint32_t len)
+{
     if (!y1564_is_valid_response(data, len)) {
         return 0;
     }
 
-    const y1564_payload_t* payload =
-        (const y1564_payload_t*)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
-                                 sizeof(udp_header_t));
+    const y1564_payload_t *payload =
+        (const y1564_payload_t *)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
+                                  sizeof(udp_header_t));
 
     /* Convert from network byte order */
     uint64_t ts_be = payload->timestamp;
@@ -761,14 +782,15 @@ uint64_t y1564_get_tx_timestamp(const uint8_t* data, uint32_t len) {
  * @param len Packet length
  * @return Service ID (1-8), or 0 on error
  */
-uint32_t y1564_get_service_id(const uint8_t* data, uint32_t len) {
+uint32_t y1564_get_service_id(const uint8_t *data, uint32_t len)
+{
     if (!y1564_is_valid_response(data, len)) {
         return 0;
     }
 
-    const y1564_payload_t* payload =
-        (const y1564_payload_t*)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
-                                 sizeof(udp_header_t));
+    const y1564_payload_t *payload =
+        (const y1564_payload_t *)(data + sizeof(eth_header_t) + sizeof(ip_header_t) +
+                                  sizeof(udp_header_t));
 
     return ntohl(payload->service_id);
 }
@@ -780,7 +802,8 @@ uint32_t y1564_get_service_id(const uint8_t* data, uint32_t len) {
  * @param rx_timestamp_ns RX timestamp (current time)
  * @return Round-trip latency in nanoseconds
  */
-uint64_t y1564_calc_latency(uint64_t tx_timestamp_ns, uint64_t rx_timestamp_ns) {
+uint64_t y1564_calc_latency(uint64_t tx_timestamp_ns, uint64_t rx_timestamp_ns)
+{
     if (rx_timestamp_ns > tx_timestamp_ns) {
         return rx_timestamp_ns - tx_timestamp_ns;
     }

@@ -7,11 +7,13 @@
  * logic for ITO (Integrated Test & Optimization) packets.
  */
 
-#include <arpa/inet.h>
 #include <inttypes.h>
-#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
+
+#include <arpa/inet.h>
+
+#include <pthread.h>
 
 #include "reflector.h"
 #ifdef __linux__
@@ -33,7 +35,8 @@ static pthread_once_t cpu_detect_once = PTHREAD_ONCE_INIT;
 /*
  * Detect CPU features at runtime
  */
-static void detect_cpu_features(void) {
+static void detect_cpu_features(void)
+{
     unsigned int eax, ebx, ecx, edx;
 
     /* Check for SSE2 (CPUID.01H:EDX.SSE2[bit 26]) */
@@ -77,8 +80,9 @@ static int cpu_has_neon __attribute__((unused)) = 1;
  *
  * Returns: true if packet should be reflected, false otherwise
  */
-ALWAYS_INLINE bool is_ito_packet(const uint8_t* data, uint32_t len,
-                                 const reflector_config_t* config) {
+ALWAYS_INLINE bool is_ito_packet(const uint8_t *data, uint32_t len,
+                                 const reflector_config_t *config)
+{
     static _Thread_local int debug_count = 0;
 
     /* Prefetch packet data for upcoming checks */
@@ -184,8 +188,8 @@ ALWAYS_INLINE bool is_ito_packet(const uint8_t* data, uint32_t len,
      * ITO signatures are at offset 5 in UDP payload (5-byte ITO header)
      * RFC2544/Y.1564 signatures are at offset 0 (start of UDP payload)
      */
-    const uint8_t* ito_sig    = &data[udp_payload_offset + ITO_SIG_OFFSET];
-    const uint8_t* custom_sig = &data[udp_payload_offset]; /* Offset 0 for RFC2544/Y.1564 */
+    const uint8_t *ito_sig    = &data[udp_payload_offset + ITO_SIG_OFFSET];
+    const uint8_t *custom_sig = &data[udp_payload_offset]; /* Offset 0 for RFC2544/Y.1564 */
 
     if (unlikely(debug_count++ < 3)) {
         char sig_str[8];
@@ -241,7 +245,8 @@ ALWAYS_INLINE bool is_ito_packet(const uint8_t* data, uint32_t len,
  *
  * Expected performance gain: 2-3% over scalar version
  */
-static ALWAYS_INLINE void reflect_packet_inplace_simd(uint8_t* data, uint32_t len) {
+static ALWAYS_INLINE void reflect_packet_inplace_simd(uint8_t *data, uint32_t len)
+{
     (void)len;
 
     /* Prefetch areas we'll modify */
@@ -257,7 +262,7 @@ static ALWAYS_INLINE void reflect_packet_inplace_simd(uint8_t* data, uint32_t le
      * Load first 16 bytes (covers full Ethernet header + 2 bytes of IP)
      * We'll swap MAC addresses using SIMD shuffle
      */
-    __m128i eth_header = _mm_loadu_si128((__m128i*)data);
+    __m128i eth_header = _mm_loadu_si128((__m128i *)data);
 
     /* Create shuffle mask to swap src/dst MAC (6 bytes each)
      * Original: [dst0-5][src0-5][type0-1][ip0-1]
@@ -271,7 +276,7 @@ static ALWAYS_INLINE void reflect_packet_inplace_simd(uint8_t* data, uint32_t le
         );
 
     eth_header = _mm_shuffle_epi8(eth_header, mac_shuffle);
-    _mm_storeu_si128((__m128i*)data, eth_header);
+    _mm_storeu_si128((__m128i *)data, eth_header);
 
     /* Get IP header length to find UDP header */
     uint8_t  ihl        = data[ETH_HDR_LEN + IP_VER_IHL_OFFSET] & 0x0F;
@@ -286,7 +291,7 @@ static ALWAYS_INLINE void reflect_packet_inplace_simd(uint8_t* data, uint32_t le
     /* Load 16 bytes starting at IP source address (covers src IP, dst IP, and more)
      * IP src is at offset 12 in IP header, dst at offset 16
      */
-    __m128i ip_block = _mm_loadu_si128((__m128i*)&data[ip_offset + IP_SRC_OFFSET]);
+    __m128i ip_block = _mm_loadu_si128((__m128i *)&data[ip_offset + IP_SRC_OFFSET]);
 
     /* Shuffle to swap 32-bit IP addresses
      * Bytes [0-3] = src IP, [4-7] = dst IP
@@ -298,14 +303,14 @@ static ALWAYS_INLINE void reflect_packet_inplace_simd(uint8_t* data, uint32_t le
     );
 
     ip_block = _mm_shuffle_epi8(ip_block, ip_shuffle);
-    _mm_storeu_si128((__m128i*)&data[ip_offset + IP_SRC_OFFSET], ip_block);
+    _mm_storeu_si128((__m128i *)&data[ip_offset + IP_SRC_OFFSET], ip_block);
 
     /*
      * Swap UDP ports using 32-bit operation (load both ports, swap, store)
      * This is faster than two separate 16-bit operations
      */
     uint32_t  udp_offset = ETH_HDR_LEN + ip_hdr_len;
-    uint32_t* ports      = (uint32_t*)&data[udp_offset];
+    uint32_t *ports      = (uint32_t *)&data[udp_offset];
     uint32_t  port_pair  = *ports;
 
     /* Swap the two 16-bit halves using rotate */
@@ -322,7 +327,8 @@ static ALWAYS_INLINE void reflect_packet_inplace_simd(uint8_t* data, uint32_t le
  *
  * Expected performance gain: 2-3% over scalar version on ARM64
  */
-static ALWAYS_INLINE void reflect_packet_inplace_neon(uint8_t* data, uint32_t len) {
+static ALWAYS_INLINE void reflect_packet_inplace_neon(uint8_t *data, uint32_t len)
+{
     (void)len;
 
     /* Prefetch areas we'll modify */
@@ -363,20 +369,20 @@ static ALWAYS_INLINE void reflect_packet_inplace_neon(uint8_t* data, uint32_t le
     uint32_t ip_offset = ETH_HDR_LEN;
 
     /* Load IP source and destination as 32-bit values */
-    uint32x2_t ip_addrs = vld1_u32((uint32_t*)&data[ip_offset + IP_SRC_OFFSET]);
+    uint32x2_t ip_addrs = vld1_u32((uint32_t *)&data[ip_offset + IP_SRC_OFFSET]);
 
     /* Reverse the two 32-bit values (swap src and dst) */
     ip_addrs = vrev64_u32(ip_addrs);
 
     /* Store back */
-    vst1_u32((uint32_t*)&data[ip_offset + IP_SRC_OFFSET], ip_addrs);
+    vst1_u32((uint32_t *)&data[ip_offset + IP_SRC_OFFSET], ip_addrs);
 
     /*
      * Swap UDP ports using 32-bit operation
      * Load both ports as one 32-bit value, then swap the halves
      */
     uint32_t  udp_offset = ETH_HDR_LEN + ip_hdr_len;
-    uint32_t* ports      = (uint32_t*)&data[udp_offset];
+    uint32_t *ports      = (uint32_t *)&data[udp_offset];
     uint32_t  port_pair  = *ports;
 
     /* Rotate 16 bits to swap the two 16-bit port values */
@@ -396,8 +402,9 @@ static ALWAYS_INLINE void reflect_packet_inplace_neon(uint8_t* data, uint32_t le
  * Assumes packet has been validated by is_ito_packet()
  * Optimized with direct integer swaps and prefetching
  */
-__attribute__((unused)) static ALWAYS_INLINE void reflect_packet_inplace_scalar(uint8_t* data,
-                                                                                uint32_t len) {
+__attribute__((unused)) static ALWAYS_INLINE void reflect_packet_inplace_scalar(uint8_t *data,
+                                                                                uint32_t len)
+{
     (void)len; /* Length not needed for in-place swapping */
 
     /* Prefetch areas we'll modify */
@@ -437,7 +444,8 @@ __attribute__((unused)) static ALWAYS_INLINE void reflect_packet_inplace_scalar(
  * Calculate IP header checksum (RFC 791)
  * Standard internet checksum algorithm for software fallback
  */
-static uint16_t calculate_ip_checksum(const uint8_t* iph, uint32_t ihl_bytes) {
+static uint16_t calculate_ip_checksum(const uint8_t *iph, uint32_t ihl_bytes)
+{
     uint32_t sum   = 0;
     uint32_t count = ihl_bytes;
 
@@ -463,12 +471,13 @@ static uint16_t calculate_ip_checksum(const uint8_t* iph, uint32_t ihl_bytes) {
  * Calculate UDP checksum (RFC 768)
  * Uses IP pseudo-header + UDP header + data
  */
-static uint16_t calculate_udp_checksum(const uint8_t* iph, const uint8_t* udph, uint32_t udp_len) {
+static uint16_t calculate_udp_checksum(const uint8_t *iph, const uint8_t *udph, uint32_t udp_len)
+{
     uint32_t sum = 0;
 
     /* IP pseudo-header for UDP checksum */
-    const uint16_t* src_ip = (const uint16_t*)(iph + 12);
-    const uint16_t* dst_ip = (const uint16_t*)(iph + 16);
+    const uint16_t *src_ip = (const uint16_t *)(iph + 12);
+    const uint16_t *dst_ip = (const uint16_t *)(iph + 16);
 
     /* Sum source IP (2 words) */
     sum += ntohs(src_ip[0]);
@@ -483,7 +492,7 @@ static uint16_t calculate_udp_checksum(const uint8_t* iph, const uint8_t* udph, 
     sum += udp_len;
 
     /* Sum UDP header + data (skip checksum field at offset 6) */
-    const uint16_t* ptr = (const uint16_t*)udph;
+    const uint16_t *ptr = (const uint16_t *)udph;
     for (uint32_t i = 0; i < udp_len / 2; i++) {
         if (i != 3) { /* Skip UDP checksum field at offset 6 (word 3) */
             sum += ntohs(ptr[i]);
@@ -517,7 +526,8 @@ static uint16_t calculate_udp_checksum(const uint8_t* iph, const uint8_t* udph, 
  * Note: Does NOT calculate checksums - use reflect_packet_with_checksum()
  * if software checksum calculation is needed.
  */
-void reflect_packet_inplace(uint8_t* data, uint32_t len) {
+void reflect_packet_inplace(uint8_t *data, uint32_t len)
+{
 #if defined(__x86_64__) || defined(_M_X64)
     /* Thread-safe CPU feature detection (once only) */
     pthread_once(&cpu_detect_once, detect_cpu_features);
@@ -558,27 +568,28 @@ void reflect_packet_inplace(uint8_t* data, uint32_t len) {
  * software_checksum is enabled. Use this instead of reflect_packet_inplace()
  * when NIC checksum offload is unavailable or unreliable.
  */
-void reflect_packet_with_checksum(uint8_t* data, uint32_t len, bool software_checksum) {
+void reflect_packet_with_checksum(uint8_t *data, uint32_t len, bool software_checksum)
+{
     /* Perform SIMD/scalar packet reflection */
     reflect_packet_inplace(data, len);
 
     /* Recalculate checksums if software fallback enabled */
     if (software_checksum && len >= MIN_CHECKSUM_PACKET_LEN) {
-        uint8_t* iph = data + ETH_HDR_LEN;
+        uint8_t *iph = data + ETH_HDR_LEN;
         uint8_t  ihl = (iph[0] & 0x0F) * 4; /* IP header length in bytes */
 
         if (ihl >= IP_HDR_MIN_LEN && len >= (uint32_t)(ETH_HDR_LEN + ihl + UDP_HDR_LEN)) {
             /* Recalculate IP checksum */
-            uint16_t* ip_check = (uint16_t*)(iph + 10);
+            uint16_t *ip_check = (uint16_t *)(iph + 10);
             *ip_check          = 0; /* Clear before calculation */
             *ip_check          = calculate_ip_checksum(iph, ihl);
 
             /* Recalculate UDP checksum */
-            uint8_t* udph    = iph + ihl;
-            uint16_t udp_len = ntohs(*(uint16_t*)(udph + 4));
+            uint8_t *udph    = iph + ihl;
+            uint16_t udp_len = ntohs(*(uint16_t *)(udph + 4));
 
             if (len >= (uint32_t)(ETH_HDR_LEN + ihl + udp_len)) {
-                uint16_t* udp_check = (uint16_t*)(udph + 6);
+                uint16_t *udp_check = (uint16_t *)(udph + 6);
                 *udp_check          = 0; /* Clear before calculation */
                 *udp_check          = calculate_udp_checksum(iph, udph, udp_len);
             }
@@ -594,8 +605,9 @@ void reflect_packet_with_checksum(uint8_t* data, uint32_t len, bool software_che
  * - REFLECT_MODE_MAC_IP: Swap MAC + IP addresses
  * - REFLECT_MODE_ALL: Swap MAC + IP + UDP ports (default, full reflection)
  */
-void reflect_packet_with_mode(uint8_t* data, uint32_t len, reflect_mode_t mode,
-                              bool software_checksum) {
+void reflect_packet_with_mode(uint8_t *data, uint32_t len, reflect_mode_t mode,
+                              bool software_checksum)
+{
     /* All modes require at least Ethernet header */
     if (len < ETH_HDR_LEN) {
         return;
@@ -639,8 +651,8 @@ void reflect_packet_with_mode(uint8_t* data, uint32_t len, reflect_mode_t mode,
     if (mode == REFLECT_MODE_MAC_IP) {
         /* MAC+IP mode: recalculate IP checksum if needed, then done */
         if (software_checksum) {
-            uint8_t*  iph      = data + ETH_HDR_LEN;
-            uint16_t* ip_check = (uint16_t*)(iph + 10);
+            uint8_t  *iph      = data + ETH_HDR_LEN;
+            uint16_t *ip_check = (uint16_t *)(iph + 10);
             *ip_check          = 0;
             *ip_check          = calculate_ip_checksum(iph, ip_hdr_len);
         }
@@ -661,19 +673,19 @@ void reflect_packet_with_mode(uint8_t* data, uint32_t len, reflect_mode_t mode,
 
     /* Recalculate checksums if software fallback enabled */
     if (software_checksum && len >= MIN_CHECKSUM_PACKET_LEN) {
-        uint8_t* iph = data + ETH_HDR_LEN;
+        uint8_t *iph = data + ETH_HDR_LEN;
 
         /* Recalculate IP checksum */
-        uint16_t* ip_check = (uint16_t*)(iph + 10);
+        uint16_t *ip_check = (uint16_t *)(iph + 10);
         *ip_check          = 0;
         *ip_check          = calculate_ip_checksum(iph, ip_hdr_len);
 
         /* Recalculate UDP checksum */
-        uint8_t* udph    = iph + ip_hdr_len;
-        uint16_t udp_len = ntohs(*(uint16_t*)(udph + 4));
+        uint8_t *udph    = iph + ip_hdr_len;
+        uint16_t udp_len = ntohs(*(uint16_t *)(udph + 4));
 
         if (len >= ETH_HDR_LEN + ip_hdr_len + udp_len) {
-            uint16_t* udp_check = (uint16_t*)(udph + 6);
+            uint16_t *udp_check = (uint16_t *)(udph + 6);
             *udp_check          = 0;
             *udp_check          = calculate_udp_checksum(iph, udph, udp_len);
         }
@@ -686,7 +698,8 @@ void reflect_packet_with_mode(uint8_t* data, uint32_t len, reflect_mode_t mode,
  * For platforms that can't do in-place modification, this creates a new
  * reflected packet. Caller must provide destination buffer.
  */
-void reflect_packet_copy(const uint8_t* src, uint8_t* dst, uint32_t len) {
+void reflect_packet_copy(const uint8_t *src, uint8_t *dst, uint32_t len)
+{
     /* Copy entire packet first */
     memcpy(dst, src, len);
 
@@ -700,7 +713,8 @@ void reflect_packet_copy(const uint8_t* src, uint8_t* dst, uint32_t len) {
  * Returns the specific ITO signature type for statistics tracking.
  * Assumes packet has been validated with is_ito_packet()
  */
-sig_type_t get_ito_signature_type(const uint8_t* data, uint32_t len) {
+sig_type_t get_ito_signature_type(const uint8_t *data, uint32_t len)
+{
     /* Calculate UDP payload offset */
     uint8_t  ihl                = data[ETH_HDR_LEN + IP_VER_IHL_OFFSET] & 0x0F;
     uint32_t ip_hdr_len         = ihl * 4;
@@ -715,8 +729,8 @@ sig_type_t get_ito_signature_type(const uint8_t* data, uint32_t len) {
      * ITO signatures are at offset 5 in UDP payload (5-byte ITO header)
      * RFC2544/Y.1564 signatures are at offset 0 (start of UDP payload)
      */
-    const uint8_t* ito_sig    = &data[udp_payload_offset + ITO_SIG_OFFSET];
-    const uint8_t* custom_sig = &data[udp_payload_offset];
+    const uint8_t *ito_sig    = &data[udp_payload_offset + ITO_SIG_OFFSET];
+    const uint8_t *custom_sig = &data[udp_payload_offset];
 
     /* ITO signatures (NetAlly/Fluke/NETSCOUT) - at offset 5 */
     if (memcmp(ito_sig, ITO_SIG_PROBEOT, ITO_SIG_LEN) == 0) {
@@ -742,7 +756,8 @@ sig_type_t get_ito_signature_type(const uint8_t* data, uint32_t len) {
 /*
  * Update per-signature statistics (inlined for performance)
  */
-ALWAYS_INLINE void update_signature_stats(reflector_stats_t* stats, sig_type_t sig_type) {
+ALWAYS_INLINE void update_signature_stats(reflector_stats_t *stats, sig_type_t sig_type)
+{
     switch (sig_type) {
     case SIG_TYPE_PROBEOT:
         stats->sig_probeot_count++;
@@ -772,7 +787,8 @@ ALWAYS_INLINE void update_signature_stats(reflector_stats_t* stats, sig_type_t s
 /*
  * Update latency statistics (inlined for performance)
  */
-ALWAYS_INLINE void update_latency_stats(latency_stats_t* latency, uint64_t latency_ns) {
+ALWAYS_INLINE void update_latency_stats(latency_stats_t *latency, uint64_t latency_ns)
+{
     latency->count++;
     latency->total_ns += latency_ns;
 
@@ -782,10 +798,10 @@ ALWAYS_INLINE void update_latency_stats(latency_stats_t* latency, uint64_t laten
     } else {
         if (unlikely(latency_ns < latency->min_ns)) {
             latency->min_ns = latency_ns;
-}
+        }
         if (unlikely(latency_ns > latency->max_ns)) {
             latency->max_ns = latency_ns;
-}
+        }
     }
 
     latency->avg_ns = (double)latency->total_ns / (double)latency->count;
@@ -794,7 +810,8 @@ ALWAYS_INLINE void update_latency_stats(latency_stats_t* latency, uint64_t laten
 /*
  * Update error statistics by category (inlined for performance)
  */
-ALWAYS_INLINE void update_error_stats(reflector_stats_t* stats, error_category_t err_cat) {
+ALWAYS_INLINE void update_error_stats(reflector_stats_t *stats, error_category_t err_cat)
+{
     switch (err_cat) {
     case ERR_RX_INVALID_MAC:
         stats->err_invalid_mac++;
@@ -832,7 +849,8 @@ ALWAYS_INLINE void update_error_stats(reflector_stats_t* stats, error_category_t
 /*
  * Print statistics in JSON format
  */
-void reflector_print_stats_json(const reflector_stats_t* stats) {
+void reflector_print_stats_json(const reflector_stats_t *stats)
+{
     printf("{\n");
     printf("  \"packets\": {\n");
     printf("    \"received\": %" PRIu64 ",\n", stats->packets_received);
@@ -880,7 +898,8 @@ void reflector_print_stats_json(const reflector_stats_t* stats) {
 /*
  * Print statistics in CSV format
  */
-void reflector_print_stats_csv(const reflector_stats_t* stats) {
+void reflector_print_stats_csv(const reflector_stats_t *stats)
+{
     printf("%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",", stats->packets_received,
            stats->packets_reflected, stats->packets_dropped, stats->bytes_received,
            stats->bytes_reflected);
@@ -904,7 +923,8 @@ void reflector_print_stats_csv(const reflector_stats_t* stats) {
 /*
  * Print statistics (dispatcher based on format)
  */
-void reflector_print_stats_formatted(const reflector_stats_t* stats, stats_format_t format) {
+void reflector_print_stats_formatted(const reflector_stats_t *stats, stats_format_t format)
+{
     switch (format) {
     case STATS_FORMAT_JSON:
         reflector_print_stats_json(stats);
@@ -937,8 +957,9 @@ void reflector_print_stats_formatted(const reflector_stats_t* stats, stats_forma
  * [16-17] Inner EtherType (actual protocol)
  * [18+]   Payload
  */
-bool is_vlan_tagged(const uint8_t* data, uint32_t len, uint16_t* inner_ethertype,
-                    uint32_t* vlan_offset) {
+bool is_vlan_tagged(const uint8_t *data, uint32_t len, uint16_t *inner_ethertype,
+                    uint32_t *vlan_offset)
+{
     /* Need at least Ethernet header + VLAN tag */
     if (len < ETH_HDR_LEN + VLAN_HDR_LEN) {
         return false;
@@ -965,8 +986,8 @@ bool is_vlan_tagged(const uint8_t* data, uint32_t len, uint16_t* inner_ethertype
  * Calculate UDP checksum for IPv6
  * Uses IPv6 pseudo-header + UDP header + data
  */
-static uint16_t calculate_udp6_checksum(const uint8_t* ip6h, const uint8_t* udph,
-                                        uint32_t udp_len) {
+static uint16_t calculate_udp6_checksum(const uint8_t *ip6h, const uint8_t *udph, uint32_t udp_len)
+{
     uint32_t sum = 0;
 
     /* IPv6 pseudo-header:
@@ -978,13 +999,13 @@ static uint16_t calculate_udp6_checksum(const uint8_t* ip6h, const uint8_t* udph
      */
 
     /* Sum source IPv6 address (8 words) */
-    const uint16_t* src = (const uint16_t*)(ip6h + IPV6_SRC_OFFSET);
+    const uint16_t *src = (const uint16_t *)(ip6h + IPV6_SRC_OFFSET);
     for (int i = 0; i < 8; i++) {
         sum += ntohs(src[i]);
     }
 
     /* Sum destination IPv6 address (8 words) */
-    const uint16_t* dst = (const uint16_t*)(ip6h + IPV6_DST_OFFSET);
+    const uint16_t *dst = (const uint16_t *)(ip6h + IPV6_DST_OFFSET);
     for (int i = 0; i < 8; i++) {
         sum += ntohs(dst[i]);
     }
@@ -997,7 +1018,7 @@ static uint16_t calculate_udp6_checksum(const uint8_t* ip6h, const uint8_t* udph
     sum += IPPROTO_UDP;
 
     /* Sum UDP header + data (skip checksum field at offset 6) */
-    const uint16_t* ptr = (const uint16_t*)udph;
+    const uint16_t *ptr = (const uint16_t *)udph;
     for (uint32_t i = 0; i < udp_len / 2; i++) {
         if (i != 3) { /* Skip UDP checksum field */
             sum += ntohs(ptr[i]);
@@ -1029,7 +1050,8 @@ static uint16_t calculate_udp6_checksum(const uint8_t* ip6h, const uint8_t* udph
  * - IPv6 source/destination (16 bytes each)
  * - UDP ports (if mode == ALL)
  */
-void reflect_packet_ipv6(uint8_t* data, uint32_t len, reflect_mode_t mode, bool software_checksum) {
+void reflect_packet_ipv6(uint8_t *data, uint32_t len, reflect_mode_t mode, bool software_checksum)
+{
     /* Determine if VLAN tagged */
     uint16_t inner_etype = 0;
     uint32_t ip_offset   = ETH_HDR_LEN;
@@ -1087,12 +1109,12 @@ void reflect_packet_ipv6(uint8_t* data, uint32_t len, reflect_mode_t mode, bool 
     /* Recalculate UDP checksum if software fallback enabled */
     /* Note: IPv6 UDP checksum is mandatory */
     if (software_checksum) {
-        uint8_t* ip6h    = data + ip_offset;
-        uint8_t* udph    = data + udp_offset;
-        uint16_t udp_len = ntohs(*(uint16_t*)(udph + 4));
+        uint8_t *ip6h    = data + ip_offset;
+        uint8_t *udph    = data + udp_offset;
+        uint16_t udp_len = ntohs(*(uint16_t *)(udph + 4));
 
         if (len >= udp_offset + udp_len) {
-            uint16_t* udp_check = (uint16_t*)(udph + 6);
+            uint16_t *udp_check = (uint16_t *)(udph + 6);
             *udp_check          = 0;
             *udp_check          = calculate_udp6_checksum(ip6h, udph, udp_len);
         }
@@ -1109,8 +1131,9 @@ void reflect_packet_ipv6(uint8_t* data, uint32_t len, reflect_mode_t mode, bool 
  *
  * Returns: true if valid ITO packet, false otherwise
  */
-bool is_ito_packet_extended(const uint8_t* data, uint32_t len, const reflector_config_t* config,
-                            bool* is_ipv6, bool* is_vlan) {
+bool is_ito_packet_extended(const uint8_t *data, uint32_t len, const reflector_config_t *config,
+                            bool *is_ipv6, bool *is_vlan)
+{
     *is_ipv6 = false;
     *is_vlan = false;
 
@@ -1223,8 +1246,8 @@ bool is_ito_packet_extended(const uint8_t* data, uint32_t len, const reflector_c
      * ITO signatures are at offset 5 in UDP payload (5-byte ITO header)
      * RFC2544/Y.1564 signatures are at offset 0 (start of UDP payload)
      */
-    const uint8_t* ito_sig    = &data[udp_payload_offset + ITO_SIG_OFFSET];
-    const uint8_t* custom_sig = &data[udp_payload_offset];
+    const uint8_t *ito_sig    = &data[udp_payload_offset + ITO_SIG_OFFSET];
+    const uint8_t *custom_sig = &data[udp_payload_offset];
 
     /* Check for ITO signatures (at offset 5) */
     if (likely(memcmp(ito_sig, ITO_SIG_PROBEOT, ITO_SIG_LEN) == 0 ||

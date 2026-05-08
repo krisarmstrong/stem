@@ -7,13 +7,14 @@
  * Uses high-resolution timing to achieve precise packet rates.
  */
 
-#include <sched.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#include <sched.h>
 #include <unistd.h>
 
 #include "platform_config.h"
@@ -55,14 +56,16 @@ typedef struct pacing_ctx pacing_ctx_t;
  * High-Resolution Timing
  * ============================================================================ */
 
-static inline uint64_t get_time_ns(void) {
+static inline uint64_t get_time_ns(void)
+{
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (uint64_t)ts.tv_sec * NS_PER_SEC + ts.tv_nsec;
 }
 
 /* Busy-wait until target time (high precision but CPU intensive) */
-static inline void busy_wait_until(uint64_t target_ns) {
+static inline void busy_wait_until(uint64_t target_ns)
+{
     while (get_time_ns() < target_ns) {
         /* Spin - could add pause instruction for power efficiency */
         __asm__ volatile("" ::: "memory");
@@ -70,11 +73,12 @@ static inline void busy_wait_until(uint64_t target_ns) {
 }
 
 /* Sleep-based wait (lower precision but CPU friendly) */
-static inline void sleep_wait_until(uint64_t target_ns) {
+static inline void sleep_wait_until(uint64_t target_ns)
+{
     uint64_t now = get_time_ns();
     if (now >= target_ns) {
         return;
-}
+    }
 
     uint64_t delta = target_ns - now;
 
@@ -102,11 +106,12 @@ static inline void sleep_wait_until(uint64_t target_ns) {
  * @param rate_pct Target rate as percentage of line rate
  * @return Pacing context, or NULL on error
  */
-pacing_ctx_t* pacing_create(uint64_t line_rate_bps, uint32_t frame_size, double rate_pct) {
-    pacing_ctx_t* ctx = calloc(1, sizeof(pacing_ctx_t));
+pacing_ctx_t *pacing_create(uint64_t line_rate_bps, uint32_t frame_size, double rate_pct)
+{
+    pacing_ctx_t *ctx = calloc(1, sizeof(pacing_ctx_t));
     if (!ctx) {
         return NULL;
-}
+    }
 
     ctx->line_rate_bps = line_rate_bps; /* Store for rate changes */
     ctx->frame_size    = frame_size;
@@ -141,10 +146,11 @@ pacing_ctx_t* pacing_create(uint64_t line_rate_bps, uint32_t frame_size, double 
  * @param ctx Pacing context
  * @param rate_pct New rate as percentage of line rate
  */
-void pacing_set_rate(pacing_ctx_t* ctx, double rate_pct) {
+void pacing_set_rate(pacing_ctx_t *ctx, double rate_pct)
+{
     if (!ctx || rate_pct <= 0.0 || rate_pct > 100.0) {
         return;
-}
+    }
 
     uint32_t wire_size = ctx->frame_size + 20;
 
@@ -165,10 +171,11 @@ void pacing_set_rate(pacing_ctx_t* ctx, double rate_pct) {
  * @param ctx Pacing context
  * @param batch_size Number of packets per batch
  */
-void pacing_set_batch_size(pacing_ctx_t* ctx, uint32_t batch_size) {
+void pacing_set_batch_size(pacing_ctx_t *ctx, uint32_t batch_size)
+{
     if (!ctx || batch_size == 0) {
         return;
-}
+    }
 
     ctx->batch_size        = batch_size;
     ctx->batch_interval_ns = ctx->interval_ns * batch_size;
@@ -180,10 +187,11 @@ void pacing_set_batch_size(pacing_ctx_t* ctx, uint32_t batch_size) {
  * @param ctx Pacing context
  * @param enable true for busy-wait (high precision), false for sleep-based
  */
-void pacing_set_busy_wait(pacing_ctx_t* ctx, bool enable) {
+void pacing_set_busy_wait(pacing_ctx_t *ctx, bool enable)
+{
     if (ctx) {
         ctx->use_busy_wait = enable;
-}
+    }
 }
 
 /**
@@ -192,10 +200,11 @@ void pacing_set_busy_wait(pacing_ctx_t* ctx, bool enable) {
  * @param ctx Pacing context
  * @return Current timestamp in nanoseconds
  */
-uint64_t pacing_wait(pacing_ctx_t* ctx) {
+uint64_t pacing_wait(pacing_ctx_t *ctx)
+{
     if (!ctx || !ctx->enabled) {
         return get_time_ns();
-}
+    }
 
     uint64_t now = get_time_ns();
 
@@ -226,10 +235,11 @@ uint64_t pacing_wait(pacing_ctx_t* ctx) {
  * @param batch_size Number of packets in batch
  * @return Current timestamp in nanoseconds
  */
-uint64_t pacing_wait_batch(pacing_ctx_t* ctx, uint32_t batch_size) {
+uint64_t pacing_wait_batch(pacing_ctx_t *ctx, uint32_t batch_size)
+{
     if (!ctx || !ctx->enabled) {
         return get_time_ns();
-}
+    }
 
     uint64_t now            = get_time_ns();
     uint64_t batch_interval = ctx->interval_ns * batch_size;
@@ -258,10 +268,11 @@ uint64_t pacing_wait_batch(pacing_ctx_t* ctx, uint32_t batch_size) {
  * @param packets Number of packets sent
  * @param bytes Number of bytes sent
  */
-void pacing_record_tx(pacing_ctx_t* ctx, uint32_t packets, uint32_t bytes) {
+void pacing_record_tx(pacing_ctx_t *ctx, uint32_t packets, uint32_t bytes)
+{
     if (!ctx) {
         return;
-}
+    }
 
     ctx->packets_sent += packets;
     ctx->bytes_sent += bytes;
@@ -274,14 +285,15 @@ void pacing_record_tx(pacing_ctx_t* ctx, uint32_t packets, uint32_t bytes) {
  * @param pps Output: packets per second
  * @param mbps Output: megabits per second
  */
-void pacing_get_rate(const pacing_ctx_t* ctx, double* pps, double* mbps) {
+void pacing_get_rate(const pacing_ctx_t *ctx, double *pps, double *mbps)
+{
     if (!ctx) {
         if (pps) {
             *pps = 0;
-}
+        }
         if (mbps) {
             *mbps = 0;
-}
+        }
         return;
     }
 
@@ -291,10 +303,10 @@ void pacing_get_rate(const pacing_ctx_t* ctx, double* pps, double* mbps) {
     if (elapsed > 0) {
         if (pps) {
             *pps = ctx->packets_sent / elapsed;
-}
+        }
         if (mbps) {
             *mbps = (ctx->bytes_sent * 8.0) / (elapsed * 1e6);
-}
+        }
     }
 }
 
@@ -305,17 +317,18 @@ void pacing_get_rate(const pacing_ctx_t* ctx, double* pps, double* mbps) {
  * @param delays Output: number of pacing delays
  * @param overruns Output: number of overruns (fell behind)
  */
-void pacing_get_stats(const pacing_ctx_t* ctx, uint64_t* delays, uint64_t* overruns) {
+void pacing_get_stats(const pacing_ctx_t *ctx, uint64_t *delays, uint64_t *overruns)
+{
     if (!ctx) {
         return;
-}
+    }
 
     if (delays) {
         *delays = ctx->pacing_delays;
-}
+    }
     if (overruns) {
         *overruns = ctx->overruns;
-}
+    }
 }
 
 /**
@@ -323,10 +336,11 @@ void pacing_get_stats(const pacing_ctx_t* ctx, uint64_t* delays, uint64_t* overr
  *
  * @param ctx Pacing context
  */
-void pacing_reset(pacing_ctx_t* ctx) {
+void pacing_reset(pacing_ctx_t *ctx)
+{
     if (!ctx) {
         return;
-}
+    }
 
     ctx->start_ns      = get_time_ns();
     ctx->next_tx_ns    = ctx->start_ns;
@@ -341,7 +355,8 @@ void pacing_reset(pacing_ctx_t* ctx) {
  *
  * @param ctx Pacing context
  */
-void pacing_destroy(pacing_ctx_t* ctx) {
+void pacing_destroy(pacing_ctx_t *ctx)
+{
     free(ctx);
 }
 
@@ -356,7 +371,8 @@ void pacing_destroy(pacing_ctx_t* ctx) {
  * @param frame_size Frame size in bytes
  * @return Maximum packets per second
  */
-uint64_t calc_max_pps(uint64_t line_rate_bps, uint32_t frame_size) {
+uint64_t calc_max_pps(uint64_t line_rate_bps, uint32_t frame_size)
+{
     /* Wire size = frame + preamble (8) + SFD (in preamble) + IFG (12) */
     uint32_t wire_size = frame_size + 20;
     return line_rate_bps / (wire_size * 8);
@@ -370,11 +386,12 @@ uint64_t calc_max_pps(uint64_t line_rate_bps, uint32_t frame_size) {
  * @param line_rate_bps Line rate in bits per second
  * @return Utilization as percentage (0-100)
  */
-double calc_utilization(uint64_t achieved_pps, uint32_t frame_size, uint64_t line_rate_bps) {
+double calc_utilization(uint64_t achieved_pps, uint32_t frame_size, uint64_t line_rate_bps)
+{
     /* Protect against division by zero */
     if (line_rate_bps == 0) {
         return 0.0;
-}
+    }
 
     uint32_t wire_size    = frame_size + 20;
     uint64_t achieved_bps = achieved_pps * wire_size * 8;
@@ -401,11 +418,12 @@ typedef struct trial_timer trial_timer_t;
  * @param warmup_sec Warmup period in seconds
  * @return Timer, or NULL on error
  */
-trial_timer_t* trial_timer_create(uint32_t duration_sec, uint32_t warmup_sec) {
-    trial_timer_t* timer = calloc(1, sizeof(trial_timer_t));
+trial_timer_t *trial_timer_create(uint32_t duration_sec, uint32_t warmup_sec)
+{
+    trial_timer_t *timer = calloc(1, sizeof(trial_timer_t));
     if (!timer) {
         return NULL;
-}
+    }
 
     timer->duration_ns = (uint64_t)duration_sec * NS_PER_SEC;
     timer->warmup_ns   = (uint64_t)warmup_sec * NS_PER_SEC;
@@ -420,10 +438,11 @@ trial_timer_t* trial_timer_create(uint32_t duration_sec, uint32_t warmup_sec) {
  *
  * @param timer Trial timer
  */
-void trial_timer_start(trial_timer_t* timer) {
+void trial_timer_start(trial_timer_t *timer)
+{
     if (!timer) {
         return;
-}
+    }
 
     timer->start_ns  = get_time_ns();
     timer->in_warmup = (timer->warmup_ns > 0);
@@ -436,10 +455,11 @@ void trial_timer_start(trial_timer_t* timer) {
  * @param timer Trial timer
  * @return true if trial time has expired
  */
-bool trial_timer_expired(trial_timer_t* timer) {
+bool trial_timer_expired(trial_timer_t *timer)
+{
     if (!timer || timer->expired) {
         return true;
-}
+    }
 
     uint64_t elapsed = get_time_ns() - timer->start_ns;
 
@@ -463,7 +483,8 @@ bool trial_timer_expired(trial_timer_t* timer) {
  * @param timer Trial timer
  * @return true if in warmup period
  */
-bool trial_timer_in_warmup(const trial_timer_t* timer) {
+bool trial_timer_in_warmup(const trial_timer_t *timer)
+{
     return timer ? timer->in_warmup : false;
 }
 
@@ -473,10 +494,11 @@ bool trial_timer_in_warmup(const trial_timer_t* timer) {
  * @param timer Trial timer
  * @return Elapsed seconds (excluding warmup)
  */
-double trial_timer_elapsed(const trial_timer_t* timer) {
+double trial_timer_elapsed(const trial_timer_t *timer)
+{
     if (!timer) {
         return 0;
-}
+    }
 
     uint64_t elapsed = get_time_ns() - timer->start_ns;
 
@@ -492,6 +514,7 @@ double trial_timer_elapsed(const trial_timer_t* timer) {
  *
  * @param timer Trial timer
  */
-void trial_timer_destroy(trial_timer_t* timer) {
+void trial_timer_destroy(trial_timer_t *timer)
+{
     free(timer);
 }

@@ -11,30 +11,32 @@
 
 #if PLATFORM_LINUX
 
-#include <arpa/inet.h>
 #include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+#include <arpa/inet.h>
 #include <linux/if_ether.h>
 #include <linux/if_packet.h>
 #include <linux/net_tstamp.h>
 #include <linux/sockios.h>
-#include <net/if.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
-#include <time.h>
+
+#include <net/if.h>
 #include <unistd.h>
 
 /* worker_ctx_t and rfc2544_ctx_t are defined in rfc2544_internal.h */
 
 typedef struct {
-    uint8_t* data;
+    uint8_t *data;
     uint32_t len;
     uint64_t timestamp;
     uint32_t seq_num;
-    void*    platform_data;
+    void    *platform_data;
 } packet_t;
 
 /* Platform context */
@@ -45,13 +47,13 @@ typedef struct {
     struct sockaddr_ll addr;      /* Socket address */
 
     /* Packet buffers */
-    uint8_t* rx_buffer;
-    uint8_t* tx_buffer;
+    uint8_t *rx_buffer;
+    uint8_t *tx_buffer;
     size_t   buffer_size;
 
     /* TPACKET v3 ring (if available) */
-    void*  rx_ring;
-    void*  tx_ring;
+    void  *rx_ring;
+    void  *tx_ring;
     size_t ring_size;
 
     /* Hardware timestamping */
@@ -73,7 +75,8 @@ typedef struct {
  * Enable hardware timestamping on the NIC
  * Returns 0 on success, negative on error
  */
-static int enable_hw_timestamping(platform_ctx_t* pctx, const char* ifname) {
+static int enable_hw_timestamping(platform_ctx_t *pctx, const char *ifname)
+{
     struct ifreq           ifr;
     struct hwtstamp_config hwconfig;
 
@@ -87,7 +90,7 @@ static int enable_hw_timestamping(platform_ctx_t* pctx, const char* ifname) {
     hwconfig.tx_type   = HWTSTAMP_TX_ON;
     hwconfig.rx_filter = HWTSTAMP_FILTER_ALL;
 
-    ifr.ifr_data = (void*)&hwconfig;
+    ifr.ifr_data = (void *)&hwconfig;
 
     if (ioctl(pctx->sock_fd, SIOCSHWTSTAMP, &ifr) < 0) {
         /* Hardware timestamping not supported - fall back to software */
@@ -121,14 +124,15 @@ static int enable_hw_timestamping(platform_ctx_t* pctx, const char* ifname) {
  * Extract timestamp from socket control messages
  * Returns timestamp in nanoseconds, or software timestamp if HW not available
  */
-static uint64_t extract_timestamp(struct msghdr* msg, bool prefer_hw) {
-    struct cmsghdr* cmsg;
+static uint64_t extract_timestamp(struct msghdr *msg, bool prefer_hw)
+{
+    struct cmsghdr *cmsg;
     uint64_t        hw_timestamp = 0;
     uint64_t        sw_timestamp = 0;
 
     for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
         if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SO_TIMESTAMPING) {
-            struct timespec* ts = (struct timespec*)CMSG_DATA(cmsg);
+            struct timespec *ts = (struct timespec *)CMSG_DATA(cmsg);
 
             /* ts[0] = software timestamp
              * ts[1] = deprecated (hw_timestamp transformed)
@@ -158,8 +162,9 @@ static uint64_t extract_timestamp(struct msghdr* msg, bool prefer_hw) {
  * Platform Operations
  * ============================================================================ */
 
-static int packet_init(rfc2544_ctx_t* ctx, worker_ctx_t* wctx) {
-    platform_ctx_t* pctx = calloc(1, sizeof(platform_ctx_t));
+static int packet_init(rfc2544_ctx_t *ctx, worker_ctx_t *wctx)
+{
+    platform_ctx_t *pctx = calloc(1, sizeof(platform_ctx_t));
     if (!pctx) {
         return -ENOMEM;
     }
@@ -186,7 +191,7 @@ static int packet_init(rfc2544_ctx_t* ctx, worker_ctx_t* wctx) {
     pctx->addr.sll_protocol = htons(ETH_P_ALL);
     pctx->addr.sll_ifindex  = pctx->if_index;
 
-    if (bind(pctx->sock_fd, (struct sockaddr*)&pctx->addr, sizeof(pctx->addr)) < 0) {
+    if (bind(pctx->sock_fd, (struct sockaddr *)&pctx->addr, sizeof(pctx->addr)) < 0) {
         perror("bind");
         close(pctx->sock_fd);
         free(pctx);
@@ -247,12 +252,13 @@ static int packet_init(rfc2544_ctx_t* ctx, worker_ctx_t* wctx) {
     return 0;
 }
 
-static void packet_cleanup(worker_ctx_t* wctx) {
+static void packet_cleanup(worker_ctx_t *wctx)
+{
     if (!wctx || !wctx->pctx) {
         return;
-}
+    }
 
-    platform_ctx_t* pctx = wctx->pctx;
+    platform_ctx_t *pctx = wctx->pctx;
 
     if (pctx->sock_fd >= 0) {
         close(pctx->sock_fd);
@@ -264,17 +270,18 @@ static void packet_cleanup(worker_ctx_t* wctx) {
     wctx->pctx = NULL;
 }
 
-static int packet_send_batch(worker_ctx_t* wctx, packet_t* pkts, int count) {
+static int packet_send_batch(worker_ctx_t *wctx, packet_t *pkts, int count)
+{
     if (!wctx || !wctx->pctx || !pkts || count <= 0) {
         return -EINVAL;
-}
+    }
 
-    platform_ctx_t* pctx = wctx->pctx;
+    platform_ctx_t *pctx = wctx->pctx;
     int             sent = 0;
 
     for (int i = 0; i < count; i++) {
         ssize_t ret = sendto(pctx->sock_fd, pkts[i].data, pkts[i].len, 0,
-                             (struct sockaddr*)&pctx->addr, sizeof(pctx->addr));
+                             (struct sockaddr *)&pctx->addr, sizeof(pctx->addr));
         if (ret < 0) {
             wctx->tx_errors++;
             continue;
@@ -287,12 +294,13 @@ static int packet_send_batch(worker_ctx_t* wctx, packet_t* pkts, int count) {
     return sent;
 }
 
-static int packet_recv_batch(worker_ctx_t* wctx, packet_t* pkts, int max_count) {
+static int packet_recv_batch(worker_ctx_t *wctx, packet_t *pkts, int max_count)
+{
     if (!wctx || !wctx->pctx || !pkts || max_count <= 0) {
         return -EINVAL;
-}
+    }
 
-    platform_ctx_t* pctx     = wctx->pctx;
+    platform_ctx_t *pctx     = wctx->pctx;
     int             received = 0;
 
     /* Non-blocking receive with timeout */
@@ -362,7 +370,8 @@ static int packet_recv_batch(worker_ctx_t* wctx, packet_t* pkts, int max_count) 
     return received;
 }
 
-static void packet_release_batch(worker_ctx_t* wctx, packet_t* pkts, int count) {
+static void packet_release_batch(worker_ctx_t *wctx, packet_t *pkts, int count)
+{
     (void)wctx;
     for (int i = 0; i < count; i++) {
         free(pkts[i].data);
@@ -370,26 +379,28 @@ static void packet_release_batch(worker_ctx_t* wctx, packet_t* pkts, int count) 
     }
 }
 
-static uint64_t packet_get_tx_timestamp(worker_ctx_t* wctx, packet_t* pkt) {
+static uint64_t packet_get_tx_timestamp(worker_ctx_t *wctx, packet_t *pkt)
+{
     (void)wctx;
     return pkt->timestamp;
 }
 
-static uint64_t packet_get_rx_timestamp(worker_ctx_t* wctx, packet_t* pkt) {
+static uint64_t packet_get_rx_timestamp(worker_ctx_t *wctx, packet_t *pkt)
+{
     (void)wctx;
     return pkt->timestamp;
 }
 
 /* Platform ops structure */
 static const struct {
-    const char* name;
-    int (*init)(rfc2544_ctx_t* ctx, worker_ctx_t* wctx);
-    void (*cleanup)(worker_ctx_t* wctx);
-    int (*send_batch)(worker_ctx_t* wctx, packet_t* pkts, int count);
-    int (*recv_batch)(worker_ctx_t* wctx, packet_t* pkts, int max_count);
-    void (*release_batch)(worker_ctx_t* wctx, packet_t* pkts, int count);
-    uint64_t (*get_tx_timestamp)(worker_ctx_t* wctx, packet_t* pkt);
-    uint64_t (*get_rx_timestamp)(worker_ctx_t* wctx, packet_t* pkt);
+    const char *name;
+    int (*init)(rfc2544_ctx_t *ctx, worker_ctx_t *wctx);
+    void (*cleanup)(worker_ctx_t *wctx);
+    int (*send_batch)(worker_ctx_t *wctx, packet_t *pkts, int count);
+    int (*recv_batch)(worker_ctx_t *wctx, packet_t *pkts, int max_count);
+    void (*release_batch)(worker_ctx_t *wctx, packet_t *pkts, int count);
+    uint64_t (*get_tx_timestamp)(worker_ctx_t *wctx, packet_t *pkt);
+    uint64_t (*get_rx_timestamp)(worker_ctx_t *wctx, packet_t *pkt);
 } packet_ops = {
     .name             = "AF_PACKET",
     .init             = packet_init,
@@ -401,7 +412,8 @@ static const struct {
     .get_rx_timestamp = packet_get_rx_timestamp,
 };
 
-const void* get_packet_platform_ops(void) {
+const void *get_packet_platform_ops(void)
+{
     return &packet_ops;
 }
 

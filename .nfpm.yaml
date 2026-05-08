@@ -1,0 +1,77 @@
+# nfpm packaging config for Stem (.deb + .rpm).
+#
+# The release workflow passes build inputs through environment variables:
+#   STEM_VERSION - version string with leading "v" stripped
+#   STEM_ARCH    - "amd64" or "arm64"
+#   STEM_BINARY  - path to the prebuilt Stem binary
+name: stem
+version: ${STEM_VERSION}
+arch: ${STEM_ARCH}
+platform: linux
+section: net
+priority: optional
+maintainer: Kris Armstrong <kris@mustardseednetworks.com>
+description: |
+  The Stem - Network Performance Testing Tool by Mustard Seed Networks
+  .
+  The Stem is a high-performance network testing tool supporting RFC 2544,
+  ITU-T Y.1564, ITU-T Y.1731, packet reflection, and WebUI/TUI/CLI workflows.
+vendor: Mustard Seed Networks
+homepage: https://github.com/krisarmstrong/stem
+license: Proprietary
+
+overrides:
+  deb:
+    depends:
+      - systemd
+      - libcap2-bin
+  rpm:
+    depends:
+      - systemd
+      - libcap
+
+contents:
+  - src: ${STEM_BINARY}
+    dst: /usr/bin/stem
+    file_info:
+      mode: 0755
+  - src: ./deploy/systemd/stem.service
+    dst: /usr/lib/systemd/system/stem.service
+    file_info:
+      mode: 0644
+  - src: ./deploy/config/stem.yaml
+    dst: /usr/share/stem/config.yaml
+    file_info:
+      mode: 0640
+      owner: root
+      group: stem
+  - dst: /etc/stem
+    type: dir
+    file_info:
+      mode: 0750
+      owner: root
+      group: stem
+  - dst: /usr/share/stem
+    type: dir
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+  - dst: /var/lib/stem
+    type: dir
+    file_info:
+      mode: 0750
+      owner: stem
+      group: stem
+  - dst: /var/log/stem
+    type: dir
+    file_info:
+      mode: 0750
+      owner: stem
+      group: stem
+
+scripts:
+  preinstall: ./deploy/nfpm/preinstall.sh
+  postinstall: ./deploy/nfpm/postinstall.sh
+  preremove: ./deploy/nfpm/preremove.sh
+  postremove: ./deploy/nfpm/postremove.sh

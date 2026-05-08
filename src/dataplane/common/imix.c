@@ -32,10 +32,11 @@ static const imix_entry_t imix_ipsec[] = {
 /**
  * Get predefined IMIX profile configuration
  */
-void imix_get_profile(imix_profile_t profile, imix_config_t* config) {
+void imix_get_profile(imix_profile_t profile, imix_config_t *config)
+{
     if (!config) {
         return;
-}
+    }
 
     memset(config, 0, sizeof(*config));
     config->profile = profile;
@@ -72,10 +73,11 @@ void imix_get_profile(imix_profile_t profile, imix_config_t* config) {
 /**
  * Calculate weighted average frame size for IMIX profile
  */
-double imix_avg_frame_size(const imix_config_t* config) {
+double imix_avg_frame_size(const imix_config_t *config)
+{
     if (!config || config->entry_count == 0) {
         return 0.0;
-}
+    }
 
     double total_weight = 0.0;
     double weighted_sum = 0.0;
@@ -87,7 +89,7 @@ double imix_avg_frame_size(const imix_config_t* config) {
 
     if (total_weight == 0.0) {
         return 0.0;
-}
+    }
 
     return weighted_sum / total_weight;
 }
@@ -98,15 +100,16 @@ double imix_avg_frame_size(const imix_config_t* config) {
  * This test runs throughput measurements with the specified IMIX profile,
  * distributing traffic across frame sizes according to their weights.
  */
-int rfc2544_imix_throughput(rfc2544_ctx_t* ctx, const imix_config_t* imix_config,
-                            imix_result_t* result) {
+int rfc2544_imix_throughput(rfc2544_ctx_t *ctx, const imix_config_t *imix_config,
+                            imix_result_t *result)
+{
     if (!ctx || !imix_config || !result) {
         return -EINVAL;
-}
+    }
 
     if (imix_config->entry_count == 0) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
 
@@ -121,7 +124,7 @@ int rfc2544_imix_throughput(rfc2544_ctx_t* ctx, const imix_config_t* imix_config
 
     if (total_weight == 0.0) {
         return -EINVAL;
-}
+    }
 
     /* Aggregate results from all frame sizes */
     throughput_result_t per_size_result;
@@ -132,7 +135,7 @@ int rfc2544_imix_throughput(rfc2544_ctx_t* ctx, const imix_config_t* imix_config
     double              max_latency         = 0.0;
 
     for (uint32_t i = 0; i < imix_config->entry_count; i++) {
-        const imix_entry_t* entry           = &imix_config->entries[i];
+        const imix_entry_t *entry           = &imix_config->entries[i];
         double              weight_fraction = entry->weight / total_weight;
 
         /* Configure context for this frame size */
@@ -153,10 +156,10 @@ int rfc2544_imix_throughput(rfc2544_ctx_t* ctx, const imix_config_t* imix_config
 
         if (per_size_result.latency.min_ns / 1000.0 < min_latency) {
             min_latency = per_size_result.latency.min_ns / 1000.0;
-}
+        }
         if (per_size_result.latency.max_ns / 1000.0 > max_latency) {
             max_latency = per_size_result.latency.max_ns / 1000.0;
-}
+        }
 
         /* Weighted frame counts */
         result->total_frames_tx += (uint64_t)(per_size_result.frames_tested * weight_fraction);

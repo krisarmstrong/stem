@@ -6,16 +6,17 @@
  */
 
 #include <errno.h>
-#include <pthread.h>
 #include <string.h>
+
+#include <pthread.h>
 
 #include "rfc2544.h"
 #include "rfc2544_internal.h"
 
 /* Per-port test thread data */
 typedef struct {
-    rfc2544_ctx_t*      ctx;
-    port_config_t*      port;
+    rfc2544_ctx_t      *ctx;
+    port_config_t      *port;
     throughput_result_t result;
     int                 status;
     int                 port_index;
@@ -24,8 +25,9 @@ typedef struct {
 /**
  * Port test thread function
  */
-static void* port_thread_func(void* arg) {
-    port_thread_data_t* data = (port_thread_data_t*)arg;
+static void *port_thread_func(void *arg)
+{
+    port_thread_data_t *data = (port_thread_data_t *)arg;
 
     rfc2544_log(LOG_INFO, "Port %d (%s): Starting throughput test", data->port_index,
                 data->port->interface);
@@ -49,14 +51,15 @@ static void* port_thread_func(void* arg) {
 /**
  * Initialize multi-port test context
  */
-int rfc2544_multiport_init(rfc2544_ctx_t* ctx, const multiport_config_t* config) {
+int rfc2544_multiport_init(rfc2544_ctx_t *ctx, const multiport_config_t *config)
+{
     if (!ctx || !config) {
         return -EINVAL;
-}
+    }
 
     if (config->port_count == 0 || config->port_count > MAX_TEST_PORTS) {
         return -EINVAL;
-}
+    }
 
     /* Store multi-port configuration */
     memcpy(&ctx->config.multiport, config, sizeof(multiport_config_t));
@@ -76,23 +79,24 @@ int rfc2544_multiport_init(rfc2544_ctx_t* ctx, const multiport_config_t* config)
 /**
  * Run multi-port throughput test
  */
-int rfc2544_multiport_throughput(rfc2544_ctx_t* ctx, throughput_result_t* results) {
+int rfc2544_multiport_throughput(rfc2544_ctx_t *ctx, throughput_result_t *results)
+{
     if (!ctx || !results) {
         return -EINVAL;
-}
+    }
 
-    const multiport_config_t* config = &ctx->config.multiport;
+    const multiport_config_t *config = &ctx->config.multiport;
 
     if (config->port_count == 0) {
         return -EINVAL;
-}
+    }
 
     rfc2544_log(LOG_INFO, "Starting multi-port throughput test on %u ports", config->port_count);
 
     /* Allocate per-port contexts and thread data */
     pthread_t          threads[MAX_TEST_PORTS];
     port_thread_data_t thread_data[MAX_TEST_PORTS];
-    rfc2544_ctx_t*     port_contexts[MAX_TEST_PORTS];
+    rfc2544_ctx_t     *port_contexts[MAX_TEST_PORTS];
     int                active_ports = 0;
 
     memset(thread_data, 0, sizeof(thread_data));
@@ -102,7 +106,7 @@ int rfc2544_multiport_throughput(rfc2544_ctx_t* ctx, throughput_result_t* result
     for (uint32_t i = 0; i < config->port_count; i++) {
         if (!config->ports[i].enabled) {
             continue;
-}
+        }
 
         /* Create separate context for this port */
         int ret = rfc2544_init(&port_contexts[i], config->ports[i].interface);
@@ -121,7 +125,7 @@ int rfc2544_multiport_throughput(rfc2544_ctx_t* ctx, throughput_result_t* result
 
         /* Setup thread data */
         thread_data[i].ctx        = port_contexts[i];
-        thread_data[i].port       = (port_config_t*)&config->ports[i];
+        thread_data[i].port       = (port_config_t *)&config->ports[i];
         thread_data[i].port_index = i;
 
         active_ports++;
@@ -136,7 +140,7 @@ int rfc2544_multiport_throughput(rfc2544_ctx_t* ctx, throughput_result_t* result
     for (uint32_t i = 0; i < config->port_count; i++) {
         if (!port_contexts[i]) {
             continue;
-}
+        }
 
         int ret = pthread_create(&threads[i], NULL, port_thread_func, &thread_data[i]);
         if (ret != 0) {
@@ -149,7 +153,7 @@ int rfc2544_multiport_throughput(rfc2544_ctx_t* ctx, throughput_result_t* result
     for (uint32_t i = 0; i < config->port_count; i++) {
         if (!port_contexts[i]) {
             continue;
-}
+        }
 
         pthread_join(threads[i], NULL);
 
@@ -166,7 +170,7 @@ int rfc2544_multiport_throughput(rfc2544_ctx_t* ctx, throughput_result_t* result
     for (uint32_t i = 0; i < config->port_count; i++) {
         if (!port_contexts[i] || thread_data[i].status < 0) {
             continue;
-}
+        }
 
         total_throughput += results[i].max_rate_mbps;
         total_tx += results[i].frames_tested;

@@ -15,19 +15,21 @@
  * Still far below AF_XDP (10 Gbps), but maximum possible for AF_PACKET.
  */
 
-#include <arpa/inet.h>
 #include <errno.h>
-#include <fcntl.h>
-#include <linux/if_ether.h>
-#include <linux/if_packet.h>
-#include <net/if.h>
-#include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <arpa/inet.h>
+#include <linux/if_ether.h>
+#include <linux/if_packet.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
+
+#include <fcntl.h>
+#include <net/if.h>
+#include <poll.h>
 #include <unistd.h>
 
 #include "reflector.h"
@@ -43,13 +45,13 @@ struct platform_ctx {
     int sock_fd; /* AF_PACKET socket */
 
     /* RX ring buffer (PACKET_MMAP) */
-    void*        rx_ring;
+    void        *rx_ring;
     size_t       rx_ring_size;
     unsigned int rx_frame_num;
     unsigned int rx_frame_idx;
 
     /* TX ring buffer (PACKET_MMAP) */
-    void*        tx_ring;
+    void        *tx_ring;
     size_t       tx_ring_size;
     unsigned int tx_frame_num;
     unsigned int tx_frame_idx;
@@ -75,7 +77,8 @@ struct platform_ctx {
  * Try to setup TPACKET_V3 (preferred for real hardware)
  * Returns 0 on success, -1 on failure
  */
-static int try_tpacket_v3(struct platform_ctx* pctx) {
+static int try_tpacket_v3(struct platform_ctx *pctx)
+{
     int version = TPACKET_V3;
     if (setsockopt(pctx->sock_fd, SOL_PACKET, PACKET_VERSION, &version, sizeof(version)) < 0) {
         return -1;
@@ -105,7 +108,8 @@ static int try_tpacket_v3(struct platform_ctx* pctx) {
  * Try to setup TPACKET_V2 (fallback for veth/testing)
  * Returns 0 on success, -1 on failure
  */
-static int try_tpacket_v2(struct platform_ctx* pctx) {
+static int try_tpacket_v2(struct platform_ctx *pctx)
+{
     int version = TPACKET_V2;
     if (setsockopt(pctx->sock_fd, SOL_PACKET, PACKET_VERSION, &version, sizeof(version)) < 0) {
         return -1;
@@ -133,10 +137,11 @@ static int try_tpacket_v2(struct platform_ctx* pctx) {
  * Initialize maximum performance AF_PACKET platform
  * Tries TPACKET_V3 first (best for real hardware), falls back to V2 (for veth/testing)
  */
-int packet_platform_init(reflector_ctx_t* rctx, worker_ctx_t* wctx) {
+int packet_platform_init(reflector_ctx_t *rctx, worker_ctx_t *wctx)
+{
     (void)rctx;
 
-    struct platform_ctx* pctx = calloc(1, sizeof(*pctx));
+    struct platform_ctx *pctx = calloc(1, sizeof(*pctx));
     if (!pctx) {
         return -ENOMEM;
     }
@@ -164,7 +169,7 @@ int packet_platform_init(reflector_ctx_t* rctx, worker_ctx_t* wctx) {
             reflector_log(LOG_ERROR, "Failed to setup TPACKET_V2: %s", strerror(errno));
             if (pctx->sock_fd >= 0) {
                 close(pctx->sock_fd);
-}
+            }
             free(pctx);
             return -1;
         }
@@ -229,7 +234,7 @@ int packet_platform_init(reflector_ctx_t* rctx, worker_ctx_t* wctx) {
     sll.sll_protocol       = htons(ETH_P_ALL);
     sll.sll_ifindex        = wctx->config->ifindex;
 
-    if (bind(pctx->sock_fd, (struct sockaddr*)&sll, sizeof(sll)) < 0) {
+    if (bind(pctx->sock_fd, (struct sockaddr *)&sll, sizeof(sll)) < 0) {
         reflector_log(LOG_ERROR, "Failed to bind AF_PACKET socket: %s", strerror(errno));
         munmap(pctx->rx_ring, total_ring_size);
         close(pctx->sock_fd);
@@ -287,8 +292,9 @@ int packet_platform_init(reflector_ctx_t* rctx, worker_ctx_t* wctx) {
 /*
  * Cleanup AF_PACKET platform
  */
-void packet_platform_cleanup(worker_ctx_t* wctx) {
-    struct platform_ctx* pctx = wctx->pctx;
+void packet_platform_cleanup(worker_ctx_t *wctx)
+{
+    struct platform_ctx *pctx = wctx->pctx;
     if (!pctx) {
         return;
     }
@@ -315,8 +321,9 @@ static __thread uint8_t simple_rx_buf[2048];
  * Falls back to simple recv() if ring buffers not available.
  * Handles both TPACKET_V2 (frame-level) and TPACKET_V3 (block-level) iteration.
  */
-int packet_platform_recv_batch(worker_ctx_t* wctx, packet_t* pkts, int max_pkts) {
-    struct platform_ctx* pctx     = wctx->pctx;
+int packet_platform_recv_batch(worker_ctx_t *wctx, packet_t *pkts, int max_pkts)
+{
+    struct platform_ctx *pctx     = wctx->pctx;
     int                  num_pkts = 0;
 
     /* Simple mode: use basic recv() */
@@ -341,9 +348,9 @@ int packet_platform_recv_batch(worker_ctx_t* wctx, packet_t* pkts, int max_pkts)
     if (pctx->tpacket_version == 3) {
         while (num_pkts < max_pkts) {
             /* Get current block */
-            struct tpacket_block_desc* block =
-                (struct tpacket_block_desc*)(pctx->rx_ring +
-                                             (pctx->current_block_idx * PACKET_BLOCK_SIZE));
+            struct tpacket_block_desc *block =
+                (struct tpacket_block_desc *)(pctx->rx_ring +
+                                              (pctx->current_block_idx * PACKET_BLOCK_SIZE));
 
             /* Check if block is ready */
             if ((block->hdr.bh1.block_status & TP_STATUS_USER) == 0) {
@@ -352,13 +359,13 @@ int packet_platform_recv_batch(worker_ctx_t* wctx, packet_t* pkts, int max_pkts)
 
             /* Iterate frames within this block */
             uint32_t num_frames = block->hdr.bh1.num_pkts;
-            uint8_t* frame_ptr  = (uint8_t*)block + block->hdr.bh1.offset_to_first_pkt;
+            uint8_t *frame_ptr  = (uint8_t *)block + block->hdr.bh1.offset_to_first_pkt;
 
             while (pctx->current_block_offset < num_frames && num_pkts < max_pkts) {
-                struct tpacket3_hdr* hdr = (struct tpacket3_hdr*)frame_ptr;
+                struct tpacket3_hdr *hdr = (struct tpacket3_hdr *)frame_ptr;
 
                 /* Point directly at packet data in ring (zero-copy) */
-                pkts[num_pkts].data = (uint8_t*)hdr + hdr->tp_mac;
+                pkts[num_pkts].data = (uint8_t *)hdr + hdr->tp_mac;
                 pkts[num_pkts].len  = hdr->tp_snaplen;
                 /* Store block index in upper 16 bits, frame offset in lower 16 bits */
                 pkts[num_pkts].addr = (pctx->current_block_idx << 16) | pctx->current_block_offset;
@@ -388,7 +395,7 @@ int packet_platform_recv_batch(worker_ctx_t* wctx, packet_t* pkts, int max_pkts)
             pctx->rx_frame_idx = 0; /* Wrap around */
         }
         size_t               offset = (size_t)pctx->rx_frame_idx * pctx->frame_size;
-        struct tpacket2_hdr* hdr    = (struct tpacket2_hdr*)(pctx->rx_ring + offset);
+        struct tpacket2_hdr *hdr    = (struct tpacket2_hdr *)(pctx->rx_ring + offset);
 
         /* Check if frame is ready (kernel filled it) */
         if ((hdr->tp_status & TP_STATUS_USER) == 0) {
@@ -397,7 +404,7 @@ int packet_platform_recv_batch(worker_ctx_t* wctx, packet_t* pkts, int max_pkts)
         }
 
         /* Point directly at packet data in ring (zero-copy) */
-        pkts[num_pkts].data = (uint8_t*)hdr + hdr->tp_mac;
+        pkts[num_pkts].data = (uint8_t *)hdr + hdr->tp_mac;
         pkts[num_pkts].len  = hdr->tp_snaplen;
         pkts[num_pkts].addr = pctx->rx_frame_idx; /* Store frame index for release */
 
@@ -415,8 +422,9 @@ int packet_platform_recv_batch(worker_ctx_t* wctx, packet_t* pkts, int max_pkts)
  * Send batch of packets via PACKET_MMAP TX ring (zero-copy)
  * Falls back to simple send() if ring buffers not available.
  */
-int packet_platform_send_batch(worker_ctx_t* wctx, packet_t* pkts, int num_pkts) {
-    struct platform_ctx* pctx = wctx->pctx;
+int packet_platform_send_batch(worker_ctx_t *wctx, packet_t *pkts, int num_pkts)
+{
+    struct platform_ctx *pctx = wctx->pctx;
     int                  sent = 0;
 
     /* Validate num_pkts to prevent out-of-bounds access */
@@ -443,8 +451,8 @@ int packet_platform_send_batch(worker_ctx_t* wctx, packet_t* pkts, int num_pkts)
 
     /* Ring mode: Use TX ring */
     for (int i = 0; i < num_pkts; i++) {
-        struct tpacket2_hdr* hdr =
-            (struct tpacket2_hdr*)(pctx->tx_ring + (pctx->tx_frame_idx * pctx->frame_size));
+        struct tpacket2_hdr *hdr =
+            (struct tpacket2_hdr *)(pctx->tx_ring + (pctx->tx_frame_idx * pctx->frame_size));
 
         /* Wait for TX frame to be available */
         if (hdr->tp_status != TP_STATUS_AVAILABLE) {
@@ -456,7 +464,7 @@ int packet_platform_send_batch(worker_ctx_t* wctx, packet_t* pkts, int num_pkts)
         }
 
         /* Copy packet into TX frame */
-        uint8_t* frame_data = (uint8_t*)hdr + TPACKET_HDRLEN;
+        uint8_t *frame_data = (uint8_t *)hdr + TPACKET_HDRLEN;
         memcpy(frame_data, pkts[i].data, pkts[i].len);
 
         /* Set frame metadata */
@@ -483,8 +491,9 @@ int packet_platform_send_batch(worker_ctx_t* wctx, packet_t* pkts, int num_pkts)
  * For TPACKET_V3: Release blocks that packets came from
  * For TPACKET_V2: Release individual frames
  */
-void packet_platform_release_batch(worker_ctx_t* wctx, packet_t* pkts, int num_pkts) {
-    struct platform_ctx* pctx = wctx->pctx;
+void packet_platform_release_batch(worker_ctx_t *wctx, packet_t *pkts, int num_pkts)
+{
+    struct platform_ctx *pctx = wctx->pctx;
 
     /* Simple mode: nothing to release */
     if (!pctx->rx_ring) {
@@ -512,8 +521,8 @@ void packet_platform_release_batch(worker_ctx_t* wctx, packet_t* pkts, int num_p
             }
 
             /* Release block back to kernel */
-            struct tpacket_block_desc* block =
-                (struct tpacket_block_desc*)(pctx->rx_ring + (block_idx * PACKET_BLOCK_SIZE));
+            struct tpacket_block_desc *block =
+                (struct tpacket_block_desc *)(pctx->rx_ring + (block_idx * PACKET_BLOCK_SIZE));
             block->hdr.bh1.block_status = TP_STATUS_KERNEL;
             released_blocks |= block_bit;
         }
@@ -523,8 +532,8 @@ void packet_platform_release_batch(worker_ctx_t* wctx, packet_t* pkts, int num_p
     /* TPACKET_V2: Release individual frames */
     for (int i = 0; i < num_pkts; i++) {
         uint32_t             frame_idx = pkts[i].addr; /* We stored frame index in addr */
-        struct tpacket2_hdr* hdr =
-            (struct tpacket2_hdr*)(pctx->rx_ring + (frame_idx * pctx->frame_size));
+        struct tpacket2_hdr *hdr =
+            (struct tpacket2_hdr *)(pctx->rx_ring + (frame_idx * pctx->frame_size));
 
         /* Return frame to kernel */
         hdr->tp_status = TP_STATUS_KERNEL;
@@ -541,6 +550,7 @@ static const platform_ops_t packet_platform_ops = {
     .release_batch = packet_platform_release_batch,
 };
 
-const platform_ops_t* get_packet_platform_ops(void) {
+const platform_ops_t *get_packet_platform_ops(void)
+{
     return &packet_platform_ops;
 }

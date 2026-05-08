@@ -20,7 +20,7 @@ typedef struct platform_ops platform_ops_t;
 typedef struct {
     int   worker_id;
     int   queue_id;
-    void* pctx; /* Platform-specific context */
+    void *pctx; /* Platform-specific context */
 
     /* Stats */
     uint64_t tx_packets;
@@ -41,8 +41,8 @@ struct rfc2544_ctx {
     volatile bool cancel_requested;
 
     /* Platform */
-    const platform_ops_t* platform;
-    worker_ctx_t*         workers;
+    const platform_ops_t *platform;
+    worker_ctx_t         *workers;
     int                   num_workers;
 
     /* Interface info */
@@ -60,9 +60,9 @@ struct rfc2544_ctx {
     /* Results storage */
     throughput_result_t throughput_results[8]; /* 7 standard + 1 jumbo */
     uint32_t            throughput_count;
-    latency_result_t    latency_results[80]; /* 10 load levels x 8 sizes */
+    latency_result_t    latency_results[80];   /* 10 load levels x 8 sizes */
     uint32_t            latency_count;
-    frame_loss_point_t  loss_results[100]; /* Up to 100 load points */
+    frame_loss_point_t  loss_results[100];     /* Up to 100 load points */
     uint32_t            loss_count;
     burst_result_t      burst_results[8];
     uint32_t            burst_count;
@@ -75,14 +75,14 @@ struct rfc2544_ctx {
     pthread_mutex_t seq_lock;
 
     /* Latency tracking */
-    uint64_t*       latency_samples;
+    uint64_t       *latency_samples;
     uint32_t        latency_sample_count;
     uint32_t        latency_sample_capacity;
     pthread_mutex_t latency_lock;
 };
 
 /* Logging function (implemented in core.c) */
-void rfc2544_log(log_level_t level, const char* fmt, ...);
+void rfc2544_log(log_level_t level, const char *fmt, ...);
 
 /* ============================================================================
  * Trial Execution (shared by all test implementations)
@@ -112,8 +112,8 @@ typedef struct {
  * @param result Output trial result
  * @return 0 on success, negative on error
  */
-int run_trial(rfc2544_ctx_t* ctx, uint32_t frame_size, double rate_pct, uint32_t duration_sec,
-              uint32_t warmup_sec, trial_result_t* result);
+int run_trial(rfc2544_ctx_t *ctx, uint32_t frame_size, double rate_pct, uint32_t duration_sec,
+              uint32_t warmup_sec, trial_result_t *result);
 
 /**
  * Run a trial with custom signature (for Y.1564, Y.1731, etc.)
@@ -128,14 +128,14 @@ int run_trial(rfc2544_ctx_t* ctx, uint32_t frame_size, double rate_pct, uint32_t
  * @param result Output trial result
  * @return 0 on success, negative on error
  */
-int run_trial_custom(rfc2544_ctx_t* ctx, uint32_t frame_size, double rate_pct,
-                     uint32_t duration_sec, uint32_t warmup_sec, const char* signature,
-                     uint32_t stream_id, trial_result_t* result);
+int run_trial_custom(rfc2544_ctx_t *ctx, uint32_t frame_size, double rate_pct,
+                     uint32_t duration_sec, uint32_t warmup_sec, const char *signature,
+                     uint32_t stream_id, trial_result_t *result);
 
 /* Calculate max PPS for given line rate and frame size */
 uint64_t calc_max_pps(uint64_t line_rate_bps, uint32_t frame_size);
 
 /* Report progress to callback */
-void report_progress(rfc2544_ctx_t* ctx, const char* message, double pct);
+void report_progress(rfc2544_ctx_t *ctx, const char *message, double pct);
 
 #endif /* RFC2544_INTERNAL_H */

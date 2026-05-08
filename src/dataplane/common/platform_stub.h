@@ -19,10 +19,10 @@
 
 /* Stub platform operations - no-op implementations for non-Linux */
 typedef struct platform_ops {
-    int (*init)(void* ctx, const char* interface);
-    int (*send)(void* ctx, const uint8_t* pkt, uint32_t len);
-    int (*recv)(void* ctx, uint8_t* buf, uint32_t buf_len);
-    void (*cleanup)(void* ctx);
+    int (*init)(void *ctx, const char *interface);
+    int (*send)(void *ctx, const uint8_t *pkt, uint32_t len);
+    int (*recv)(void *ctx, uint8_t *buf, uint32_t buf_len);
+    void (*cleanup)(void *ctx);
 } platform_ops_t;
 
 /* Ethernet protocol constants (normally from linux/if_ether.h) */

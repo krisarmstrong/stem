@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
 #include <unistd.h>
 
 #include "rfc2544.h"
@@ -30,10 +31,11 @@
 /**
  * Initialize default MEP configuration
  */
-void y1731_default_mep_config(y1731_mep_config_t* config) {
+void y1731_default_mep_config(y1731_mep_config_t *config)
+{
     if (!config) {
         return;
-}
+    }
 
     memset(config, 0, sizeof(*config));
 
@@ -48,11 +50,12 @@ void y1731_default_mep_config(y1731_mep_config_t* config) {
 /**
  * Initialize Y.1731 session
  */
-int y1731_session_init(rfc2544_ctx_t* ctx, const y1731_mep_config_t* config,
-                       y1731_session_t* session) {
+int y1731_session_init(rfc2544_ctx_t *ctx, const y1731_mep_config_t *config,
+                       y1731_session_t *session)
+{
     if (!ctx || !config || !session) {
         return -EINVAL;
-}
+    }
 
     (void)ctx; /* Context used for future extensions */
 
@@ -72,11 +75,12 @@ int y1731_session_init(rfc2544_ctx_t* ctx, const y1731_mep_config_t* config,
  * Measures one-way and two-way frame delay using timestamps
  * ============================================================================ */
 
-int y1731_delay_measurement(rfc2544_ctx_t* ctx, y1731_session_t* session, uint32_t count,
-                            uint32_t interval_ms, y1731_delay_result_t* result) {
+int y1731_delay_measurement(rfc2544_ctx_t *ctx, y1731_session_t *session, uint32_t count,
+                            uint32_t interval_ms, y1731_delay_result_t *result)
+{
     if (!ctx || !session || !result) {
         return -EINVAL;
-}
+    }
 
     /* Validate interval_ms to prevent division by zero */
     if (interval_ms == 0) {
@@ -103,10 +107,10 @@ int y1731_delay_measurement(rfc2544_ctx_t* ctx, y1731_session_t* session, uint32
     double   rate_pct       = (max_pps > 0) ? ((probes_per_sec * 100.0) / (double)max_pps) : 0.001;
     if (rate_pct > 100.0) {
         rate_pct = 100.0;
-}
+    }
     if (rate_pct < 0.001) {
         rate_pct = 0.001;
-}
+    }
 
     /* Run delay measurement trial */
     trial_result_t trial;
@@ -146,11 +150,12 @@ int y1731_delay_measurement(rfc2544_ctx_t* ctx, y1731_session_t* session, uint32
  * Measures near-end and far-end frame loss
  * ============================================================================ */
 
-int y1731_loss_measurement(rfc2544_ctx_t* ctx, y1731_session_t* session, uint32_t duration_sec,
-                           y1731_loss_result_t* result) {
+int y1731_loss_measurement(rfc2544_ctx_t *ctx, y1731_session_t *session, uint32_t duration_sec,
+                           y1731_loss_result_t *result)
+{
     if (!ctx || !session || !result) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
     session->state = Y1731_STATE_RUNNING;
@@ -160,9 +165,9 @@ int y1731_loss_measurement(rfc2544_ctx_t* ctx, y1731_session_t* session, uint32_
 
     /* Run at moderate rate for loss measurement */
     trial_result_t trial;
-    int            ret = run_trial_custom(ctx, 128, 50.0, /* 50% rate */
-                                          duration_sec, Y1731_DEFAULT_WARMUP_SEC, Y1731_SIGNATURE_LOCAL,
-                                          session->local_mep.mep_id, &trial);
+    int ret = run_trial_custom(ctx, 128, 50.0, /* 50% rate */
+                               duration_sec, Y1731_DEFAULT_WARMUP_SEC, Y1731_SIGNATURE_LOCAL,
+                               session->local_mep.mep_id, &trial);
 
     if (ret < 0) {
         rfc2544_log(LOG_ERROR, "Loss measurement trial failed: %d", ret);
@@ -206,11 +211,12 @@ int y1731_loss_measurement(rfc2544_ctx_t* ctx, y1731_session_t* session, uint32_
  * Proactive loss measurement using synthetic frames
  * ============================================================================ */
 
-int y1731_synthetic_loss(rfc2544_ctx_t* ctx, y1731_session_t* session, uint32_t count,
-                         uint32_t interval_ms, y1731_loss_result_t* result) {
+int y1731_synthetic_loss(rfc2544_ctx_t *ctx, y1731_session_t *session, uint32_t count,
+                         uint32_t interval_ms, y1731_loss_result_t *result)
+{
     if (!ctx || !session || !result) {
         return -EINVAL;
-}
+    }
 
     /* Validate interval_ms to prevent division by zero */
     if (interval_ms == 0) {
@@ -232,7 +238,7 @@ int y1731_synthetic_loss(rfc2544_ctx_t* ctx, y1731_session_t* session, uint32_t 
     double   rate_pct       = (max_pps > 0) ? ((probes_per_sec * 100.0) / (double)max_pps) : 1.0;
     if (rate_pct > 100.0) {
         rate_pct = 100.0;
-}
+    }
 
     /* Run synthetic loss trial */
     trial_result_t trial;
@@ -278,11 +284,12 @@ int y1731_synthetic_loss(rfc2544_ctx_t* ctx, y1731_session_t* session, uint32_t 
  * Verifies connectivity and measures response time
  * ============================================================================ */
 
-int y1731_loopback(rfc2544_ctx_t* ctx, y1731_session_t* session, const uint8_t* target_mac,
-                   uint32_t count, y1731_loopback_result_t* result) {
+int y1731_loopback(rfc2544_ctx_t *ctx, y1731_session_t *session, const uint8_t *target_mac,
+                   uint32_t count, y1731_loopback_result_t *result)
+{
     if (!ctx || !session || !result) {
         return -EINVAL;
-}
+    }
 
     (void)target_mac; /* Used for actual OAM implementation */
 
@@ -303,7 +310,7 @@ int y1731_loopback(rfc2544_ctx_t* ctx, y1731_session_t* session, const uint8_t* 
     double   rate_pct = (max_pps > 0) ? ((1.0 * 100.0) / (double)max_pps) : 0.001;
     if (rate_pct < 0.001) {
         rate_pct = 0.001;
-}
+    }
 
     /* Run loopback trial */
     trial_result_t trial;
@@ -340,10 +347,11 @@ int y1731_loopback(rfc2544_ctx_t* ctx, y1731_session_t* session, const uint8_t* 
  * CCM Management
  * ============================================================================ */
 
-int y1731_start_ccm(rfc2544_ctx_t* ctx, y1731_session_t* session) {
+int y1731_start_ccm(rfc2544_ctx_t *ctx, y1731_session_t *session)
+{
     if (!ctx || !session) {
         return -EINVAL;
-}
+    }
 
     session->state        = Y1731_STATE_RUNNING;
     session->ccm_tx_count = 0;
@@ -355,10 +363,11 @@ int y1731_start_ccm(rfc2544_ctx_t* ctx, y1731_session_t* session) {
     return 0;
 }
 
-int y1731_stop_ccm(rfc2544_ctx_t* ctx, y1731_session_t* session) {
+int y1731_stop_ccm(rfc2544_ctx_t *ctx, y1731_session_t *session)
+{
     if (!ctx || !session) {
         return -EINVAL;
-}
+    }
 
     (void)ctx;
     session->state = Y1731_STATE_STOPPED;
@@ -368,10 +377,11 @@ int y1731_stop_ccm(rfc2544_ctx_t* ctx, y1731_session_t* session) {
     return 0;
 }
 
-int y1731_get_status(y1731_session_t* session, y1731_session_status_t* status) {
+int y1731_get_status(y1731_session_t *session, y1731_session_status_t *status)
+{
     if (!session || !status) {
         return -EINVAL;
-}
+    }
 
     memset(status, 0, sizeof(*status));
 
@@ -394,10 +404,11 @@ int y1731_get_status(y1731_session_t* session, y1731_session_status_t* status) {
  * Print Functions
  * ============================================================================ */
 
-void y1731_print_delay_results(const y1731_delay_result_t* result) {
+void y1731_print_delay_results(const y1731_delay_result_t *result)
+{
     if (!result) {
         return;
-}
+    }
 
     printf("\n=== Y.1731 Delay Measurement Results ===\n");
     printf("Frames Sent:      %" PRIu32 "\n", result->frames_sent);
@@ -409,10 +420,11 @@ void y1731_print_delay_results(const y1731_delay_result_t* result) {
     printf("  Variation:      %.1f us\n", result->delay_variation_us);
 }
 
-void y1731_print_loss_results(const y1731_loss_result_t* result) {
+void y1731_print_loss_results(const y1731_loss_result_t *result)
+{
     if (!result) {
         return;
-}
+    }
 
     printf("\n=== Y.1731 Loss Measurement Results ===\n");
     printf("Frames TX:        %" PRIu64 "\n", result->frames_tx);

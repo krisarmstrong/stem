@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include <unistd.h>
 #ifndef __APPLE__
 #include <pthread.h>
@@ -20,20 +21,20 @@
 
 /* Forward declarations */
 #if HAVE_DPDK
-extern const platform_ops_t* get_dpdk_platform_ops(void);
+extern const platform_ops_t *get_dpdk_platform_ops(void);
 #endif
 #if HAVE_AF_XDP
-extern const platform_ops_t* get_xdp_platform_ops(void);
+extern const platform_ops_t *get_xdp_platform_ops(void);
 #endif
 #ifdef __linux__
-extern const platform_ops_t* get_packet_platform_ops(void);
+extern const platform_ops_t *get_packet_platform_ops(void);
 #endif
 #ifdef __APPLE__
-extern const platform_ops_t* get_bpf_platform_ops(void);
+extern const platform_ops_t *get_bpf_platform_ops(void);
 #endif
 
 /* Global platform ops (set at runtime) */
-static const platform_ops_t* platform_ops = NULL;
+static const platform_ops_t *platform_ops = NULL;
 
 /* Batched statistics update structure (reduces cache line bouncing) */
 typedef struct {
@@ -51,7 +52,8 @@ typedef struct {
 } stats_batch_t;
 
 /* Flush batched statistics to worker stats */
-static inline void flush_stats_batch(reflector_stats_t* stats, stats_batch_t* batch) {
+static inline void flush_stats_batch(reflector_stats_t *stats, stats_batch_t *batch)
+{
     if (unlikely(batch->batch_count == 0)) {
         return;
     }
@@ -101,13 +103,13 @@ static inline void flush_stats_batch(reflector_stats_t* stats, stats_batch_t* ba
 
 /* Worker main loop with batched statistics */
 #ifdef __APPLE__
-static void worker_loop(worker_ctx_t* wctx)
+static void worker_loop(worker_ctx_t *wctx)
 #else
-static void* worker_thread(void* arg)
+static void *worker_thread(void *arg)
 #endif
 {
 #ifndef __APPLE__
-    worker_ctx_t* wctx = (worker_ctx_t*)arg;
+    worker_ctx_t *wctx = (worker_ctx_t *)arg;
 #endif
     packet_t      pkts_rx[BATCH_SIZE];
     packet_t      pkts_tx[BATCH_SIZE];
@@ -244,7 +246,8 @@ static void* worker_thread(void* arg)
 }
 
 /* Initialize reflector */
-int reflector_init(reflector_ctx_t* rctx, const char* ifname) {
+int reflector_init(reflector_ctx_t *rctx, const char *ifname)
+{
     /* Validate input parameters */
     if (!rctx || !ifname) {
         return -EINVAL;
@@ -401,10 +404,11 @@ int reflector_init(reflector_ctx_t* rctx, const char* ifname) {
 }
 
 /* Start reflector workers */
-int reflector_start(reflector_ctx_t* rctx) {
+int reflector_start(reflector_ctx_t *rctx)
+{
     rctx->num_workers       = rctx->config.num_workers;
     rctx->workers           = calloc((size_t)rctx->num_workers, sizeof(worker_ctx_t));
-    rctx->platform_contexts = calloc((size_t)rctx->num_workers, sizeof(platform_ctx_t*));
+    rctx->platform_contexts = calloc((size_t)rctx->num_workers, sizeof(platform_ctx_t *));
 #ifdef __APPLE__
     rctx->worker_queues = calloc((size_t)rctx->num_workers, sizeof(dispatch_queue_t));
     rctx->worker_group  = dispatch_group_create();
@@ -432,7 +436,7 @@ int reflector_start(reflector_ctx_t* rctx) {
 
     /* Initialize and start workers */
     for (int i = 0; i < rctx->num_workers; i++) {
-        worker_ctx_t* wctx = &rctx->workers[i];
+        worker_ctx_t *wctx = &rctx->workers[i];
         wctx->worker_id    = i;
         wctx->queue_id     = i;
         /* Use explicit CPU affinity if configured, otherwise auto-detect from IRQ */
@@ -598,7 +602,8 @@ int reflector_start(reflector_ctx_t* rctx) {
 }
 
 /* Stop reflector */
-void reflector_stop(reflector_ctx_t* rctx) {
+void reflector_stop(reflector_ctx_t *rctx)
+{
     rctx->running = false;
 
     if (rctx->workers) {
@@ -657,7 +662,8 @@ void reflector_stop(reflector_ctx_t* rctx) {
 }
 
 /* Cleanup reflector */
-void reflector_cleanup(reflector_ctx_t* rctx) {
+void reflector_cleanup(reflector_ctx_t *rctx)
+{
     if (rctx->running) {
         reflector_stop(rctx);
     }
@@ -667,11 +673,12 @@ void reflector_cleanup(reflector_ctx_t* rctx) {
 #define ATOMIC_LOAD64(x) __atomic_load_n(&(x), __ATOMIC_RELAXED)
 
 /* Get aggregated statistics (thread-safe) */
-void reflector_get_stats(const reflector_ctx_t* rctx, reflector_stats_t* stats) {
+void reflector_get_stats(const reflector_ctx_t *rctx, reflector_stats_t *stats)
+{
     memset(stats, 0, sizeof(*stats));
 
     for (int i = 0; i < rctx->num_workers; i++) {
-        const reflector_stats_t* ws = &rctx->workers[i].stats;
+        const reflector_stats_t *ws = &rctx->workers[i].stats;
 
         /* Basic packet counters - use atomic loads for thread safety */
         stats->packets_received += ATOMIC_LOAD64(ws->packets_received);
@@ -732,7 +739,8 @@ void reflector_get_stats(const reflector_ctx_t* rctx, reflector_stats_t* stats) 
 }
 
 /* Reset statistics */
-void reflector_reset_stats(reflector_ctx_t* rctx) {
+void reflector_reset_stats(reflector_ctx_t *rctx)
+{
     for (int i = 0; i < rctx->num_workers; i++) {
         memset(&rctx->workers[i].stats, 0, sizeof(reflector_stats_t));
     }
@@ -740,7 +748,8 @@ void reflector_reset_stats(reflector_ctx_t* rctx) {
 }
 
 /* Set configuration */
-int reflector_set_config(reflector_ctx_t* rctx, const reflector_config_t* config) {
+int reflector_set_config(reflector_ctx_t *rctx, const reflector_config_t *config)
+{
     if (!rctx || !config) {
         return -1;
     }
@@ -767,7 +776,8 @@ int reflector_set_config(reflector_ctx_t* rctx, const reflector_config_t* config
 }
 
 /* Get configuration */
-void reflector_get_config(const reflector_ctx_t* rctx, reflector_config_t* config) {
+void reflector_get_config(const reflector_ctx_t *rctx, reflector_config_t *config)
+{
     if (!rctx || !config) {
         return;
     }
@@ -775,6 +785,7 @@ void reflector_get_config(const reflector_ctx_t* rctx, reflector_config_t* confi
     memcpy(config, &rctx->config, sizeof(reflector_config_t));
 }
 
-const platform_ops_t* get_platform_ops(void) {
+const platform_ops_t *get_platform_ops(void)
+{
     return platform_ops;
 }

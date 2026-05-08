@@ -32,10 +32,11 @@
 /**
  * Initialize default bandwidth profile
  */
-void mef_default_bandwidth_profile(mef_bandwidth_profile_t* profile) {
+void mef_default_bandwidth_profile(mef_bandwidth_profile_t *profile)
+{
     if (!profile) {
         return;
-}
+    }
 
     memset(profile, 0, sizeof(*profile));
 
@@ -43,17 +44,18 @@ void mef_default_bandwidth_profile(mef_bandwidth_profile_t* profile) {
     profile->cbs_bytes     = 12000;  /* 12KB CBS (8 frames) */
     profile->eir_kbps      = 0;      /* No EIR by default */
     profile->ebs_bytes     = 0;
-    profile->color_mode    = false; /* Color-blind */
+    profile->color_mode    = false;  /* Color-blind */
     profile->coupling_flag = false;
 }
 
 /**
  * Initialize default SLA parameters
  */
-void mef_default_sla(mef_sla_t* sla) {
+void mef_default_sla(mef_sla_t *sla)
+{
     if (!sla) {
         return;
-}
+    }
 
     memset(sla, 0, sizeof(*sla));
 
@@ -68,10 +70,11 @@ void mef_default_sla(mef_sla_t* sla) {
 /**
  * Initialize default MEF test configuration
  */
-void mef_default_config(mef_config_t* config) {
+void mef_default_config(mef_config_t *config)
+{
     if (!config) {
         return;
-}
+    }
 
     memset(config, 0, sizeof(*config));
 
@@ -96,10 +99,11 @@ void mef_default_config(mef_config_t* config) {
  * Step test at 25%, 50%, 75%, 100% of CIR
  * ============================================================================ */
 
-int mef_config_test(rfc2544_ctx_t* ctx, const mef_config_t* config, mef_config_result_t* result) {
+int mef_config_test(rfc2544_ctx_t *ctx, const mef_config_t *config, mef_config_result_t *result)
+{
     if (!ctx || !config || !result) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
     snprintf(result->service_id, sizeof(result->service_id), "%s", config->service_id);
@@ -125,7 +129,7 @@ int mef_config_test(rfc2544_ctx_t* ctx, const mef_config_t* config, mef_config_r
         rfc2544_log(LOG_INFO, "Step %u: Testing at %u%% CIR (%u kbps)", s + 1, steps[s],
                     step_cir_kbps);
 
-        mef_step_result_t* step = &result->steps[s];
+        mef_step_result_t *step = &result->steps[s];
         step->step_pct          = steps[s];
         step->offered_rate_kbps = step_cir_kbps;
         step->passed            = true;
@@ -134,7 +138,7 @@ int mef_config_test(rfc2544_ctx_t* ctx, const mef_config_t* config, mef_config_r
         double rate_pct = (step_cir_kbps * 1000.0 * 100.0) / (double)ctx->line_rate;
         if (rate_pct > 100.0) {
             rate_pct = 100.0;
-}
+        }
 
         /* Test primary frame size (1518 bytes for throughput) */
         uint32_t frame_size = 1518;
@@ -191,10 +195,11 @@ int mef_config_test(rfc2544_ctx_t* ctx, const mef_config_t* config, mef_config_r
  * Long-duration test at CIR (typically 15+ minutes)
  * ============================================================================ */
 
-int mef_perf_test(rfc2544_ctx_t* ctx, const mef_config_t* config, mef_perf_result_t* result) {
+int mef_perf_test(rfc2544_ctx_t *ctx, const mef_config_t *config, mef_perf_result_t *result)
+{
     if (!ctx || !config || !result) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
     snprintf(result->service_id, sizeof(result->service_id), "%s", config->service_id);
@@ -217,7 +222,7 @@ int mef_perf_test(rfc2544_ctx_t* ctx, const mef_config_t* config, mef_perf_resul
     double rate_pct = (config->bw_profile.cir_kbps * 1000.0 * 100.0) / (double)ctx->line_rate;
     if (rate_pct > 100.0) {
         rate_pct = 100.0;
-}
+    }
 
     /* Enable latency measurement */
     ctx->config.measure_latency = true;
@@ -278,17 +283,18 @@ int mef_perf_test(rfc2544_ctx_t* ctx, const mef_config_t* config, mef_perf_resul
  * Full MEF Test (Configuration + Performance)
  * ============================================================================ */
 
-int mef_full_test(rfc2544_ctx_t* ctx, const mef_config_t* config,
-                  mef_config_result_t* config_result, mef_perf_result_t* perf_result) {
+int mef_full_test(rfc2544_ctx_t *ctx, const mef_config_t *config,
+                  mef_config_result_t *config_result, mef_perf_result_t *perf_result)
+{
     if (!ctx || !config || !config_result || !perf_result) {
         return -EINVAL;
-}
+    }
 
     /* Run configuration test first */
     int ret = mef_config_test(ctx, config, config_result);
     if (ret < 0) {
         return ret;
-}
+    }
 
     /* Only run performance test if configuration test passed */
     if (!config_result->overall_passed) {
@@ -304,11 +310,12 @@ int mef_full_test(rfc2544_ctx_t* ctx, const mef_config_t* config,
  * SLA Validation
  * ============================================================================ */
 
-int mef_validate_sla(const mef_perf_result_t* result, const mef_sla_t* sla,
-                     mef_sla_report_t* report) {
+int mef_validate_sla(const mef_perf_result_t *result, const mef_sla_t *sla,
+                     mef_sla_report_t *report)
+{
     if (!result || !sla || !report) {
         return -EINVAL;
-}
+    }
 
     memset(report, 0, sizeof(*report));
 
@@ -347,17 +354,18 @@ int mef_validate_sla(const mef_perf_result_t* result, const mef_sla_t* sla,
  * Print Functions
  * ============================================================================ */
 
-void mef_print_config_results(const mef_config_result_t* result) {
+void mef_print_config_results(const mef_config_result_t *result)
+{
     if (!result) {
         return;
-}
+    }
 
     printf("\n=== MEF 48 Configuration Test Results ===\n");
     printf("Service ID: %s\n", result->service_id);
     printf("Overall: %s\n\n", result->overall_passed ? "PASS" : "FAIL");
 
     for (uint32_t i = 0; i < result->num_steps; i++) {
-        const mef_step_result_t* step = &result->steps[i];
+        const mef_step_result_t *step = &result->steps[i];
         printf("Step %u (%u%% CIR):\n", i + 1, step->step_pct);
         printf("  Offered:  %u kbps\n", step->offered_rate_kbps);
         printf("  Achieved: %u kbps\n", step->achieved_rate_kbps);
@@ -369,10 +377,11 @@ void mef_print_config_results(const mef_config_result_t* result) {
     }
 }
 
-void mef_print_perf_results(const mef_perf_result_t* result) {
+void mef_print_perf_results(const mef_perf_result_t *result)
+{
     if (!result) {
         return;
-}
+    }
 
     printf("\n=== MEF 48 Performance Test Results ===\n");
     printf("Service ID: %s\n", result->service_id);
@@ -395,17 +404,18 @@ void mef_print_perf_results(const mef_perf_result_t* result) {
     printf("\nOverall: %s\n", result->overall_passed ? "PASS" : "FAIL");
 }
 
-static void mef_print_json(const mef_config_result_t* config_result,
-                           const mef_perf_result_t*   perf_result) {
+static void mef_print_json(const mef_config_result_t *config_result,
+                           const mef_perf_result_t   *perf_result)
+{
     printf("{\"type\":\"mef\",\"config\":");
     if (config_result) {
         printf("{\"service_id\":\"%s\",\"overall_passed\":%s,\"steps\":[",
                config_result->service_id, config_result->overall_passed ? "true" : "false");
         for (uint32_t i = 0; i < config_result->num_steps; i++) {
-            const mef_step_result_t* step = &config_result->steps[i];
+            const mef_step_result_t *step = &config_result->steps[i];
             if (i > 0) {
                 printf(",");
-}
+            }
             printf("{\"step_pct\":%u,"
                    "\"offered_rate_kbps\":%u,"
                    "\"achieved_rate_kbps\":%u,"
@@ -456,13 +466,14 @@ static void mef_print_json(const mef_config_result_t* config_result,
     printf("}\n");
 }
 
-static void mef_print_csv(const mef_config_result_t* config_result,
-                          const mef_perf_result_t*   perf_result) {
+static void mef_print_csv(const mef_config_result_t *config_result,
+                          const mef_perf_result_t   *perf_result)
+{
     if (config_result) {
         printf("test_phase,service_id,step_pct,offered_kbps,achieved_kbps,fd_us,fdv_us,flr_pct,"
                "result\n");
         for (uint32_t i = 0; i < config_result->num_steps; i++) {
-            const mef_step_result_t* step = &config_result->steps[i];
+            const mef_step_result_t *step = &config_result->steps[i];
             printf("config,%s,%u,%u,%u,%.1f,%.1f,%.4f,%s\n", config_result->service_id,
                    step->step_pct, step->offered_rate_kbps, step->achieved_rate_kbps, step->fd_us,
                    step->fdv_us, step->flr_pct, step->passed ? "PASS" : "FAIL");
@@ -481,8 +492,9 @@ static void mef_print_csv(const mef_config_result_t* config_result,
     }
 }
 
-void mef_print_results(const mef_config_result_t* config_result,
-                       const mef_perf_result_t* perf_result, stats_format_t format) {
+void mef_print_results(const mef_config_result_t *config_result,
+                       const mef_perf_result_t *perf_result, stats_format_t format)
+{
     if (format == STATS_FORMAT_JSON) {
         mef_print_json(config_result, perf_result);
         return;
@@ -496,17 +508,18 @@ void mef_print_results(const mef_config_result_t* config_result,
     /* Default: TEXT format */
     if (config_result) {
         mef_print_config_results(config_result);
-}
+    }
 
     if (perf_result) {
         mef_print_perf_results(perf_result);
-}
+    }
 }
 
-void mef_print_sla_report(const mef_sla_report_t* report) {
+void mef_print_sla_report(const mef_sla_report_t *report)
+{
     if (!report) {
         return;
-}
+    }
 
     printf("\n=== MEF SLA Compliance Report ===\n");
     printf("Frame Delay:     %s (threshold: %.1f us, measured: %.1f us, margin: %.1f us)\n",

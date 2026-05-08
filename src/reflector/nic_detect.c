@@ -7,24 +7,26 @@
  * - Recommends appropriate driver (AF_XDP, DPDK, AF_PACKET)
  */
 
-#include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include <dlfcn.h>
+
 #include "reflector.h"
 
 #ifdef __linux__
-#include <dirent.h>
 #include <sys/stat.h>
+
+#include <dirent.h>
 #include <unistd.h>
 #endif
 
 /* Known DPDK-compatible NIC vendors */
 typedef struct {
     uint16_t    vendor_id;
-    const char* vendor_name;
-    const char* dpdk_driver;
+    const char *vendor_name;
+    const char *dpdk_driver;
     bool        high_perf; /* True if 25G+ capable */
 } nic_vendor_t;
 
@@ -44,7 +46,7 @@ static const nic_vendor_t dpdk_compatible_nics[] = {
 typedef struct {
     uint16_t    vendor_id;
     uint16_t    device_id;
-    const char* model;
+    const char *model;
     int         speed_gbps;
 } nic_model_t;
 
@@ -77,8 +79,9 @@ static const nic_model_t high_speed_nics[] = {
 /*
  * Read sysfs file and return content as string
  */
-static int read_sysfs_str(const char* path, char* buf, size_t buflen) {
-    FILE* f = fopen(path, "r");
+static int read_sysfs_str(const char *path, char *buf, size_t buflen)
+{
+    FILE *f = fopen(path, "r");
     if (!f) {
         return -1;
     }
@@ -102,7 +105,8 @@ static int read_sysfs_str(const char* path, char* buf, size_t buflen) {
 /*
  * Read sysfs file and return as hex value
  */
-static int read_sysfs_hex(const char* path, uint16_t* value) {
+static int read_sysfs_hex(const char *path, uint16_t *value)
+{
     char buf[32];
     if (read_sysfs_str(path, buf, sizeof(buf)) < 0) {
         return -1;
@@ -116,7 +120,8 @@ static int read_sysfs_hex(const char* path, uint16_t* value) {
 /*
  * Get NIC vendor ID from sysfs
  */
-int get_nic_vendor(const char* ifname, uint16_t* vendor_id, uint16_t* device_id) {
+int get_nic_vendor(const char *ifname, uint16_t *vendor_id, uint16_t *device_id)
+{
 #ifdef __linux__
     char path[256];
 
@@ -142,9 +147,10 @@ int get_nic_vendor(const char* ifname, uint16_t* vendor_id, uint16_t* device_id)
 /*
  * Check if DPDK libraries are installed
  */
-bool is_dpdk_available(void) {
+bool is_dpdk_available(void)
+{
     /* Try to dlopen libdpdk */
-    void* handle = dlopen("librte_eal.so", RTLD_LAZY);
+    void *handle = dlopen("librte_eal.so", RTLD_LAZY);
     if (handle) {
         dlclose(handle);
         return true;
@@ -169,7 +175,8 @@ bool is_dpdk_available(void) {
 /*
  * Get NIC speed in Mbps from sysfs
  */
-int get_nic_speed(const char* ifname) {
+int get_nic_speed(const char *ifname)
+{
 #ifdef __linux__
     char path[256];
     char buf[32];
@@ -190,7 +197,8 @@ int get_nic_speed(const char* ifname) {
 /*
  * Detect NIC capabilities and print recommendations
  */
-void print_nic_recommendations(const char* ifname) {
+void print_nic_recommendations(const char *ifname)
+{
     uint16_t vendor_id = 0, device_id = 0;
     int      nic_speed      = get_nic_speed(ifname);
     bool     dpdk_installed = is_dpdk_available();
@@ -198,7 +206,7 @@ void print_nic_recommendations(const char* ifname) {
     /* Try to get NIC vendor info */
     if (get_nic_vendor(ifname, &vendor_id, &device_id) == 0) {
         /* Look up vendor */
-        const nic_vendor_t* vendor = NULL;
+        const nic_vendor_t *vendor = NULL;
         for (int i = 0; dpdk_compatible_nics[i].vendor_name; i++) {
             if (dpdk_compatible_nics[i].vendor_id == vendor_id) {
                 vendor = &dpdk_compatible_nics[i];
@@ -207,7 +215,7 @@ void print_nic_recommendations(const char* ifname) {
         }
 
         /* Look up specific model */
-        const nic_model_t* model = NULL;
+        const nic_model_t *model = NULL;
         for (int i = 0; high_speed_nics[i].model; i++) {
             if (high_speed_nics[i].vendor_id == vendor_id &&
                 high_speed_nics[i].device_id == device_id) {
@@ -280,7 +288,8 @@ void print_nic_recommendations(const char* ifname) {
  * Called when AF_XDP is not available and we fall back to AF_PACKET.
  * Explains limitations and suggests how to enable better performance.
  */
-void print_af_packet_warning(const char* ifname) {
+void print_af_packet_warning(const char *ifname)
+{
     uint16_t vendor_id = 0, device_id = 0;
     int      nic_speed = get_nic_speed(ifname);
 
@@ -310,7 +319,7 @@ void print_af_packet_warning(const char* ifname) {
 
     /* Check NIC and give specific recommendations */
     if (get_nic_vendor(ifname, &vendor_id, &device_id) == 0) {
-        const nic_vendor_t* vendor = NULL;
+        const nic_vendor_t *vendor = NULL;
         for (int i = 0; dpdk_compatible_nics[i].vendor_name; i++) {
             if (dpdk_compatible_nics[i].vendor_id == vendor_id) {
                 vendor = &dpdk_compatible_nics[i];
@@ -334,7 +343,8 @@ void print_af_packet_warning(const char* ifname) {
 /*
  * Print recommended NICs for high-performance use cases
  */
-void print_recommended_nics(void) {
+void print_recommended_nics(void)
+{
     reflector_log(LOG_INFO, "");
     reflector_log(LOG_INFO, "=== RECOMMENDED NICs FOR HIGH PERFORMANCE ===");
     reflector_log(LOG_INFO, "");

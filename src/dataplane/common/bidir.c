@@ -6,15 +6,16 @@
  */
 
 #include <errno.h>
-#include <pthread.h>
 #include <string.h>
+
+#include <pthread.h>
 
 #include "rfc2544.h"
 #include "rfc2544_internal.h"
 
 /* Thread data for reverse direction */
 typedef struct {
-    rfc2544_ctx_t*      ctx;
+    rfc2544_ctx_t      *ctx;
     double              rate_pct;
     throughput_result_t result;
     int                 status;
@@ -23,8 +24,9 @@ typedef struct {
 /**
  * Reverse direction thread function
  */
-static void* reverse_thread_func(void* arg) {
-    bidir_thread_data_t* data = (bidir_thread_data_t*)arg;
+static void *reverse_thread_func(void *arg)
+{
+    bidir_thread_data_t *data = (bidir_thread_data_t *)arg;
 
     /* Run throughput test in reverse direction */
     uint32_t count;
@@ -37,11 +39,12 @@ static void* reverse_thread_func(void* arg) {
 /**
  * Run bidirectional throughput test
  */
-int rfc2544_bidir_throughput(rfc2544_ctx_t* ctx, bidir_mode_t mode, double reverse_rate,
-                             bidir_result_t* result) {
+int rfc2544_bidir_throughput(rfc2544_ctx_t *ctx, bidir_mode_t mode, double reverse_rate,
+                             bidir_result_t *result)
+{
     if (!ctx || !result) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
 
@@ -51,7 +54,7 @@ int rfc2544_bidir_throughput(rfc2544_ctx_t* ctx, bidir_mode_t mode, double rever
         int ret = rfc2544_throughput_test(ctx, ctx->config.frame_size, &result->tx_result, &count);
         if (ret < 0) {
             return ret;
-}
+        }
 
         result->aggregate_mbps = result->tx_result.max_rate_mbps;
         return 0;

@@ -94,10 +94,19 @@ typedef enum {
 } test_state_t;
 
 /* Log levels */
-typedef enum { LOG_ERROR = 0, LOG_WARN = 1, LOG_INFO = 2, LOG_DEBUG = 3 } log_level_t;
+typedef enum {
+    LOG_ERROR = 0,
+    LOG_WARN  = 1,
+    LOG_INFO  = 2,
+    LOG_DEBUG = 3
+} log_level_t;
 
 /* Stats output format */
-typedef enum { STATS_FORMAT_TEXT = 0, STATS_FORMAT_JSON = 1, STATS_FORMAT_CSV = 2 } stats_format_t;
+typedef enum {
+    STATS_FORMAT_TEXT = 0,
+    STATS_FORMAT_JSON = 1,
+    STATS_FORMAT_CSV  = 2
+} stats_format_t;
 
 /* Latency statistics */
 typedef struct {
@@ -459,7 +468,7 @@ typedef struct {
     /* Platform selection */
     bool  use_dpdk;     /* Use DPDK for packet I/O */
     bool  force_packet; /* Force AF_PACKET (for veth/testing) */
-    char* dpdk_args;    /* DPDK EAL arguments */
+    char *dpdk_args;    /* DPDK EAL arguments */
 
     /* IMIX configuration */
     imix_config_t imix; /* IMIX traffic profile */
@@ -487,7 +496,7 @@ typedef struct {
 typedef struct rfc2544_ctx rfc2544_ctx_t;
 
 /* Test progress callback */
-typedef void (*progress_callback_t)(const rfc2544_ctx_t* ctx, const char* message, double pct);
+typedef void (*progress_callback_t)(const rfc2544_ctx_t *ctx, const char *message, double pct);
 
 /* ============================================================================
  * Core API
@@ -499,7 +508,7 @@ typedef void (*progress_callback_t)(const rfc2544_ctx_t* ctx, const char* messag
  * @param interface Network interface name
  * @return 0 on success, negative on error
  */
-int rfc2544_init(rfc2544_ctx_t** ctx, const char* interface);
+int rfc2544_init(rfc2544_ctx_t **ctx, const char *interface);
 
 /**
  * Configure test parameters
@@ -507,40 +516,40 @@ int rfc2544_init(rfc2544_ctx_t** ctx, const char* interface);
  * @param config Configuration to apply
  * @return 0 on success, negative on error
  */
-int rfc2544_configure(rfc2544_ctx_t* ctx, const rfc2544_config_t* config);
+int rfc2544_configure(rfc2544_ctx_t *ctx, const rfc2544_config_t *config);
 
 /**
  * Set progress callback
  * @param ctx Test context
  * @param callback Progress callback function
  */
-void rfc2544_set_progress_callback(rfc2544_ctx_t* ctx, progress_callback_t callback);
+void rfc2544_set_progress_callback(rfc2544_ctx_t *ctx, progress_callback_t callback);
 
 /**
  * Run configured test
  * @param ctx Test context
  * @return 0 on success, negative on error
  */
-int rfc2544_run(rfc2544_ctx_t* ctx);
+int rfc2544_run(rfc2544_ctx_t *ctx);
 
 /**
  * Cancel running test
  * @param ctx Test context
  */
-void rfc2544_cancel(rfc2544_ctx_t* ctx);
+void rfc2544_cancel(rfc2544_ctx_t *ctx);
 
 /**
  * Get current test state
  * @param ctx Test context
  * @return Current test state
  */
-test_state_t rfc2544_get_state(const rfc2544_ctx_t* ctx);
+test_state_t rfc2544_get_state(const rfc2544_ctx_t *ctx);
 
 /**
  * Clean up and free context
  * @param ctx Test context
  */
-void rfc2544_cleanup(rfc2544_ctx_t* ctx);
+void rfc2544_cleanup(rfc2544_ctx_t *ctx);
 
 /* ============================================================================
  * Individual Test Functions
@@ -555,8 +564,8 @@ void rfc2544_cleanup(rfc2544_ctx_t* ctx);
  * @param result_count Number of results (1 if specific size, 7 if all)
  * @return 0 on success, negative on error
  */
-int rfc2544_throughput_test(rfc2544_ctx_t* ctx, uint32_t frame_size, throughput_result_t* result,
-                            uint32_t* result_count);
+int rfc2544_throughput_test(rfc2544_ctx_t *ctx, uint32_t frame_size, throughput_result_t *result,
+                            uint32_t *result_count);
 
 /**
  * Run latency test (Section 26.2)
@@ -567,8 +576,8 @@ int rfc2544_throughput_test(rfc2544_ctx_t* ctx, uint32_t frame_size, throughput_
  * @param result Result structure (caller allocates)
  * @return 0 on success, negative on error
  */
-int rfc2544_latency_test(rfc2544_ctx_t* ctx, uint32_t frame_size, double load_pct,
-                         latency_result_t* result);
+int rfc2544_latency_test(rfc2544_ctx_t *ctx, uint32_t frame_size, double load_pct,
+                         latency_result_t *result);
 
 /**
  * Run frame loss test (Section 26.3)
@@ -579,8 +588,8 @@ int rfc2544_latency_test(rfc2544_ctx_t* ctx, uint32_t frame_size, double load_pc
  * @param result_count Number of load levels tested
  * @return 0 on success, negative on error
  */
-int rfc2544_frame_loss_test(rfc2544_ctx_t* ctx, uint32_t frame_size, frame_loss_point_t* results,
-                            uint32_t* result_count);
+int rfc2544_frame_loss_test(rfc2544_ctx_t *ctx, uint32_t frame_size, frame_loss_point_t *results,
+                            uint32_t *result_count);
 
 /**
  * Run back-to-back test (Section 26.4)
@@ -590,7 +599,7 @@ int rfc2544_frame_loss_test(rfc2544_ctx_t* ctx, uint32_t frame_size, frame_loss_
  * @param result Result structure (caller allocates)
  * @return 0 on success, negative on error
  */
-int rfc2544_back_to_back_test(rfc2544_ctx_t* ctx, uint32_t frame_size, burst_result_t* result);
+int rfc2544_back_to_back_test(rfc2544_ctx_t *ctx, uint32_t frame_size, burst_result_t *result);
 
 /**
  * Run system recovery test (Section 26.5)
@@ -602,8 +611,8 @@ int rfc2544_back_to_back_test(rfc2544_ctx_t* ctx, uint32_t frame_size, burst_res
  * @param result Result structure (caller allocates)
  * @return 0 on success, negative on error
  */
-int rfc2544_system_recovery_test(rfc2544_ctx_t* ctx, uint32_t frame_size, double throughput_pct,
-                                 uint32_t overload_sec, recovery_result_t* result);
+int rfc2544_system_recovery_test(rfc2544_ctx_t *ctx, uint32_t frame_size, double throughput_pct,
+                                 uint32_t overload_sec, recovery_result_t *result);
 
 /**
  * Run reset test (Section 26.6) - Informational
@@ -614,7 +623,7 @@ int rfc2544_system_recovery_test(rfc2544_ctx_t* ctx, uint32_t frame_size, double
  * @param result Result structure (caller allocates)
  * @return 0 on success, negative on error
  */
-int rfc2544_reset_test(rfc2544_ctx_t* ctx, uint32_t frame_size, reset_result_t* result);
+int rfc2544_reset_test(rfc2544_ctx_t *ctx, uint32_t frame_size, reset_result_t *result);
 
 /* ============================================================================
  * ITU-T Y.1564 Test Functions
@@ -628,8 +637,8 @@ int rfc2544_reset_test(rfc2544_ctx_t* ctx, uint32_t frame_size, reset_result_t* 
  * @param result Result structure (caller allocates)
  * @return 0 on success, negative on error
  */
-int y1564_config_test(rfc2544_ctx_t* ctx, const y1564_service_t* service,
-                      y1564_config_result_t* result);
+int y1564_config_test(rfc2544_ctx_t *ctx, const y1564_service_t *service,
+                      y1564_config_result_t *result);
 
 /**
  * Run Y.1564 Service Performance Test
@@ -640,8 +649,8 @@ int y1564_config_test(rfc2544_ctx_t* ctx, const y1564_service_t* service,
  * @param result Result structure (caller allocates)
  * @return 0 on success, negative on error
  */
-int y1564_perf_test(rfc2544_ctx_t* ctx, const y1564_service_t* service, uint32_t duration_sec,
-                    y1564_perf_result_t* result);
+int y1564_perf_test(rfc2544_ctx_t *ctx, const y1564_service_t *service, uint32_t duration_sec,
+                    y1564_perf_result_t *result);
 
 /**
  * Run Y.1564 Multi-Service Test
@@ -653,21 +662,21 @@ int y1564_perf_test(rfc2544_ctx_t* ctx, const y1564_service_t* service, uint32_t
  * @param perf_results Array of perf results (caller allocates, size = service_count)
  * @return 0 on success, negative on error
  */
-int y1564_multi_service_test(rfc2544_ctx_t* ctx, const y1564_service_t* services,
-                             uint32_t service_count, y1564_config_result_t* config_results,
-                             y1564_perf_result_t* perf_results);
+int y1564_multi_service_test(rfc2544_ctx_t *ctx, const y1564_service_t *services,
+                             uint32_t service_count, y1564_config_result_t *config_results,
+                             y1564_perf_result_t *perf_results);
 
 /**
  * Get default Y.1564 configuration
  * @param config Configuration to populate with defaults
  */
-void y1564_default_config(y1564_config_t* config);
+void y1564_default_config(y1564_config_t *config);
 
 /**
  * Get default Y.1564 SLA (typical voice service)
  * @param sla SLA structure to populate
  */
-void y1564_default_sla(y1564_sla_t* sla);
+void y1564_default_sla(y1564_sla_t *sla);
 
 /**
  * Print Y.1564 test results
@@ -676,8 +685,8 @@ void y1564_default_sla(y1564_sla_t* sla);
  * @param service_count Number of services
  * @param format Output format (TEXT, JSON, CSV)
  */
-void y1564_print_results(const y1564_config_result_t* config_results,
-                         const y1564_perf_result_t* perf_results, uint32_t service_count,
+void y1564_print_results(const y1564_config_result_t *config_results,
+                         const y1564_perf_result_t *perf_results, uint32_t service_count,
                          stats_format_t format);
 
 /* ============================================================================
@@ -689,7 +698,7 @@ void y1564_print_results(const y1564_config_result_t* config_results,
  * @param profile Profile type (IMIX_SIMPLE, IMIX_CISCO, etc.)
  * @param config Configuration to populate
  */
-void imix_get_profile(imix_profile_t profile, imix_config_t* config);
+void imix_get_profile(imix_profile_t profile, imix_config_t *config);
 
 /**
  * Run IMIX throughput test
@@ -698,15 +707,15 @@ void imix_get_profile(imix_profile_t profile, imix_config_t* config);
  * @param result Result structure (caller allocates)
  * @return 0 on success, negative on error
  */
-int rfc2544_imix_throughput(rfc2544_ctx_t* ctx, const imix_config_t* imix_config,
-                            imix_result_t* result);
+int rfc2544_imix_throughput(rfc2544_ctx_t *ctx, const imix_config_t *imix_config,
+                            imix_result_t *result);
 
 /**
  * Calculate weighted average frame size for IMIX profile
  * @param config IMIX configuration
  * @return Weighted average frame size in bytes
  */
-double imix_avg_frame_size(const imix_config_t* config);
+double imix_avg_frame_size(const imix_config_t *config);
 
 /* ============================================================================
  * Bidirectional Test Functions
@@ -720,8 +729,8 @@ double imix_avg_frame_size(const imix_config_t* config);
  * @param result Result structure (caller allocates)
  * @return 0 on success, negative on error
  */
-int rfc2544_bidir_throughput(rfc2544_ctx_t* ctx, bidir_mode_t mode, double reverse_rate,
-                             bidir_result_t* result);
+int rfc2544_bidir_throughput(rfc2544_ctx_t *ctx, bidir_mode_t mode, double reverse_rate,
+                             bidir_result_t *result);
 
 /* ============================================================================
  * Multi-Port Test Functions
@@ -733,7 +742,7 @@ int rfc2544_bidir_throughput(rfc2544_ctx_t* ctx, bidir_mode_t mode, double rever
  * @param config Multi-port configuration
  * @return 0 on success, negative on error
  */
-int rfc2544_multiport_init(rfc2544_ctx_t* ctx, const multiport_config_t* config);
+int rfc2544_multiport_init(rfc2544_ctx_t *ctx, const multiport_config_t *config);
 
 /**
  * Run multi-port throughput test
@@ -741,7 +750,7 @@ int rfc2544_multiport_init(rfc2544_ctx_t* ctx, const multiport_config_t* config)
  * @param results Array of results (one per port)
  * @return 0 on success, negative on error
  */
-int rfc2544_multiport_throughput(rfc2544_ctx_t* ctx, throughput_result_t* results);
+int rfc2544_multiport_throughput(rfc2544_ctx_t *ctx, throughput_result_t *results);
 
 /* ============================================================================
  * IPv6 Test Functions (RFC 5180)
@@ -753,7 +762,7 @@ int rfc2544_multiport_throughput(rfc2544_ctx_t* ctx, throughput_result_t* result
  * @param config IPv6 configuration
  * @return 0 on success, negative on error
  */
-int rfc2544_ipv6_configure(rfc2544_ctx_t* ctx, const ipv6_config_t* config);
+int rfc2544_ipv6_configure(rfc2544_ctx_t *ctx, const ipv6_config_t *config);
 
 /**
  * Parse IPv6 address from string
@@ -761,7 +770,7 @@ int rfc2544_ipv6_configure(rfc2544_ctx_t* ctx, const ipv6_config_t* config);
  * @param addr Output address buffer (16 bytes)
  * @return 0 on success, negative on error
  */
-int rfc2544_parse_ipv6(const char* str, uint8_t addr[16]);
+int rfc2544_parse_ipv6(const char *str, uint8_t addr[16]);
 
 /* ============================================================================
  * Y.1564 Color-Aware Metering Functions
@@ -774,7 +783,7 @@ int rfc2544_parse_ipv6(const char* str, uint8_t addr[16]);
  * @param result Color result structure
  * @return 0 on success, negative on error
  */
-int y1564_color_test(rfc2544_ctx_t* ctx, const y1564_service_t* service, color_result_t* result);
+int y1564_color_test(rfc2544_ctx_t *ctx, const y1564_service_t *service, color_result_t *result);
 
 /**
  * Validate CBS/EBS burst sizes
@@ -783,8 +792,8 @@ int y1564_color_test(rfc2544_ctx_t* ctx, const y1564_service_t* service, color_r
  * @param result Burst validation result
  * @return 0 on success, negative on error
  */
-int y1564_burst_test(rfc2544_ctx_t* ctx, const y1564_service_t* service,
-                     y1564_burst_result_t* result);
+int y1564_burst_test(rfc2544_ctx_t *ctx, const y1564_service_t *service,
+                     y1564_burst_result_t *result);
 
 /* ============================================================================
  * Interface Auto-Detection Functions
@@ -809,7 +818,7 @@ typedef struct {
  * @param info NIC info structure to populate
  * @return 0 on success, negative on error
  */
-int rfc2544_detect_nic(const char* interface, nic_info_t* info);
+int rfc2544_detect_nic(const char *interface, nic_info_t *info);
 
 /**
  * List available network interfaces suitable for testing
@@ -817,14 +826,14 @@ int rfc2544_detect_nic(const char* interface, nic_info_t* info);
  * @param max_count Maximum interfaces to return
  * @return Number of interfaces found, negative on error
  */
-int rfc2544_list_interfaces(nic_info_t* interfaces, uint32_t max_count);
+int rfc2544_list_interfaces(nic_info_t *interfaces, uint32_t max_count);
 
 /**
  * Recommend best interface for testing
  * @param info Recommended interface info
  * @return 0 on success, negative on error
  */
-int rfc2544_recommend_interface(nic_info_t* info);
+int rfc2544_recommend_interface(nic_info_t *info);
 
 /* ============================================================================
  * Utility Functions
@@ -841,7 +850,7 @@ void rfc2544_set_log_level(log_level_t level);
  * @param interface Network interface name
  * @return Line rate in bits/sec, 0 on error
  */
-uint64_t rfc2544_get_line_rate(const char* interface);
+uint64_t rfc2544_get_line_rate(const char *interface);
 
 /**
  * Calculate theoretical max packet rate
@@ -855,13 +864,13 @@ uint64_t rfc2544_calc_pps(uint64_t line_rate, uint32_t frame_size);
  * Get default configuration
  * @param config Configuration to populate
  */
-void rfc2544_default_config(rfc2544_config_t* config);
+void rfc2544_default_config(rfc2544_config_t *config);
 
 /**
  * Print results in configured format
  * @param ctx Test context
  */
-void rfc2544_print_results(const rfc2544_ctx_t* ctx);
+void rfc2544_print_results(const rfc2544_ctx_t *ctx);
 
 /* ============================================================================
  * Packet Structure
@@ -1474,7 +1483,7 @@ typedef struct {
 
 /* Gate Control List */
 typedef struct {
-    uint32_t    entry_count; /* Number of GCL entries */
+    uint32_t    entry_count;             /* Number of GCL entries */
     gcl_entry_t entries[TSN_MAX_GCL_ENTRIES];
     uint64_t    base_time_ns;            /* Base time (PTP timestamp) */
     uint32_t    cycle_time_ns;           /* Cycle time (sum of all intervals) */
@@ -1680,42 +1689,42 @@ typedef enum {
 /**
  * Run RFC 2889 forwarding rate test
  */
-int rfc2889_forwarding_test(rfc2544_ctx_t* ctx, const rfc2889_config_t* config,
-                            rfc2889_fwd_result_t* result);
+int rfc2889_forwarding_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
+                            rfc2889_fwd_result_t *result);
 
 /**
  * Run RFC 2889 address caching test
  */
-int rfc2889_caching_test(rfc2544_ctx_t* ctx, const rfc2889_config_t* config,
-                         rfc2889_cache_result_t* result);
+int rfc2889_caching_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
+                         rfc2889_cache_result_t *result);
 
 /**
  * Run RFC 2889 address learning test
  */
-int rfc2889_learning_test(rfc2544_ctx_t* ctx, const rfc2889_config_t* config,
-                          rfc2889_learning_result_t* result);
+int rfc2889_learning_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
+                          rfc2889_learning_result_t *result);
 
 /**
  * Run RFC 2889 broadcast forwarding test
  */
-int rfc2889_broadcast_test(rfc2544_ctx_t* ctx, const rfc2889_config_t* config,
-                           rfc2889_broadcast_result_t* result);
+int rfc2889_broadcast_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
+                           rfc2889_broadcast_result_t *result);
 
 /**
  * Run RFC 2889 congestion control test
  */
-int rfc2889_congestion_test(rfc2544_ctx_t* ctx, const rfc2889_config_t* config,
-                            rfc2889_congestion_result_t* result);
+int rfc2889_congestion_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
+                            rfc2889_congestion_result_t *result);
 
 /**
  * Get default RFC 2889 configuration
  */
-void rfc2889_default_config(rfc2889_config_t* config);
+void rfc2889_default_config(rfc2889_config_t *config);
 
 /**
  * Print RFC 2889 results
  */
-void rfc2889_print_results(const void* result, rfc2889_test_type_t type, stats_format_t format);
+void rfc2889_print_results(const void *result, rfc2889_test_type_t type, stats_format_t format);
 
 /* ============================================================================
  * RFC 6349 API Functions
@@ -1724,14 +1733,14 @@ void rfc2889_print_results(const void* result, rfc2889_test_type_t type, stats_f
 /**
  * Run RFC 6349 TCP throughput test
  */
-int rfc6349_throughput_test(rfc2544_ctx_t* ctx, const rfc6349_config_t* config,
-                            rfc6349_result_t* result);
+int rfc6349_throughput_test(rfc2544_ctx_t *ctx, const rfc6349_config_t *config,
+                            rfc6349_result_t *result);
 
 /**
  * Run RFC 6349 path characterization
  */
-int rfc6349_path_test(rfc2544_ctx_t* ctx, const rfc6349_config_t* config,
-                      tcp_path_info_t* path_info);
+int rfc6349_path_test(rfc2544_ctx_t *ctx, const rfc6349_config_t *config,
+                      tcp_path_info_t *path_info);
 
 /**
  * Calculate theoretical TCP throughput
@@ -1742,12 +1751,12 @@ double rfc6349_theoretical_throughput(double bandwidth_mbps, double rtt_ms, doub
 /**
  * Get default RFC 6349 configuration
  */
-void rfc6349_default_config(rfc6349_config_t* config);
+void rfc6349_default_config(rfc6349_config_t *config);
 
 /**
  * Print RFC 6349 results
  */
-void rfc6349_print_results(const rfc6349_result_t* result, stats_format_t format);
+void rfc6349_print_results(const rfc6349_result_t *result, stats_format_t format);
 
 /* ============================================================================
  * Y.1731 API Functions
@@ -1756,62 +1765,62 @@ void rfc6349_print_results(const rfc6349_result_t* result, stats_format_t format
 /**
  * Initialize Y.1731 session
  */
-int y1731_session_init(rfc2544_ctx_t* ctx, const y1731_mep_config_t* config,
-                       y1731_session_t* session);
+int y1731_session_init(rfc2544_ctx_t *ctx, const y1731_mep_config_t *config,
+                       y1731_session_t *session);
 
 /**
  * Run Y.1731 delay measurement test
  */
-int y1731_delay_measurement(rfc2544_ctx_t* ctx, y1731_session_t* session, uint32_t count,
-                            uint32_t interval_ms, y1731_delay_result_t* result);
+int y1731_delay_measurement(rfc2544_ctx_t *ctx, y1731_session_t *session, uint32_t count,
+                            uint32_t interval_ms, y1731_delay_result_t *result);
 
 /**
  * Run Y.1731 loss measurement test
  */
-int y1731_loss_measurement(rfc2544_ctx_t* ctx, y1731_session_t* session, uint32_t duration_sec,
-                           y1731_loss_result_t* result);
+int y1731_loss_measurement(rfc2544_ctx_t *ctx, y1731_session_t *session, uint32_t duration_sec,
+                           y1731_loss_result_t *result);
 
 /**
  * Run Y.1731 synthetic loss measurement
  */
-int y1731_synthetic_loss(rfc2544_ctx_t* ctx, y1731_session_t* session, uint32_t count,
-                         uint32_t interval_ms, y1731_loss_result_t* result);
+int y1731_synthetic_loss(rfc2544_ctx_t *ctx, y1731_session_t *session, uint32_t count,
+                         uint32_t interval_ms, y1731_loss_result_t *result);
 
 /**
  * Run Y.1731 loopback test
  */
-int y1731_loopback(rfc2544_ctx_t* ctx, y1731_session_t* session, const uint8_t* target_mac,
-                   uint32_t count, y1731_loopback_result_t* result);
+int y1731_loopback(rfc2544_ctx_t *ctx, y1731_session_t *session, const uint8_t *target_mac,
+                   uint32_t count, y1731_loopback_result_t *result);
 
 /**
  * Start Y.1731 CCM transmission
  */
-int y1731_start_ccm(rfc2544_ctx_t* ctx, y1731_session_t* session);
+int y1731_start_ccm(rfc2544_ctx_t *ctx, y1731_session_t *session);
 
 /**
  * Stop Y.1731 CCM transmission
  */
-int y1731_stop_ccm(rfc2544_ctx_t* ctx, y1731_session_t* session);
+int y1731_stop_ccm(rfc2544_ctx_t *ctx, y1731_session_t *session);
 
 /**
  * Get Y.1731 session status
  */
-int y1731_get_status(y1731_session_t* session, y1731_session_status_t* status);
+int y1731_get_status(y1731_session_t *session, y1731_session_status_t *status);
 
 /**
  * Get default Y.1731 MEP configuration
  */
-void y1731_default_mep_config(y1731_mep_config_t* config);
+void y1731_default_mep_config(y1731_mep_config_t *config);
 
 /**
  * Print Y.1731 delay results
  */
-void y1731_print_delay_results(const y1731_delay_result_t* result);
+void y1731_print_delay_results(const y1731_delay_result_t *result);
 
 /**
  * Print Y.1731 loss results
  */
-void y1731_print_loss_results(const y1731_loss_result_t* result);
+void y1731_print_loss_results(const y1731_loss_result_t *result);
 
 /* ============================================================================
  * MEF 48/49 API Functions
@@ -1820,55 +1829,55 @@ void y1731_print_loss_results(const y1731_loss_result_t* result);
 /**
  * Run MEF service configuration test
  */
-int mef_config_test(rfc2544_ctx_t* ctx, const mef_config_t* config, mef_config_result_t* result);
+int mef_config_test(rfc2544_ctx_t *ctx, const mef_config_t *config, mef_config_result_t *result);
 
 /**
  * Run MEF service performance test
  */
-int mef_perf_test(rfc2544_ctx_t* ctx, const mef_config_t* config, mef_perf_result_t* result);
+int mef_perf_test(rfc2544_ctx_t *ctx, const mef_config_t *config, mef_perf_result_t *result);
 
 /**
  * Run full MEF 48/49 test suite
  */
-int mef_full_test(rfc2544_ctx_t* ctx, const mef_config_t* config,
-                  mef_config_result_t* config_result, mef_perf_result_t* perf_result);
+int mef_full_test(rfc2544_ctx_t *ctx, const mef_config_t *config,
+                  mef_config_result_t *config_result, mef_perf_result_t *perf_result);
 
 /**
  * Validate service against MEF SLA
  */
-int mef_validate_sla(const mef_perf_result_t* result, const mef_sla_t* sla,
-                     mef_sla_report_t* report);
+int mef_validate_sla(const mef_perf_result_t *result, const mef_sla_t *sla,
+                     mef_sla_report_t *report);
 
 /**
  * Get default MEF configuration
  */
-void mef_default_config(mef_config_t* config);
+void mef_default_config(mef_config_t *config);
 
 /**
  * Get default MEF bandwidth profile
  */
-void mef_default_bandwidth_profile(mef_bandwidth_profile_t* profile);
+void mef_default_bandwidth_profile(mef_bandwidth_profile_t *profile);
 
 /**
  * Get default MEF SLA configuration
  */
-void mef_default_sla(mef_sla_t* sla);
+void mef_default_sla(mef_sla_t *sla);
 
 /**
  * Print MEF configuration test results
  */
-void mef_print_config_results(const mef_config_result_t* result);
+void mef_print_config_results(const mef_config_result_t *result);
 
 /**
  * Print MEF performance test results
  */
-void mef_print_perf_results(const mef_perf_result_t* result);
+void mef_print_perf_results(const mef_perf_result_t *result);
 
 /**
  * Print MEF results
  */
-void mef_print_results(const mef_config_result_t* config_result,
-                       const mef_perf_result_t* perf_result, stats_format_t format);
+void mef_print_results(const mef_config_result_t *config_result,
+                       const mef_perf_result_t *perf_result, stats_format_t format);
 
 /* ============================================================================
  * IEEE 802.1Qbv TSN API Functions
@@ -1877,67 +1886,67 @@ void mef_print_results(const mef_config_result_t* config_result,
 /**
  * Run TSN gate timing test
  */
-int tsn_gate_timing_test(rfc2544_ctx_t* ctx, const tsn_config_t* config,
-                         tsn_timing_result_t_v2* result);
+int tsn_gate_timing_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
+                         tsn_timing_result_t_v2 *result);
 
 /**
  * Run TSN traffic class isolation test
  */
-int tsn_isolation_test(rfc2544_ctx_t* ctx, const tsn_config_t* config,
-                       tsn_isolation_result_t* result);
+int tsn_isolation_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
+                       tsn_isolation_result_t *result);
 
 /**
  * Run TSN scheduled latency test
  */
-int tsn_scheduled_latency_test(rfc2544_ctx_t* ctx, const tsn_config_t* config,
-                               uint32_t traffic_class, tsn_latency_result_t* result);
+int tsn_scheduled_latency_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
+                               uint32_t traffic_class, tsn_latency_result_t *result);
 
 /**
  * Run TSN PTP synchronization test
  */
-int tsn_ptp_sync_test(rfc2544_ctx_t* ctx, const tsn_config_t* config, tsn_ptp_result_t* result);
+int tsn_ptp_sync_test(rfc2544_ctx_t *ctx, const tsn_config_t *config, tsn_ptp_result_t *result);
 
 /**
  * Run full TSN test suite
  */
-int tsn_full_test(rfc2544_ctx_t* ctx, const tsn_config_t* config, tsn_full_result_t* result);
+int tsn_full_test(rfc2544_ctx_t *ctx, const tsn_config_t *config, tsn_full_result_t *result);
 
 /**
  * Get default TSN configuration
  */
-void tsn_default_config(tsn_config_t* config);
+void tsn_default_config(tsn_config_t *config);
 
 /**
  * Create exclusive GCL for traffic classes
  */
-int tsn_create_exclusive_gcl(gate_control_list_t* gcl, uint32_t num_classes,
+int tsn_create_exclusive_gcl(gate_control_list_t *gcl, uint32_t num_classes,
                              uint32_t cycle_time_ns);
 
 /**
  * Create priority-based GCL
  */
-int tsn_create_priority_gcl(gate_control_list_t* gcl, uint32_t cycle_time_ns,
+int tsn_create_priority_gcl(gate_control_list_t *gcl, uint32_t cycle_time_ns,
                             uint32_t high_prio_time_pct);
 
 /**
  * Verify GCL configuration
  */
-int tsn_verify_gcl(const gate_control_list_t* gcl);
+int tsn_verify_gcl(const gate_control_list_t *gcl);
 
 /**
  * Print TSN timing results
  */
-void tsn_print_timing_results(const tsn_timing_result_t_v2* result);
+void tsn_print_timing_results(const tsn_timing_result_t_v2 *result);
 
 /**
  * Print TSN isolation results
  */
-void tsn_print_isolation_results(const tsn_isolation_result_t* result);
+void tsn_print_isolation_results(const tsn_isolation_result_t *result);
 
 /**
  * Print TSN latency results
  */
-void tsn_print_latency_results(const tsn_latency_result_t* result);
+void tsn_print_latency_results(const tsn_latency_result_t *result);
 
 #ifdef __cplusplus
 }

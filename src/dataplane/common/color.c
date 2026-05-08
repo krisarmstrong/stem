@@ -37,7 +37,8 @@ typedef struct {
 /**
  * Get current time in nanoseconds
  */
-static uint64_t get_time_ns(void) {
+static uint64_t get_time_ns(void)
+{
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
@@ -46,8 +47,9 @@ static uint64_t get_time_ns(void) {
 /**
  * Initialize token bucket
  */
-static void bucket_init(token_bucket_t* bucket, double rate_bps, double burst_bytes) {
-    bucket->tokens         = burst_bytes; /* Start full */
+static void bucket_init(token_bucket_t *bucket, double rate_bps, double burst_bytes)
+{
+    bucket->tokens         = burst_bytes;    /* Start full */
     bucket->bucket_size    = burst_bytes;
     bucket->rate           = rate_bps / 8.0; /* Convert to bytes/sec */
     bucket->last_update_ns = get_time_ns();
@@ -56,7 +58,8 @@ static void bucket_init(token_bucket_t* bucket, double rate_bps, double burst_by
 /**
  * Update token bucket and check if packet conforms
  */
-static bool bucket_conform(token_bucket_t* bucket, uint32_t packet_size) {
+static bool bucket_conform(token_bucket_t *bucket, uint32_t packet_size)
+{
     uint64_t now           = get_time_ns();
     double   elapsed_sec   = (now - bucket->last_update_ns) / 1e9;
     bucket->last_update_ns = now;
@@ -65,7 +68,7 @@ static bool bucket_conform(token_bucket_t* bucket, uint32_t packet_size) {
     bucket->tokens += elapsed_sec * bucket->rate;
     if (bucket->tokens > bucket->bucket_size) {
         bucket->tokens = bucket->bucket_size;
-}
+    }
 
     /* Check if packet conforms */
     if (bucket->tokens >= packet_size) {
@@ -79,7 +82,8 @@ static bool bucket_conform(token_bucket_t* bucket, uint32_t packet_size) {
 /**
  * Initialize dual bucket meter
  */
-static void meter_init(dual_bucket_meter_t* meter, const y1564_sla_t* sla) {
+static void meter_init(dual_bucket_meter_t *meter, const y1564_sla_t *sla)
+{
     /* CIR bucket: rate = CIR, burst = CBS */
     bucket_init(&meter->cir_bucket, sla->cir_mbps * 1e6, sla->cbs_bytes);
 
@@ -94,7 +98,8 @@ static void meter_init(dual_bucket_meter_t* meter, const y1564_sla_t* sla) {
 /**
  * Meter a packet and return its color
  */
-static traffic_color_t meter_packet(dual_bucket_meter_t* meter, uint32_t packet_size) {
+static traffic_color_t meter_packet(dual_bucket_meter_t *meter, uint32_t packet_size)
+{
     /* Check CIR bucket first (green) */
     if (bucket_conform(&meter->cir_bucket, packet_size)) {
         return COLOR_GREEN;
@@ -112,10 +117,11 @@ static traffic_color_t meter_packet(dual_bucket_meter_t* meter, uint32_t packet_
 /**
  * Run color-aware metering test
  */
-int y1564_color_test(rfc2544_ctx_t* ctx, const y1564_service_t* service, color_result_t* result) {
+int y1564_color_test(rfc2544_ctx_t *ctx, const y1564_service_t *service, color_result_t *result)
+{
     if (!ctx || !service || !result) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
 
@@ -179,11 +185,12 @@ int y1564_color_test(rfc2544_ctx_t* ctx, const y1564_service_t* service, color_r
 /**
  * Validate CBS/EBS burst sizes
  */
-int y1564_burst_test(rfc2544_ctx_t* ctx, const y1564_service_t* service,
-                     y1564_burst_result_t* result) {
+int y1564_burst_test(rfc2544_ctx_t *ctx, const y1564_service_t *service,
+                     y1564_burst_result_t *result)
+{
     if (!ctx || !service || !result) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
 
@@ -222,7 +229,7 @@ int y1564_burst_test(rfc2544_ctx_t* ctx, const y1564_service_t* service,
     for (uint32_t i = 0; i < max_burst_frames; i++) {
         if (!bucket_conform(&meter.cir_bucket, frame_size)) {
             break;
-}
+        }
     }
 
     /* Now count yellow frames */

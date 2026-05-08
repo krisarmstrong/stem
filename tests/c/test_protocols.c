@@ -15,7 +15,8 @@
  * Y.1564 Default Configuration Tests
  * ============================================================================ */
 
-TEST(y1564_default_sla_values) {
+TEST(y1564_default_sla_values)
+{
     y1564_sla_t sla;
     y1564_default_sla(&sla);
 
@@ -28,13 +29,15 @@ TEST(y1564_default_sla_values) {
     ASSERT_FLOAT_EQ(0.01, sla.flr_threshold_pct, 0.001);
 }
 
-TEST(y1564_default_sla_null) {
+TEST(y1564_default_sla_null)
+{
     /* Should not crash with NULL */
     y1564_default_sla(NULL);
     ASSERT_TRUE(1);
 }
 
-TEST(y1564_default_config_values) {
+TEST(y1564_default_config_values)
+{
     y1564_config_t config;
     y1564_default_config(&config);
 
@@ -53,12 +56,14 @@ TEST(y1564_default_config_values) {
     ASSERT_TRUE(config.run_perf_test);
 }
 
-TEST(y1564_default_config_null) {
+TEST(y1564_default_config_null)
+{
     y1564_default_config(NULL);
     ASSERT_TRUE(1);
 }
 
-TEST(y1564_default_config_services) {
+TEST(y1564_default_config_services)
+{
     y1564_config_t config;
     y1564_default_config(&config);
 
@@ -76,7 +81,8 @@ TEST(y1564_default_config_services) {
  * Y.1731 Default Configuration Tests
  * ============================================================================ */
 
-TEST(y1731_default_mep_config_values) {
+TEST(y1731_default_mep_config_values)
+{
     y1731_mep_config_t config;
     y1731_default_mep_config(&config);
 
@@ -87,12 +93,14 @@ TEST(y1731_default_mep_config_values) {
     ASSERT_TRUE(config.enabled);
 }
 
-TEST(y1731_default_mep_config_null) {
+TEST(y1731_default_mep_config_null)
+{
     y1731_default_mep_config(NULL);
     ASSERT_TRUE(1);
 }
 
-TEST(y1731_default_mep_meg_id) {
+TEST(y1731_default_mep_meg_id)
+{
     y1731_mep_config_t config;
     y1731_default_mep_config(&config);
 
@@ -103,7 +111,8 @@ TEST(y1731_default_mep_meg_id) {
  * TSN Gate Control List Tests
  * ============================================================================ */
 
-TEST(tsn_default_config_values) {
+TEST(tsn_default_config_values)
+{
     tsn_config_t config;
     tsn_default_config(&config);
 
@@ -112,12 +121,14 @@ TEST(tsn_default_config_values) {
     ASSERT_TRUE(config.verify_gcl);
 }
 
-TEST(tsn_default_config_null) {
+TEST(tsn_default_config_null)
+{
     tsn_default_config(NULL);
     ASSERT_TRUE(1);
 }
 
-TEST(tsn_gcl_cycle_time) {
+TEST(tsn_gcl_cycle_time)
+{
     tsn_config_t config;
     tsn_default_config(&config);
 
@@ -130,7 +141,8 @@ TEST(tsn_gcl_cycle_time) {
  * MEF Service Configuration Tests
  * ============================================================================ */
 
-TEST(mef_default_config_values) {
+TEST(mef_default_config_values)
+{
     mef_config_t config;
     mef_default_config(&config);
 
@@ -140,12 +152,14 @@ TEST(mef_default_config_values) {
     ASSERT_GT(config.bw_profile.cbs_bytes, 0);
 }
 
-TEST(mef_default_config_null) {
+TEST(mef_default_config_null)
+{
     mef_default_config(NULL);
     ASSERT_TRUE(1);
 }
 
-TEST(mef_service_frame_delay) {
+TEST(mef_service_frame_delay)
+{
     mef_config_t config;
     mef_default_config(&config);
 
@@ -153,7 +167,8 @@ TEST(mef_service_frame_delay) {
     ASSERT_GT(config.sla.fd_threshold_us, 0.0);
 }
 
-TEST(mef_service_frame_loss) {
+TEST(mef_service_frame_loss)
+{
     mef_config_t config;
     mef_default_config(&config);
 
@@ -166,7 +181,8 @@ TEST(mef_service_frame_loss) {
  * RFC 2889 Configuration Tests
  * ============================================================================ */
 
-TEST(rfc2889_default_config_values) {
+TEST(rfc2889_default_config_values)
+{
     rfc2889_config_t config;
     rfc2889_default_config(&config);
 
@@ -174,12 +190,14 @@ TEST(rfc2889_default_config_values) {
     ASSERT_LE(config.address_count, 100000);
 }
 
-TEST(rfc2889_default_config_null) {
+TEST(rfc2889_default_config_null)
+{
     rfc2889_default_config(NULL);
     ASSERT_TRUE(1);
 }
 
-TEST(rfc2889_trial_duration) {
+TEST(rfc2889_trial_duration)
+{
     rfc2889_config_t config;
     rfc2889_default_config(&config);
 
@@ -191,7 +209,8 @@ TEST(rfc2889_trial_duration) {
  * RFC 6349 Configuration Tests
  * ============================================================================ */
 
-TEST(rfc6349_default_config_values) {
+TEST(rfc6349_default_config_values)
+{
     rfc6349_config_t config;
     rfc6349_default_config(&config);
 
@@ -200,7 +219,8 @@ TEST(rfc6349_default_config_values) {
     ASSERT_LE(config.mss, 65535);
 }
 
-TEST(rfc6349_default_config_null) {
+TEST(rfc6349_default_config_null)
+{
     rfc6349_default_config(NULL);
     ASSERT_TRUE(1);
 }
@@ -209,42 +229,48 @@ TEST(rfc6349_default_config_null) {
  * SLA Threshold Validation Tests
  * ============================================================================ */
 
-TEST(sla_frame_delay_pass) {
+TEST(sla_frame_delay_pass)
+{
     double measured_fd = 5.0;  /* 5ms */
     double threshold   = 10.0; /* 10ms threshold */
     bool   pass        = (measured_fd <= threshold);
     ASSERT_TRUE(pass);
 }
 
-TEST(sla_frame_delay_fail) {
+TEST(sla_frame_delay_fail)
+{
     double measured_fd = 15.0; /* 15ms */
     double threshold   = 10.0; /* 10ms threshold */
     bool   pass        = (measured_fd <= threshold);
     ASSERT_FALSE(pass);
 }
 
-TEST(sla_frame_loss_pass) {
+TEST(sla_frame_loss_pass)
+{
     double measured_flr = 0.001; /* 0.001% */
     double threshold    = 0.01;  /* 0.01% threshold */
     bool   pass         = (measured_flr <= threshold);
     ASSERT_TRUE(pass);
 }
 
-TEST(sla_frame_loss_fail) {
+TEST(sla_frame_loss_fail)
+{
     double measured_flr = 0.1;  /* 0.1% */
     double threshold    = 0.01; /* 0.01% threshold */
     bool   pass         = (measured_flr <= threshold);
     ASSERT_FALSE(pass);
 }
 
-TEST(sla_jitter_pass) {
+TEST(sla_jitter_pass)
+{
     double measured_fdv = 2.0; /* 2ms */
     double threshold    = 5.0; /* 5ms threshold */
     bool   pass         = (measured_fdv <= threshold);
     ASSERT_TRUE(pass);
 }
 
-TEST(sla_jitter_fail) {
+TEST(sla_jitter_fail)
+{
     double measured_fdv = 8.0; /* 8ms */
     double threshold    = 5.0; /* 5ms threshold */
     bool   pass         = (measured_fdv <= threshold);
@@ -255,28 +281,32 @@ TEST(sla_jitter_fail) {
  * Frame Loss Ratio Calculation Tests
  * ============================================================================ */
 
-TEST(flr_zero_loss) {
+TEST(flr_zero_loss)
+{
     uint64_t tx  = 1000000;
     uint64_t rx  = 1000000;
     double   flr = (tx > 0) ? 100.0 * (tx - rx) / tx : 0.0;
     ASSERT_FLOAT_EQ(0.0, flr, 0.0001);
 }
 
-TEST(flr_one_percent) {
+TEST(flr_one_percent)
+{
     uint64_t tx  = 1000000;
     uint64_t rx  = 990000;
     double   flr = (tx > 0) ? 100.0 * (tx - rx) / tx : 0.0;
     ASSERT_FLOAT_EQ(1.0, flr, 0.0001);
 }
 
-TEST(flr_total_loss) {
+TEST(flr_total_loss)
+{
     uint64_t tx  = 1000000;
     uint64_t rx  = 0;
     double   flr = (tx > 0) ? 100.0 * (tx - rx) / tx : 0.0;
     ASSERT_FLOAT_EQ(100.0, flr, 0.0001);
 }
 
-TEST(flr_zero_tx) {
+TEST(flr_zero_tx)
+{
     uint64_t tx  = 0;
     uint64_t rx  = 0;
     double   flr = (tx > 0) ? 100.0 * (tx - rx) / tx : 0.0;
@@ -287,21 +317,24 @@ TEST(flr_zero_tx) {
  * CIR/EIR Rate Calculation Tests
  * ============================================================================ */
 
-TEST(cir_percentage_of_line_rate) {
+TEST(cir_percentage_of_line_rate)
+{
     double line_rate_mbps = 1000.0; /* 1 Gbps */
     double cir_mbps       = 100.0;  /* 100 Mbps CIR */
     double cir_pct        = (cir_mbps / line_rate_mbps) * 100.0;
     ASSERT_FLOAT_EQ(10.0, cir_pct, 0.1);
 }
 
-TEST(cir_eir_combined) {
+TEST(cir_eir_combined)
+{
     double cir_mbps = 100.0;
     double eir_mbps = 50.0;
     double total    = cir_mbps + eir_mbps;
     ASSERT_FLOAT_EQ(150.0, total, 0.1);
 }
 
-TEST(burst_size_validation) {
+TEST(burst_size_validation)
+{
     /* CBS should accommodate at least one jumbo frame */
     uint32_t cbs         = 12000;
     uint32_t jumbo_frame = 9000;
@@ -312,7 +345,8 @@ TEST(burst_size_validation) {
  * CCM Interval Tests
  * ============================================================================ */
 
-TEST(ccm_interval_values) {
+TEST(ccm_interval_values)
+{
     /* Verify CCM interval enum values make sense */
     ASSERT_EQ(0, CCM_INVALID);
     ASSERT_EQ(1, CCM_3_33MS);
@@ -324,7 +358,8 @@ TEST(ccm_interval_values) {
     ASSERT_EQ(7, CCM_10MIN);
 }
 
-TEST(ccm_interval_ms_mapping) {
+TEST(ccm_interval_ms_mapping)
+{
     /* Map intervals to milliseconds */
     uint32_t intervals_ms[] = {0, 3, 10, 100, 1000, 10000, 60000, 600000};
 
@@ -336,13 +371,15 @@ TEST(ccm_interval_ms_mapping) {
  * MEG Level Tests
  * ============================================================================ */
 
-TEST(meg_level_values) {
+TEST(meg_level_values)
+{
     ASSERT_EQ(0, MEG_LEVEL_CUSTOMER);
     ASSERT_EQ(3, MEG_LEVEL_PROVIDER);
     ASSERT_EQ(7, MEG_LEVEL_OPERATOR);
 }
 
-TEST(meg_level_hierarchy) {
+TEST(meg_level_hierarchy)
+{
     /* Operator > Provider > Customer */
     ASSERT_GT(MEG_LEVEL_OPERATOR, MEG_LEVEL_PROVIDER);
     ASSERT_GT(MEG_LEVEL_PROVIDER, MEG_LEVEL_CUSTOMER);
@@ -352,7 +389,8 @@ TEST(meg_level_hierarchy) {
  * Test Type Enum Tests
  * ============================================================================ */
 
-TEST(test_type_values) {
+TEST(test_type_values)
+{
     ASSERT_EQ(0, TEST_THROUGHPUT);
     ASSERT_EQ(1, TEST_LATENCY);
     ASSERT_EQ(2, TEST_FRAME_LOSS);
@@ -364,7 +402,8 @@ TEST(test_type_values) {
     ASSERT_EQ(8, TEST_Y1564_FULL);
 }
 
-TEST(test_state_values) {
+TEST(test_state_values)
+{
     ASSERT_EQ(0, STATE_IDLE);
     ASSERT_EQ(1, STATE_RUNNING);
     ASSERT_EQ(2, STATE_COMPLETED);
@@ -376,13 +415,15 @@ TEST(test_state_values) {
  * Signature Tests
  * ============================================================================ */
 
-TEST(signature_lengths) {
+TEST(signature_lengths)
+{
     /* All signatures should be 7 bytes */
     ASSERT_EQ(7, RFC2544_SIG_LEN);
     ASSERT_EQ(7, Y1564_SIG_LEN);
 }
 
-TEST(signature_values) {
+TEST(signature_values)
+{
     /* Verify signature strings */
     ASSERT_STR_EQ("RFC2544", RFC2544_SIGNATURE);
     ASSERT_STR_EQ("Y.1564 ", Y1564_SIGNATURE);
@@ -392,7 +433,8 @@ TEST(signature_values) {
  * Main
  * ============================================================================ */
 
-int main(void) {
+int main(void)
+{
     printf("Seed Test Suite - Protocol Unit Tests\n");
     printf("Copyright (c) 2025 Mustard Seed Networks\n\n");
 

@@ -28,10 +28,11 @@
 /**
  * Initialize default TSN configuration
  */
-void tsn_default_config(tsn_config_t* config) {
+void tsn_default_config(tsn_config_t *config)
+{
     if (!config) {
         return;
-}
+    }
 
     memset(config, 0, sizeof(*config));
 
@@ -69,11 +70,11 @@ void tsn_default_config(tsn_config_t* config) {
 /**
  * Create exclusive GCL - each traffic class gets exclusive time slice
  */
-int tsn_create_exclusive_gcl(gate_control_list_t* gcl, uint32_t num_classes,
-                             uint32_t cycle_time_ns) {
+int tsn_create_exclusive_gcl(gate_control_list_t *gcl, uint32_t num_classes, uint32_t cycle_time_ns)
+{
     if (!gcl || num_classes == 0 || num_classes > TSN_MAX_GATES || cycle_time_ns == 0) {
         return -EINVAL;
-}
+    }
 
     memset(gcl, 0, sizeof(*gcl));
 
@@ -102,11 +103,12 @@ int tsn_create_exclusive_gcl(gate_control_list_t* gcl, uint32_t num_classes,
 /**
  * Create priority-based GCL - high priority gets specified percentage
  */
-int tsn_create_priority_gcl(gate_control_list_t* gcl, uint32_t cycle_time_ns,
-                            uint32_t high_prio_time_pct) {
+int tsn_create_priority_gcl(gate_control_list_t *gcl, uint32_t cycle_time_ns,
+                            uint32_t high_prio_time_pct)
+{
     if (!gcl || high_prio_time_pct > 100) {
         return -EINVAL;
-}
+    }
 
     memset(gcl, 0, sizeof(*gcl));
 
@@ -135,10 +137,11 @@ int tsn_create_priority_gcl(gate_control_list_t* gcl, uint32_t cycle_time_ns,
 /**
  * Verify GCL configuration is valid
  */
-int tsn_verify_gcl(const gate_control_list_t* gcl) {
+int tsn_verify_gcl(const gate_control_list_t *gcl)
+{
     if (!gcl) {
         return -EINVAL;
-}
+    }
 
     if (gcl->entry_count == 0 || gcl->entry_count > TSN_MAX_GCL_ENTRIES) {
         rfc2544_log(LOG_ERROR, "Invalid GCL entry count: %u", gcl->entry_count);
@@ -172,11 +175,12 @@ int tsn_verify_gcl(const gate_control_list_t* gcl) {
  * Verifies gate operations occur at correct times
  * ============================================================================ */
 
-int tsn_gate_timing_test(rfc2544_ctx_t* ctx, const tsn_config_t* config,
-                         tsn_timing_result_t_v2* result) {
+int tsn_gate_timing_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
+                         tsn_timing_result_t_v2 *result)
+{
     if (!ctx || !config || !result) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
 
@@ -238,18 +242,19 @@ int tsn_gate_timing_test(rfc2544_ctx_t* ctx, const tsn_config_t* config,
  * Verifies traffic classes don't interfere with each other
  * ============================================================================ */
 
-int tsn_isolation_test(rfc2544_ctx_t* ctx, const tsn_config_t* config,
-                       tsn_isolation_result_t* result) {
+int tsn_isolation_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
+                       tsn_isolation_result_t *result)
+{
     if (!ctx || !config || !result) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
 
     uint32_t num_classes = config->num_traffic_classes;
     if (num_classes > 8) {
         num_classes = 8;
-}
+    }
 
     rfc2544_log(LOG_INFO, "=== TSN Traffic Class Isolation Test ===");
     rfc2544_log(LOG_INFO, "Testing %u traffic classes", num_classes);
@@ -261,7 +266,7 @@ int tsn_isolation_test(rfc2544_ctx_t* ctx, const tsn_config_t* config,
     for (uint32_t tc = 0; tc < num_classes && !ctx->cancel_requested; tc++) {
         rfc2544_log(LOG_INFO, "Testing traffic class %u...", tc);
 
-        tsn_class_result_t* cr = &result->class_results[tc];
+        tsn_class_result_t *cr = &result->class_results[tc];
 
         /* Enable latency measurement */
         ctx->config.measure_latency = true;
@@ -310,7 +315,7 @@ int tsn_isolation_test(rfc2544_ctx_t* ctx, const tsn_config_t* config,
 
         if (!cr->passed) {
             overall_pass = false;
-}
+        }
 
         rfc2544_log(LOG_INFO, "  Class %u: TX=%lu, RX=%lu, latency=%.1f ns, jitter=%.1f ns - %s",
                     tc, (unsigned long)cr->frames_tx, (unsigned long)cr->frames_rx,
@@ -330,15 +335,16 @@ int tsn_isolation_test(rfc2544_ctx_t* ctx, const tsn_config_t* config,
  * Measures latency for a specific traffic class during its scheduled window
  * ============================================================================ */
 
-int tsn_scheduled_latency_test(rfc2544_ctx_t* ctx, const tsn_config_t* config,
-                               uint32_t traffic_class, tsn_latency_result_t* result) {
+int tsn_scheduled_latency_test(rfc2544_ctx_t *ctx, const tsn_config_t *config,
+                               uint32_t traffic_class, tsn_latency_result_t *result)
+{
     if (!ctx || !config || !result) {
         return -EINVAL;
-}
+    }
 
     if (traffic_class >= 8) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
     result->traffic_class = traffic_class;
@@ -387,10 +393,11 @@ int tsn_scheduled_latency_test(rfc2544_ctx_t* ctx, const tsn_config_t* config,
  * Verifies PTP synchronization accuracy
  * ============================================================================ */
 
-int tsn_ptp_sync_test(rfc2544_ctx_t* ctx, const tsn_config_t* config, tsn_ptp_result_t* result) {
+int tsn_ptp_sync_test(rfc2544_ctx_t *ctx, const tsn_config_t *config, tsn_ptp_result_t *result)
+{
     if (!ctx || !config || !result) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
 
@@ -440,10 +447,11 @@ int tsn_ptp_sync_test(rfc2544_ctx_t* ctx, const tsn_config_t* config, tsn_ptp_re
  * Full TSN Test Suite
  * ============================================================================ */
 
-int tsn_full_test(rfc2544_ctx_t* ctx, const tsn_config_t* config, tsn_full_result_t* result) {
+int tsn_full_test(rfc2544_ctx_t *ctx, const tsn_config_t *config, tsn_full_result_t *result)
+{
     if (!ctx || !config || !result) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
     bool overall_pass = true;
@@ -455,30 +463,30 @@ int tsn_full_test(rfc2544_ctx_t* ctx, const tsn_config_t* config, tsn_full_resul
     ret = tsn_gate_timing_test(ctx, config, &result->timing_result);
     if (ret < 0) {
         return ret;
-}
+    }
     if (!result->timing_result.gate_timing_passed) {
         overall_pass = false;
-}
+    }
 
     /* Isolation test */
     ret = tsn_isolation_test(ctx, config, &result->isolation_result);
     if (ret < 0) {
         return ret;
-}
+    }
     if (!result->isolation_result.overall_passed) {
         overall_pass = false;
-}
+    }
 
     /* Latency test for each class */
     for (uint32_t tc = 0; tc < config->num_traffic_classes && tc < 8; tc++) {
         ret = tsn_scheduled_latency_test(ctx, config, tc, &result->latency_results[tc]);
         if (ret < 0) {
             return ret;
-}
+        }
         if (!result->latency_results[tc].latency_passed ||
             !result->latency_results[tc].jitter_passed) {
             overall_pass = false;
-}
+        }
     }
 
     /* PTP sync test */
@@ -486,10 +494,10 @@ int tsn_full_test(rfc2544_ctx_t* ctx, const tsn_config_t* config, tsn_full_resul
         ret = tsn_ptp_sync_test(ctx, config, &result->ptp_result);
         if (ret < 0) {
             return ret;
-}
+        }
         if (!result->ptp_result.sync_achieved) {
             overall_pass = false;
-}
+        }
     }
 
     result->overall_passed = overall_pass;
@@ -503,10 +511,11 @@ int tsn_full_test(rfc2544_ctx_t* ctx, const tsn_config_t* config, tsn_full_resul
  * Print Functions
  * ============================================================================ */
 
-void tsn_print_timing_results(const tsn_timing_result_t_v2* result) {
+void tsn_print_timing_results(const tsn_timing_result_t_v2 *result)
+{
     if (!result) {
         return;
-}
+    }
 
     printf("\n=== TSN Gate Timing Results ===\n");
     printf("Cycles tested:   %u\n", result->cycles_tested);
@@ -517,16 +526,17 @@ void tsn_print_timing_results(const tsn_timing_result_t_v2* result) {
     printf("Result:          %s\n", result->gate_timing_passed ? "PASS" : "FAIL");
 }
 
-void tsn_print_isolation_results(const tsn_isolation_result_t* result) {
+void tsn_print_isolation_results(const tsn_isolation_result_t *result)
+{
     if (!result) {
         return;
-}
+    }
 
     printf("\n=== TSN Traffic Class Isolation Results ===\n");
     printf("Classes tested:  %u\n", result->num_classes);
 
     for (uint32_t i = 0; i < result->num_classes; i++) {
-        const tsn_class_result_t* cr = &result->class_results[i];
+        const tsn_class_result_t *cr = &result->class_results[i];
         printf("\nClass %u:\n", i);
         printf("  Frames TX:     %" PRIu64 "\n", cr->frames_tx);
         printf("  Frames RX:     %" PRIu64 "\n", cr->frames_rx);
@@ -540,10 +550,11 @@ void tsn_print_isolation_results(const tsn_isolation_result_t* result) {
     printf("\nOverall:         %s\n", result->overall_passed ? "PASS" : "FAIL");
 }
 
-void tsn_print_latency_results(const tsn_latency_result_t* result) {
+void tsn_print_latency_results(const tsn_latency_result_t *result)
+{
     if (!result) {
         return;
-}
+    }
 
     printf("\n=== TSN Scheduled Latency Results ===\n");
     printf("Traffic class:   %u\n", result->traffic_class);

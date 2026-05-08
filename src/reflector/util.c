@@ -4,19 +4,21 @@
  * Copyright (c) 2025 Kris Armstrong
  */
 
-#include <arpa/inet.h>
 #include <errno.h>
-#include <grp.h>
-#include <net/if.h>
-#include <netinet/in.h>
-#include <pwd.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
-#include <time.h>
+
+#include <grp.h>
+#include <net/if.h>
+#include <pwd.h>
 #include <unistd.h>
 
 /* Safe string copy macro - uses strlcpy on macOS, manual null termination elsewhere */
@@ -48,19 +50,21 @@ static log_level_t current_log_level = LOG_INFO;
 /*
  * Set logging level
  */
-void reflector_set_log_level(log_level_t level) {
+void reflector_set_log_level(log_level_t level)
+{
     current_log_level = level;
 }
 
 /*
  * Logging function
  */
-void reflector_log(log_level_t level, const char* fmt, ...) {
+void reflector_log(log_level_t level, const char *fmt, ...)
+{
     if (level < current_log_level) {
         return;
     }
 
-    const char* level_str[] = {
+    const char *level_str[] = {
         [LOG_DEBUG] = "DEBUG", [LOG_INFO] = "INFO", [LOG_WARN] = "WARN", [LOG_ERROR] = "ERROR"};
 
     struct timespec ts;
@@ -82,7 +86,8 @@ void reflector_log(log_level_t level, const char* fmt, ...) {
 /*
  * Get interface index from name
  */
-int get_interface_index(const char* ifname) {
+int get_interface_index(const char *ifname)
+{
     unsigned int ifindex = if_nametoindex(ifname);
     if (ifindex == 0) {
         int saved_errno = errno;
@@ -96,7 +101,8 @@ int get_interface_index(const char* ifname) {
 /*
  * Get MAC address of interface
  */
-int get_interface_mac(const char* ifname, uint8_t mac[6]) {
+int get_interface_mac(const char *ifname, uint8_t mac[6])
+{
 #ifdef __linux__
     int          fd, ret;
     struct ifreq ifr;
@@ -139,7 +145,7 @@ int get_interface_mac(const char* ifname, uint8_t mac[6]) {
     for (ifaptr = ifap; ifaptr != NULL; ifaptr = ifaptr->ifa_next) {
         if (strcmp(ifaptr->ifa_name, ifname) == 0 && ifaptr->ifa_addr != NULL &&
             ifaptr->ifa_addr->sa_family == AF_LINK) {
-            struct sockaddr_dl* sdl = (struct sockaddr_dl*)ifaptr->ifa_addr;
+            struct sockaddr_dl *sdl = (struct sockaddr_dl *)ifaptr->ifa_addr;
             memcpy(mac, LLADDR(sdl), 6);
             freeifaddrs(ifap);
 
@@ -164,7 +170,8 @@ int get_interface_mac(const char* ifname, uint8_t mac[6]) {
  * Get number of RX queues for interface
  * Returns 1 if unable to determine (fallback)
  */
-int get_num_rx_queues(const char* ifname) {
+int get_num_rx_queues(const char *ifname)
+{
 #ifdef __linux__
     int                     fd, ret;
     struct ifreq            ifr;
@@ -181,7 +188,7 @@ int get_num_rx_queues(const char* ifname) {
 
     memset(&channels, 0, sizeof(channels));
     channels.cmd = ETHTOOL_GCHANNELS;
-    ifr.ifr_data = (char*)&channels;
+    ifr.ifr_data = (char *)&channels;
 
     ret = ioctl(fd, SIOCETHTOOL, &ifr);
     close(fd);
@@ -217,7 +224,8 @@ int get_num_rx_queues(const char* ifname) {
  * On Linux, this reads /proc/irq/<irq>/smp_affinity to find which CPU
  * handles the IRQ for this queue. This is a best-effort heuristic.
  */
-int get_queue_cpu_affinity(const char* ifname, int queue_id) {
+int get_queue_cpu_affinity(const char *ifname, int queue_id)
+{
 #ifdef __linux__
     /*
      * Use simple round-robin CPU assignment for queue affinity.
@@ -236,7 +244,8 @@ int get_queue_cpu_affinity(const char* ifname, int queue_id) {
 /*
  * Get high-resolution timestamp in nanoseconds
  */
-uint64_t get_timestamp_ns(void) {
+uint64_t get_timestamp_ns(void)
+{
     struct timespec ts;
     if (clock_gettime(CLOCK_MONOTONIC, &ts) < 0) {
         return 0; /* Fallback on error */
@@ -247,7 +256,8 @@ uint64_t get_timestamp_ns(void) {
 /*
  * Set interface promiscuous mode
  */
-int set_interface_promisc(const char* ifname, bool enable) {
+int set_interface_promisc(const char *ifname, bool enable)
+{
     int          fd, ret;
     struct ifreq ifr;
 
@@ -298,7 +308,8 @@ int set_interface_promisc(const char* ifname, bool enable) {
 /*
  * Check if interface is up
  */
-bool is_interface_up(const char* ifname) {
+bool is_interface_up(const char *ifname)
+{
     int          fd, ret;
     struct ifreq ifr;
 
@@ -325,7 +336,8 @@ bool is_interface_up(const char* ifname) {
  * On Linux: Tries to drop to 'nobody' user if running as root
  * On macOS: No-op (BPF requires root or specific group membership)
  */
-int drop_privileges(void) {
+int drop_privileges(void)
+{
 #ifdef __linux__
     /* Only drop privileges if running as root */
     if (getuid() != 0 && geteuid() != 0) {
@@ -336,7 +348,7 @@ int drop_privileges(void) {
     /* Look up 'nobody' user dynamically using getpwnam() */
     uid_t          nobody_uid;
     gid_t          nobody_gid;
-    struct passwd* pw = getpwnam("nobody");
+    struct passwd *pw = getpwnam("nobody");
 
     if (pw != NULL) {
         nobody_uid = pw->pw_uid;

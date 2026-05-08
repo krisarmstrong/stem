@@ -30,10 +30,11 @@
 /**
  * Initialize default RFC 2889 configuration
  */
-void rfc2889_default_config(rfc2889_config_t* config) {
+void rfc2889_default_config(rfc2889_config_t *config)
+{
     if (!config) {
         return;
-}
+    }
 
     memset(config, 0, sizeof(*config));
 
@@ -54,11 +55,12 @@ void rfc2889_default_config(rfc2889_config_t* config) {
  * without loss for each frame size.
  * ============================================================================ */
 
-int rfc2889_forwarding_test(rfc2544_ctx_t* ctx, const rfc2889_config_t* config,
-                            rfc2889_fwd_result_t* result) {
+int rfc2889_forwarding_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
+                            rfc2889_fwd_result_t *result)
+{
     if (!ctx || !config || !result) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
 
@@ -136,11 +138,12 @@ int rfc2889_forwarding_test(rfc2544_ctx_t* ctx, const rfc2889_config_t* config,
  * while still forwarding frames correctly.
  * ============================================================================ */
 
-int rfc2889_caching_test(rfc2544_ctx_t* ctx, const rfc2889_config_t* config,
-                         rfc2889_cache_result_t* result) {
+int rfc2889_caching_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
+                         rfc2889_cache_result_t *result)
+{
     if (!ctx || !config || !result) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
 
@@ -204,11 +207,12 @@ int rfc2889_caching_test(rfc2544_ctx_t* ctx, const rfc2889_config_t* config,
  * Determines the maximum rate at which the DUT can learn new MAC addresses.
  * ============================================================================ */
 
-int rfc2889_learning_test(rfc2544_ctx_t* ctx, const rfc2889_config_t* config,
-                          rfc2889_learning_result_t* result) {
+int rfc2889_learning_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
+                          rfc2889_learning_result_t *result)
+{
     if (!ctx || !config || !result) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
 
@@ -240,7 +244,7 @@ int rfc2889_learning_test(rfc2544_ctx_t* ctx, const rfc2889_config_t* config,
         double rate_pct = (test_rate * (frame_size + 20) * 8.0 * 100.0) / (double)ctx->line_rate;
         if (rate_pct > 100.0) {
             rate_pct = 100.0;
-}
+        }
 
         trial_result_t trial;
         int            ret = run_trial(ctx, frame_size, rate_pct, config->trial_duration_sec,
@@ -283,11 +287,12 @@ int rfc2889_learning_test(rfc2544_ctx_t* ctx, const rfc2889_config_t* config,
  * Determines the maximum rate at which the DUT can forward broadcast frames.
  * ============================================================================ */
 
-int rfc2889_broadcast_test(rfc2544_ctx_t* ctx, const rfc2889_config_t* config,
-                           rfc2889_broadcast_result_t* result) {
+int rfc2889_broadcast_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
+                           rfc2889_broadcast_result_t *result)
+{
     if (!ctx || !config || !result) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
 
@@ -363,11 +368,12 @@ int rfc2889_broadcast_test(rfc2544_ctx_t* ctx, const rfc2889_config_t* config,
  * Determines how the DUT handles congestion (oversubscription).
  * ============================================================================ */
 
-int rfc2889_congestion_test(rfc2544_ctx_t* ctx, const rfc2889_config_t* config,
-                            rfc2889_congestion_result_t* result) {
+int rfc2889_congestion_test(rfc2544_ctx_t *ctx, const rfc2889_config_t *config,
+                            rfc2889_congestion_result_t *result)
+{
     if (!ctx || !config || !result) {
         return -EINVAL;
-}
+    }
 
     memset(result, 0, sizeof(*result));
 
@@ -417,10 +423,11 @@ int rfc2889_congestion_test(rfc2544_ctx_t* ctx, const rfc2889_config_t* config,
  * Print Functions
  * ============================================================================ */
 
-static void rfc2889_print_json(const void* result, rfc2889_test_type_t type) {
+static void rfc2889_print_json(const void *result, rfc2889_test_type_t type)
+{
     switch (type) {
     case RFC2889_FORWARDING_RATE: {
-        const rfc2889_fwd_result_t* r = result;
+        const rfc2889_fwd_result_t *r = result;
         printf("{\"type\":\"rfc2889_forwarding\","
                "\"frame_size\":%u,"
                "\"port_count\":%u,"
@@ -435,7 +442,7 @@ static void rfc2889_print_json(const void* result, rfc2889_test_type_t type) {
         break;
     }
     case RFC2889_ADDRESS_CACHING: {
-        const rfc2889_cache_result_t* r = result;
+        const rfc2889_cache_result_t *r = result;
         printf("{\"type\":\"rfc2889_caching\","
                "\"frame_size\":%u,"
                "\"addresses_tested\":%u,"
@@ -447,7 +454,7 @@ static void rfc2889_print_json(const void* result, rfc2889_test_type_t type) {
         break;
     }
     case RFC2889_ADDRESS_LEARNING: {
-        const rfc2889_learning_result_t* r = result;
+        const rfc2889_learning_result_t *r = result;
         printf("{\"type\":\"rfc2889_learning\","
                "\"frame_size\":%u,"
                "\"learning_rate_fps\":%.0f,"
@@ -457,7 +464,7 @@ static void rfc2889_print_json(const void* result, rfc2889_test_type_t type) {
         break;
     }
     case RFC2889_BROADCAST_FORWARDING: {
-        const rfc2889_broadcast_result_t* r = result;
+        const rfc2889_broadcast_result_t *r = result;
         printf("{\"type\":\"rfc2889_broadcast\","
                "\"frame_size\":%u,"
                "\"ingress_ports\":%u,"
@@ -470,7 +477,7 @@ static void rfc2889_print_json(const void* result, rfc2889_test_type_t type) {
         break;
     }
     case RFC2889_CONGESTION_CONTROL: {
-        const rfc2889_congestion_result_t* r = result;
+        const rfc2889_congestion_result_t *r = result;
         printf("{\"type\":\"rfc2889_congestion\","
                "\"frame_size\":%u,"
                "\"overload_rate_pct\":%.1f,"
@@ -489,10 +496,11 @@ static void rfc2889_print_json(const void* result, rfc2889_test_type_t type) {
     }
 }
 
-static void rfc2889_print_csv(const void* result, rfc2889_test_type_t type) {
+static void rfc2889_print_csv(const void *result, rfc2889_test_type_t type)
+{
     switch (type) {
     case RFC2889_FORWARDING_RATE: {
-        const rfc2889_fwd_result_t* r = result;
+        const rfc2889_fwd_result_t *r = result;
         printf("test_type,frame_size,port_count,max_rate_pct,max_rate_fps,aggregate_mbps,"
                "frames_tx,frames_rx,loss_pct\n");
         printf("forwarding,%u,%u,%.2f,%.0f,%.2f,%" PRIu64 ",%" PRIu64 ",%.4f\n", r->frame_size,
@@ -501,7 +509,7 @@ static void rfc2889_print_csv(const void* result, rfc2889_test_type_t type) {
         break;
     }
     case RFC2889_ADDRESS_CACHING: {
-        const rfc2889_cache_result_t* r = result;
+        const rfc2889_cache_result_t *r = result;
         printf("test_type,frame_size,addresses_tested,addresses_cached,cache_capacity,"
                "overflow_loss_pct\n");
         printf("caching,%u,%u,%u,%u,%.2f\n", r->frame_size, r->addresses_tested,
@@ -509,14 +517,14 @@ static void rfc2889_print_csv(const void* result, rfc2889_test_type_t type) {
         break;
     }
     case RFC2889_ADDRESS_LEARNING: {
-        const rfc2889_learning_result_t* r = result;
+        const rfc2889_learning_result_t *r = result;
         printf("test_type,frame_size,learning_rate_fps,addresses_learned,learning_time_ms\n");
         printf("learning,%u,%.0f,%u,%.3f\n", r->frame_size, r->learning_rate_fps,
                r->addresses_learned, r->learning_time_ms);
         break;
     }
     case RFC2889_BROADCAST_FORWARDING: {
-        const rfc2889_broadcast_result_t* r = result;
+        const rfc2889_broadcast_result_t *r = result;
         printf("test_type,frame_size,ingress_ports,egress_ports,rate_fps,rate_mbps,"
                "replication_factor\n");
         printf("broadcast,%u,%u,%u,%.0f,%.2f,%.2f\n", r->frame_size, r->ingress_ports,
@@ -525,7 +533,7 @@ static void rfc2889_print_csv(const void* result, rfc2889_test_type_t type) {
         break;
     }
     case RFC2889_CONGESTION_CONTROL: {
-        const rfc2889_congestion_result_t* r = result;
+        const rfc2889_congestion_result_t *r = result;
         printf("test_type,frame_size,overload_pct,frames_tx,frames_rx,frames_dropped,"
                "hol_blocking,backpressure\n");
         printf("congestion,%u,%.1f,%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%.2f,%s\n", r->frame_size,
@@ -539,10 +547,11 @@ static void rfc2889_print_csv(const void* result, rfc2889_test_type_t type) {
     }
 }
 
-void rfc2889_print_results(const void* result, rfc2889_test_type_t type, stats_format_t format) {
+void rfc2889_print_results(const void *result, rfc2889_test_type_t type, stats_format_t format)
+{
     if (!result) {
         return;
-}
+    }
 
     if (format == STATS_FORMAT_JSON) {
         rfc2889_print_json(result, type);
@@ -557,7 +566,7 @@ void rfc2889_print_results(const void* result, rfc2889_test_type_t type, stats_f
     /* Default: TEXT format */
     switch (type) {
     case RFC2889_FORWARDING_RATE: {
-        const rfc2889_fwd_result_t* r = result;
+        const rfc2889_fwd_result_t *r = result;
         printf("\n=== RFC 2889 Forwarding Rate Results ===\n");
         printf("Frame Size:       %u bytes\n", r->frame_size);
         printf("Port Count:       %u\n", r->port_count);
@@ -568,7 +577,7 @@ void rfc2889_print_results(const void* result, rfc2889_test_type_t type, stats_f
         break;
     }
     case RFC2889_ADDRESS_CACHING: {
-        const rfc2889_cache_result_t* r = result;
+        const rfc2889_cache_result_t *r = result;
         printf("\n=== RFC 2889 Address Caching Results ===\n");
         printf("Frame Size:       %u bytes\n", r->frame_size);
         printf("Addresses Tested: %u\n", r->addresses_tested);
@@ -578,7 +587,7 @@ void rfc2889_print_results(const void* result, rfc2889_test_type_t type, stats_f
         break;
     }
     case RFC2889_ADDRESS_LEARNING: {
-        const rfc2889_learning_result_t* r = result;
+        const rfc2889_learning_result_t *r = result;
         printf("\n=== RFC 2889 Address Learning Results ===\n");
         printf("Frame Size:       %u bytes\n", r->frame_size);
         printf("Learning Rate:    %.0f addresses/sec\n", r->learning_rate_fps);
@@ -587,7 +596,7 @@ void rfc2889_print_results(const void* result, rfc2889_test_type_t type, stats_f
         break;
     }
     case RFC2889_BROADCAST_FORWARDING: {
-        const rfc2889_broadcast_result_t* r = result;
+        const rfc2889_broadcast_result_t *r = result;
         printf("\n=== RFC 2889 Broadcast Forwarding Results ===\n");
         printf("Frame Size:       %u bytes\n", r->frame_size);
         printf("Ingress Ports:    %u\n", r->ingress_ports);
@@ -598,7 +607,7 @@ void rfc2889_print_results(const void* result, rfc2889_test_type_t type, stats_f
         break;
     }
     case RFC2889_CONGESTION_CONTROL: {
-        const rfc2889_congestion_result_t* r = result;
+        const rfc2889_congestion_result_t *r = result;
         printf("\n=== RFC 2889 Congestion Control Results ===\n");
         printf("Frame Size:       %u bytes\n", r->frame_size);
         printf("Overload Rate:    %.1f%%\n", r->overload_rate_pct);

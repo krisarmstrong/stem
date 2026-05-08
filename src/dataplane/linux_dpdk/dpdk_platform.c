@@ -12,6 +12,11 @@
 
 #if HAVE_DPDK
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
 #include <rte_common.h>
 #include <rte_cycles.h>
 #include <rte_eal.h>
@@ -22,17 +27,13 @@
 #include <rte_malloc.h>
 #include <rte_mbuf.h>
 #include <rte_mempool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
 
 /* Forward declarations */
 typedef struct rfc2544_ctx rfc2544_ctx_t;
 typedef struct {
     int      worker_id;
     int      queue_id;
-    void*    pctx;
+    void    *pctx;
     uint64_t tx_packets;
     uint64_t tx_bytes;
     uint64_t rx_packets;
@@ -42,11 +43,11 @@ typedef struct {
 } worker_ctx_t;
 
 typedef struct {
-    uint8_t* data;
+    uint8_t *data;
     uint32_t len;
     uint64_t timestamp;
     uint32_t seq_num;
-    void*    platform_data;
+    void    *platform_data;
 } packet_t;
 
 /* DPDK configuration */
@@ -61,9 +62,9 @@ typedef struct {
 typedef struct {
     uint16_t            port_id;
     uint16_t            queue_id;
-    struct rte_mempool* mbuf_pool;
-    struct rte_mbuf*    rx_mbufs[BURST_SIZE];
-    struct rte_mbuf*    tx_mbufs[BURST_SIZE];
+    struct rte_mempool *mbuf_pool;
+    struct rte_mbuf    *rx_mbufs[BURST_SIZE];
+    struct rte_mbuf    *tx_mbufs[BURST_SIZE];
     bool                is_primary;
     uint8_t             port_mac[6];
 } platform_ctx_t;
@@ -72,7 +73,7 @@ typedef struct {
 static struct {
     bool                initialized;
     uint16_t            port_id;
-    struct rte_mempool* mbuf_pool;
+    struct rte_mempool *mbuf_pool;
     uint16_t            num_rx_queues;
     uint16_t            num_tx_queues;
 } dpdk_shared = {0};
@@ -83,9 +84,10 @@ static pthread_mutex_t dpdk_init_lock = PTHREAD_MUTEX_INITIALIZER;
  * DPDK Initialization
  * ============================================================================ */
 
-static int dpdk_init_eal(rfc2544_ctx_t* ctx) {
+static int dpdk_init_eal(rfc2544_ctx_t *ctx)
+{
     /* Build EAL arguments */
-    char* argv[32];
+    char *argv[32];
     int   argc = 0;
 
     argv[argc++] = "rfc2544";
@@ -97,8 +99,8 @@ static int dpdk_init_eal(rfc2544_ctx_t* ctx) {
     /* Add user-provided DPDK args if any */
     if (ctx->config.dpdk_args && strlen(ctx->config.dpdk_args) > 0) {
         /* Parse space-separated args - simplified */
-        char* args_copy = strdup(ctx->config.dpdk_args);
-        char* token     = strtok(args_copy, " ");
+        char *args_copy = strdup(ctx->config.dpdk_args);
+        char *token     = strtok(args_copy, " ");
         while (token && argc < 30) {
             argv[argc++] = strdup(token);
             token        = strtok(NULL, " ");
@@ -116,7 +118,8 @@ static int dpdk_init_eal(rfc2544_ctx_t* ctx) {
     return 0;
 }
 
-static int dpdk_init_port(uint16_t port_id, uint16_t num_queues, struct rte_mempool* mbuf_pool) {
+static int dpdk_init_port(uint16_t port_id, uint16_t num_queues, struct rte_mempool *mbuf_pool)
+{
     struct rte_eth_conf port_conf = {
         .rxmode =
             {
@@ -206,8 +209,9 @@ static int dpdk_init_port(uint16_t port_id, uint16_t num_queues, struct rte_memp
  * Platform Operations
  * ============================================================================ */
 
-static int dpdk_init(rfc2544_ctx_t* ctx, worker_ctx_t* wctx) {
-    platform_ctx_t* pctx = calloc(1, sizeof(platform_ctx_t));
+static int dpdk_init(rfc2544_ctx_t *ctx, worker_ctx_t *wctx)
+{
+    platform_ctx_t *pctx = calloc(1, sizeof(platform_ctx_t));
     if (!pctx)
         return -ENOMEM;
 
@@ -287,11 +291,12 @@ static int dpdk_init(rfc2544_ctx_t* ctx, worker_ctx_t* wctx) {
     return 0;
 }
 
-static void dpdk_cleanup(worker_ctx_t* wctx) {
+static void dpdk_cleanup(worker_ctx_t *wctx)
+{
     if (!wctx || !wctx->pctx)
         return;
 
-    platform_ctx_t* pctx = wctx->pctx;
+    platform_ctx_t *pctx = wctx->pctx;
 
     pthread_mutex_lock(&dpdk_init_lock);
 
@@ -309,15 +314,16 @@ static void dpdk_cleanup(worker_ctx_t* wctx) {
     wctx->pctx = NULL;
 }
 
-static int dpdk_send_batch(worker_ctx_t* wctx, packet_t* pkts, int count) {
+static int dpdk_send_batch(worker_ctx_t *wctx, packet_t *pkts, int count)
+{
     if (!wctx || !wctx->pctx || !pkts || count <= 0)
         return -EINVAL;
 
-    platform_ctx_t* pctx = wctx->pctx;
+    platform_ctx_t *pctx = wctx->pctx;
     int             sent = 0;
 
     /* Allocate mbufs */
-    struct rte_mbuf* mbufs[BURST_SIZE];
+    struct rte_mbuf *mbufs[BURST_SIZE];
     int              to_send = (count > BURST_SIZE) ? BURST_SIZE : count;
 
     int allocated = rte_pktmbuf_alloc_bulk(pctx->mbuf_pool, mbufs, to_send);
@@ -328,7 +334,7 @@ static int dpdk_send_batch(worker_ctx_t* wctx, packet_t* pkts, int count) {
 
     /* Copy packets to mbufs */
     for (int i = 0; i < to_send; i++) {
-        char* data = rte_pktmbuf_append(mbufs[i], pkts[i].len);
+        char *data = rte_pktmbuf_append(mbufs[i], pkts[i].len);
         if (!data) {
             rte_pktmbuf_free(mbufs[i]);
             mbufs[i] = NULL;
@@ -355,14 +361,15 @@ static int dpdk_send_batch(worker_ctx_t* wctx, packet_t* pkts, int count) {
     return sent;
 }
 
-static int dpdk_recv_batch(worker_ctx_t* wctx, packet_t* pkts, int max_count) {
+static int dpdk_recv_batch(worker_ctx_t *wctx, packet_t *pkts, int max_count)
+{
     if (!wctx || !wctx->pctx || !pkts || max_count <= 0)
         return -EINVAL;
 
-    platform_ctx_t* pctx     = wctx->pctx;
+    platform_ctx_t *pctx     = wctx->pctx;
     int             received = 0;
 
-    struct rte_mbuf* mbufs[BURST_SIZE];
+    struct rte_mbuf *mbufs[BURST_SIZE];
     int              to_recv = (max_count > BURST_SIZE) ? BURST_SIZE : max_count;
 
     /* Receive packets */
@@ -382,7 +389,7 @@ static int dpdk_recv_batch(worker_ctx_t* wctx, packet_t* pkts, int max_count) {
             continue;
         }
 
-        memcpy(pkts[received].data, rte_pktmbuf_mtod(mbufs[i], void*), len);
+        memcpy(pkts[received].data, rte_pktmbuf_mtod(mbufs[i], void *), len);
         pkts[received].len           = len;
         pkts[received].timestamp     = now_ns;
         pkts[received].platform_data = mbufs[i];
@@ -395,12 +402,13 @@ static int dpdk_recv_batch(worker_ctx_t* wctx, packet_t* pkts, int max_count) {
     return received;
 }
 
-static void dpdk_release_batch(worker_ctx_t* wctx, packet_t* pkts, int count) {
+static void dpdk_release_batch(worker_ctx_t *wctx, packet_t *pkts, int count)
+{
     (void)wctx;
 
     for (int i = 0; i < count; i++) {
         if (pkts[i].platform_data) {
-            rte_pktmbuf_free((struct rte_mbuf*)pkts[i].platform_data);
+            rte_pktmbuf_free((struct rte_mbuf *)pkts[i].platform_data);
         }
         free(pkts[i].data);
         pkts[i].data          = NULL;
@@ -408,21 +416,22 @@ static void dpdk_release_batch(worker_ctx_t* wctx, packet_t* pkts, int count) {
     }
 }
 
-static uint64_t dpdk_get_timestamp(worker_ctx_t* wctx, packet_t* pkt) {
+static uint64_t dpdk_get_timestamp(worker_ctx_t *wctx, packet_t *pkt)
+{
     (void)wctx;
     return pkt->timestamp;
 }
 
 /* Platform ops structure */
 static const struct {
-    const char* name;
-    int (*init)(rfc2544_ctx_t* ctx, worker_ctx_t* wctx);
-    void (*cleanup)(worker_ctx_t* wctx);
-    int (*send_batch)(worker_ctx_t* wctx, packet_t* pkts, int count);
-    int (*recv_batch)(worker_ctx_t* wctx, packet_t* pkts, int max_count);
-    void (*release_batch)(worker_ctx_t* wctx, packet_t* pkts, int count);
-    uint64_t (*get_tx_timestamp)(worker_ctx_t* wctx, packet_t* pkt);
-    uint64_t (*get_rx_timestamp)(worker_ctx_t* wctx, packet_t* pkt);
+    const char *name;
+    int (*init)(rfc2544_ctx_t *ctx, worker_ctx_t *wctx);
+    void (*cleanup)(worker_ctx_t *wctx);
+    int (*send_batch)(worker_ctx_t *wctx, packet_t *pkts, int count);
+    int (*recv_batch)(worker_ctx_t *wctx, packet_t *pkts, int max_count);
+    void (*release_batch)(worker_ctx_t *wctx, packet_t *pkts, int count);
+    uint64_t (*get_tx_timestamp)(worker_ctx_t *wctx, packet_t *pkt);
+    uint64_t (*get_rx_timestamp)(worker_ctx_t *wctx, packet_t *pkt);
 } dpdk_ops = {
     .name             = "DPDK",
     .init             = dpdk_init,
@@ -434,7 +443,8 @@ static const struct {
     .get_rx_timestamp = dpdk_get_timestamp,
 };
 
-const void* get_dpdk_platform_ops(void) {
+const void *get_dpdk_platform_ops(void)
+{
     return &dpdk_ops;
 }
 
