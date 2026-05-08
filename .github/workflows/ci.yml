@@ -71,6 +71,9 @@ jobs:
       - name: Build native dataplane library
         run: make CC=clang-18 dataplane
 
+      - name: Compile native Go bindings
+        run: CGO_ENABLED=1 go test -run '^$' ./internal/reflector/dataplane ./internal/services/orchestrator/dataplane
+
       - name: Install golangci-lint
         run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.1
 
@@ -78,7 +81,7 @@ jobs:
         run: golangci-lint run --timeout=5m --new-from-rev=HEAD~1
 
       - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+        run: CGO_ENABLED=0 go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Check coverage threshold
         run: |
