@@ -34,4 +34,4 @@ jobs:
           sudo mv pack /usr/local/bin/
 
       - name: Validate Pack Build
-        run: pack build stem:ci --builder paketobuildpacks/builder-jammy-base
+        run: pack build stem:ci --builder paketobuildpacks/builder-jammy-base --env CGO_ENABLED=0
