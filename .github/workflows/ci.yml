@@ -537,10 +537,14 @@ jobs:
         run: CGO_ENABLED=0 go build -o bin/stem ./cmd/stem/
 
       - name: Start server
+        env:
+          STEM_AUTH_USERNAME: admin
+          STEM_AUTH_PASSWORD: admin
+          STEM_TLS_ENABLED: "false"
         run: |
-          nohup ./bin/stem > server.log 2>&1 &
+          nohup ./bin/stem web -p 8080 > server.log 2>&1 &
           for i in {1..30}; do
-            if curl -sf http://localhost:8080/api/health 2>/dev/null; then
+            if curl -sf http://localhost:8080/health/ready 2>/dev/null; then
               echo "Server ready"
               exit 0
             fi
@@ -600,11 +604,15 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Start backend server
+        env:
+          STEM_AUTH_USERNAME: admin
+          STEM_AUTH_PASSWORD: admin
+          STEM_TLS_ENABLED: "false"
         run: |
-          nohup ./bin/stem > server.log 2>&1 &
+          nohup ./bin/stem web -p 8080 > server.log 2>&1 &
           echo "Waiting for server to start..."
           for i in {1..30}; do
-            if curl -sf http://localhost:8080/api/health 2>/dev/null; then
+            if curl -sf http://localhost:8080/health/ready 2>/dev/null; then
               echo "Server ready after $i attempts"
               exit 0
             fi
