@@ -1,36 +1,46 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('Authentication', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/api/v1/setup/status', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ needsSetup: false }),
+      });
+    });
+  });
+
   test('should show login page', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: /login/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible();
   });
 
   test('should show error for invalid credentials', async ({ page }) => {
     await page.goto('/');
-    await page.fill('[name="username"]', 'invalid');
-    await page.fill('[name="password"]', 'wrongpassword');
-    await page.click('button[type="submit"]');
+    await page.getByLabel(/username/i).fill('invalid');
+    await page.getByLabel(/password/i).fill('wrongpassword');
+    await page.getByRole('button', { name: /sign in/i }).click();
     await expect(page.getByText(/invalid|error|failed/i)).toBeVisible();
   });
 
   test('should login with valid credentials', async ({ page }) => {
     await page.goto('/');
-    await page.fill('[name="username"]', 'admin');
-    await page.fill('[name="password"]', 'admin');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/dashboard|home/);
+    await page.getByLabel(/username/i).fill('admin');
+    await page.getByLabel(/password/i).fill('admin');
+    await page.getByRole('button', { name: /sign in/i }).click();
+    await expect(page.getByRole('button', { name: /logout/i })).toBeVisible();
   });
 
   test('should logout successfully', async ({ page }) => {
     // Login first
     await page.goto('/');
-    await page.fill('[name="username"]', 'admin');
-    await page.fill('[name="password"]', 'admin');
-    await page.click('button[type="submit"]');
+    await page.getByLabel(/username/i).fill('admin');
+    await page.getByLabel(/password/i).fill('admin');
+    await page.getByRole('button', { name: /sign in/i }).click();
 
     // Then logout
     await page.click('[data-testid="logout-button"]');
-    await expect(page).toHaveURL(/login/);
+    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible();
   });
 });

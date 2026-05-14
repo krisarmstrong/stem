@@ -1234,6 +1234,7 @@ function AppContent(): ReactElement {
                 className={iconButtonClass}
                 title="Logout"
                 aria-label="Logout"
+                data-testid="logout-button"
               >
                 <LogOut className="h-5 w-5" aria-hidden="true" />
               </button>
@@ -1585,6 +1586,7 @@ function AppContent(): ReactElement {
                 </label>
                 <input
                   id="stem-login-username"
+                  name="username"
                   type="text"
                   autoComplete="username"
                   value={username}
@@ -1603,6 +1605,7 @@ function AppContent(): ReactElement {
                 </label>
                 <input
                   id="stem-login-password"
+                  name="password"
                   type="password"
                   autoComplete="current-password"
                   value={password}
