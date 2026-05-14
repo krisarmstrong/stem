@@ -30,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * **ci:** satisfy servicetest lint ([ec275df](https://github.com/krisarmstrong/stem/commit/ec275df79aa63360ee069f492469d13c6633fc70))
 * **ci:** scope stem container and license checks ([d267154](https://github.com/krisarmstrong/stem/commit/d2671547ae280830d09777768d5635d58721dfd6))
 * **ci:** scope stem e2e smoke suite ([4ce2153](https://github.com/krisarmstrong/stem/commit/4ce2153966bff419ad4fb47f75edbd336db2c9a9))
+* **ci:** skip stem docker publish without dockerfile ([a5a9deb](https://github.com/krisarmstrong/stem/commit/a5a9deb1064f7ee462c400b3e3138918940e2a20))
 * **ci:** split native compile from unit tests ([f1f8c82](https://github.com/krisarmstrong/stem/commit/f1f8c82c6be3026e969a8917cffc075841eafeba))
 * **ci:** stabilize automated validation ([76209fa](https://github.com/krisarmstrong/stem/commit/76209faef490df7baa09d161222ec7fc5da838e8))
 * **ci:** stabilize stem browser smoke gate ([7dc7655](https://github.com/krisarmstrong/stem/commit/7dc765542a92fcd6465aa1f483e19aadea440ab1))
