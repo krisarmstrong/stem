@@ -24,37 +24,31 @@ interface Module {
 // Keys use underscores to match backend API test IDs
 const testDescriptions: Record<string, { name: string; desc: string; tooltip: string }> = {
   // Benchmark (RFC 2544) - with rfc2544_ prefix
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   rfc2544_throughput: {
     name: 'Throughput',
     desc: 'Max rate with 0% loss',
     tooltip: 'Find the maximum rate at which the DUT can forward frames with zero packet loss.',
   },
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   rfc2544_latency: {
     name: 'Latency',
     desc: 'Round-trip time',
     tooltip: 'Measure round-trip packet delay at various loads and frame sizes.',
   },
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   rfc2544_frame_loss: {
     name: 'Frame Loss',
     desc: 'Loss vs offered load',
     tooltip: 'Measure packet loss percentage across different offered load levels.',
   },
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   rfc2544_back_to_back: {
     name: 'Back-to-Back',
     desc: 'Burst capacity',
     tooltip: 'Test maximum burst capacity - how many frames at line rate before drops.',
   },
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   rfc2544_system_recovery: {
     name: 'System Recovery',
     desc: 'Recovery after overload',
     tooltip: 'Measure time to recover normal forwarding after sustained overload.',
   },
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   rfc2544_reset: {
     name: 'Reset',
     desc: 'Device reset recovery',
@@ -62,13 +56,11 @@ const testDescriptions: Record<string, { name: string; desc: string; tooltip: st
   },
 
   // ServiceTest (Y.1564 / MEF)
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   y1564_config: {
     name: 'Y.1564 Config',
     desc: 'Service config validation',
     tooltip: 'Validate service at step loads (25%, 50%, 75%, 100% of CIR).',
   },
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   y1564_perf: {
     name: 'Y.1564 Performance',
     desc: 'Sustained 15+ min test',
@@ -79,13 +71,11 @@ const testDescriptions: Record<string, { name: string; desc: string; tooltip: st
     desc: 'Both config and perf',
     tooltip: 'Complete Service Activation Test combining both phases.',
   },
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   mef_config: {
     name: 'MEF Config',
     desc: 'MEF service step test',
     tooltip: 'MEF service configuration test - validates service at step loads.',
   },
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   mef_perf: {
     name: 'MEF Performance',
     desc: 'MEF sustained test',
@@ -105,7 +95,6 @@ const testDescriptions: Record<string, { name: string; desc: string; tooltip: st
   },
 
   // TrafficGen
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   custom_stream: {
     name: 'Custom Stream',
     desc: 'Custom traffic generation',
@@ -113,25 +102,21 @@ const testDescriptions: Record<string, { name: string; desc: string; tooltip: st
   },
 
   // Measure (Y.1731)
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   y1731_delay: {
     name: 'Delay (DMM/DMR)',
     desc: 'Frame delay measurement',
     tooltip: 'Measure one-way and two-way frame delay using DMM/DMR OAM.',
   },
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   y1731_loss: {
     name: 'Loss (LMM/LMR)',
     desc: 'Frame loss measurement',
     tooltip: 'Measure frame loss ratio using LMM/LMR OAM messages.',
   },
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   y1731_slm: {
     name: 'Synthetic Loss',
     desc: 'SLM measurement',
     tooltip: 'Synthetic loss measurement using SLM/SLR frames.',
   },
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   y1731_loopback: {
     name: 'Loopback',
     desc: 'LBM/LBR test',
@@ -139,61 +124,51 @@ const testDescriptions: Record<string, { name: string; desc: string; tooltip: st
   },
 
   // Certify (RFC 2889, RFC 6349, TSN)
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   rfc2889_forwarding: {
     name: 'Forwarding Rate',
     desc: 'Switch forwarding capacity',
     tooltip: 'Measure aggregate forwarding rate across all switch ports.',
   },
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   rfc2889_caching: {
     name: 'Address Caching',
     desc: 'MAC table capacity',
     tooltip: 'Determine maximum MAC addresses the switch can learn.',
   },
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   rfc2889_learning: {
     name: 'Address Learning',
     desc: 'Learning rate',
     tooltip: 'Measure how quickly the switch learns new MAC addresses.',
   },
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   rfc2889_broadcast: {
     name: 'Broadcast',
     desc: 'Broadcast forwarding',
     tooltip: 'Test how the switch handles broadcast traffic flooding.',
   },
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   rfc2889_congestion: {
     name: 'Congestion Control',
     desc: 'Backpressure handling',
     tooltip: 'Verify backpressure and flow control under congestion.',
   },
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   rfc6349_throughput: {
     name: 'TCP Throughput',
     desc: 'BDP analysis',
     tooltip: 'Measure real TCP performance with Bandwidth-Delay Product.',
   },
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   rfc6349_path: {
     name: 'Path Analysis',
     desc: 'RTT/Bandwidth',
     tooltip: 'Characterize network path properties including RTT and loss.',
   },
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   tsn_timing: {
     name: 'Gate Timing',
     desc: 'GCL accuracy',
     tooltip: 'Verify Time-Aware Shaper gate control list timing accuracy.',
   },
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   tsn_isolation: {
     name: 'Traffic Isolation',
     desc: 'Class isolation',
     tooltip: 'Verify traffic class separation and priority enforcement.',
   },
-  // biome-ignore lint/style/useNamingConvention: Test IDs use underscores to match backend API
   tsn_latency: {
     name: 'Scheduled Latency',
     desc: 'Deterministic delay',

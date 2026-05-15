@@ -64,7 +64,6 @@ vi.mock('react-i18next', () => ({
       changeLanguage: vi.fn(),
     },
   }),
-  // biome-ignore lint/style/useNamingConvention: React component name must match i18n library API
   Trans: ({ children }: { children: React.ReactNode }): React.ReactNode => children,
   initReactI18next: { type: '3rdParty', init: vi.fn() },
 }));
@@ -112,7 +111,6 @@ export const mockFetch: ReturnType<typeof vi.fn> = vi.fn();
 global.fetch = mockFetch;
 
 // Helper to create standard API responses
-// biome-ignore lint/nursery/useExplicitType: Types inferred from defaults; explicit types cause noInferrableTypes error
 export function createMockResponse<T>(
   data: T,
   ok = true,
@@ -134,7 +132,6 @@ export function createMockResponse<T>(
 }
 
 // Helper to create error responses
-// biome-ignore lint/nursery/useExplicitType: Types inferred from defaults; explicit types cause noInferrableTypes error
 export function createMockErrorResponse(status = 500, message = 'Error'): Promise<Response> {
   return Promise.resolve({
     ok: false,
@@ -186,7 +183,6 @@ afterEach(() => {
 // ============================================================
 
 // Auth token factory
-// biome-ignore lint/nursery/useExplicitType: Type is explicitly declared in return type
 export function createMockAuthToken(expiresInSeconds = 3600): {
   token: string;
   expiry: number;

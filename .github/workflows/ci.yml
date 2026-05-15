@@ -96,7 +96,7 @@ jobs:
           fi
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           file: ./coverage.out
           flags: backend
@@ -268,7 +268,7 @@ jobs:
           govulncheck ./...
 
       - name: Run gosec
-        uses: securego/gosec@v2.22.11
+        uses: securego/gosec@v2.25.0
         continue-on-error: true
         with:
           args: "-fmt sarif -out gosec-results.sarif ./..."
