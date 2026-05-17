@@ -23,7 +23,7 @@ RUN mkdir -p /out && cp -r ../internal/api/ui /out/ui
 # -----------------------------------------------------------------------------
 # Stage 2: build the Go binary (pure Go, no CGO)
 # -----------------------------------------------------------------------------
-FROM golang:1.25-bookworm AS go-build
+FROM golang:1.26-bookworm AS go-build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
