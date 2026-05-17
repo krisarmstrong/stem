@@ -1,6 +1,11 @@
 
 !certs/.gitkeep
-.claude/settings.local.json
+# AI tool artifacts — never tracked.
+.claude/
+.cursor/
+.gemini/
+# Local session/spec workspace — never tracked.
+_project_specs/
 .env
 .env.*.local
 .env.local
