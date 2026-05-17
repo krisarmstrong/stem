@@ -99,10 +99,24 @@ endef
 # Go settings
 GO := go
 VERSION_PKG := github.com/krisarmstrong/stem/internal/version
+
+# Embedded UI assets — Vite outputs here directly; Go //go:embed reads from here.
+EMBED_DIR := internal/api/ui
+
+# UI build hash for deployment verification (md5 of all embedded assets).
+# Mirrors the canonical computation in niac/go and seed.
+UI_BUILD_HASH := $(shell if [ -d "$(EMBED_DIR)" ] && [ -n "$$(ls -A $(EMBED_DIR) 2>/dev/null)" ]; then \
+	find $(EMBED_DIR) -type f -exec md5 -q {} \; 2>/dev/null | sort | md5 -q 2>/dev/null || \
+	find $(EMBED_DIR) -type f -exec md5sum {} \; 2>/dev/null | sort | md5sum 2>/dev/null | cut -d' ' -f1; \
+else echo ""; fi)
+
+# Canonical ldflags contract shared with seed and niac:
+# internal/version.{Version,Commit,BuildTime,UIBuildHash} (PascalCase).
 LDFLAGS := -s -w \
-	-X $(VERSION_PKG).semver=$(VERSION) \
-	-X $(VERSION_PKG).commit=$(COMMIT) \
-	-X $(VERSION_PKG).buildTime=$(BUILD_TIME)
+	-X $(VERSION_PKG).Version=$(VERSION) \
+	-X $(VERSION_PKG).Commit=$(COMMIT) \
+	-X $(VERSION_PKG).BuildTime=$(BUILD_TIME) \
+	-X $(VERSION_PKG).UIBuildHash=$(UI_BUILD_HASH)
 GOFLAGS := -trimpath -buildvcs=false -ldflags "$(LDFLAGS)"
 
 # Binary name
