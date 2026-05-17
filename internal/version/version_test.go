@@ -23,23 +23,27 @@ import (
 // ============================================================================
 
 func TestDefaultVersionValue(t *testing.T) {
-	// Version should have a default value (either "dev" or set via ldflags)
-	if version.Version() == "" {
-		t.Error("Version is empty, expected a default value")
+	if version.GetVersion() == "" {
+		t.Error("GetVersion is empty, expected a default value")
 	}
 }
 
 func TestDefaultCommitValue(t *testing.T) {
-	// Commit should have a default value (either "unknown" or set via ldflags)
-	if version.Commit() == "" {
-		t.Error("Commit is empty, expected a default value")
+	if version.GetCommit() == "" {
+		t.Error("GetCommit is empty, expected a default value")
 	}
 }
 
 func TestDefaultBuildTimeValue(t *testing.T) {
-	// BuildTime should have a default value (either "unknown" or set via ldflags)
-	if version.BuildTime() == "" {
-		t.Error("BuildTime is empty, expected a default value")
+	if version.GetBuildTime() == "" {
+		t.Error("GetBuildTime is empty, expected a default value")
+	}
+}
+
+func TestDefaultUIBuildHashValue(t *testing.T) {
+	// UIBuildHash defaults to "unknown" when not injected via ldflags.
+	if version.GetUIBuildHash() == "" {
+		t.Error("GetUIBuildHash is empty, expected a default value")
 	}
 }
 
@@ -91,26 +95,41 @@ func TestInfoContainsBuildTimeKey(t *testing.T) {
 	}
 }
 
+func TestInfoContainsUIBuildHashKey(t *testing.T) {
+	info := version.Info()
+
+	uih, ok := info["uiBuildHash"]
+	if !ok {
+		t.Error("Info() map missing 'uiBuildHash' key")
+	}
+	if uih == "" {
+		t.Error("Info() 'uiBuildHash' value is empty")
+	}
+}
+
 func TestInfoMapSize(t *testing.T) {
 	info := version.Info()
 
-	expectedSize := 3
+	expectedSize := 4
 	if len(info) != expectedSize {
 		t.Errorf("Info() returned map with %d keys, want %d", len(info), expectedSize)
 	}
 }
 
-func TestInfoMatchesGlobalVariables(t *testing.T) {
+func TestInfoMatchesGetters(t *testing.T) {
 	info := version.Info()
 
-	if info["version"] != version.Version() {
-		t.Errorf("Info()['version'] = %q, want %q (Version())", info["version"], version.Version())
+	if info["version"] != version.GetVersion() {
+		t.Errorf("Info()['version'] = %q, want %q (GetVersion())", info["version"], version.GetVersion())
 	}
-	if info["commit"] != version.Commit() {
-		t.Errorf("Info()['commit'] = %q, want %q (Commit())", info["commit"], version.Commit())
+	if info["commit"] != version.GetCommit() {
+		t.Errorf("Info()['commit'] = %q, want %q (GetCommit())", info["commit"], version.GetCommit())
 	}
-	if info["buildTime"] != version.BuildTime() {
-		t.Errorf("Info()['buildTime'] = %q, want %q (BuildTime())", info["buildTime"], version.BuildTime())
+	if info["buildTime"] != version.GetBuildTime() {
+		t.Errorf("Info()['buildTime'] = %q, want %q (GetBuildTime())", info["buildTime"], version.GetBuildTime())
+	}
+	if info["uiBuildHash"] != version.GetUIBuildHash() {
+		t.Errorf("Info()['uiBuildHash'] = %q, want %q (GetUIBuildHash())", info["uiBuildHash"], version.GetUIBuildHash())
 	}
 }
 
@@ -119,7 +138,6 @@ func TestInfoMatchesGlobalVariables(t *testing.T) {
 // ============================================================================
 
 func TestInfoReflectsModifiedVersion(t *testing.T) {
-	// Restore after test
 	restore := version.SetForTesting("v1.2.3", "abc123def456", "2025-01-10T12:00:00Z")
 	defer restore()
 
@@ -133,6 +151,17 @@ func TestInfoReflectsModifiedVersion(t *testing.T) {
 	}
 	if info["buildTime"] != "2025-01-10T12:00:00Z" {
 		t.Errorf("Info()['buildTime'] = %q, want %q", info["buildTime"], "2025-01-10T12:00:00Z")
+	}
+}
+
+func TestInfoReflectsModifiedUIBuildHash(t *testing.T) {
+	restore := version.SetForTesting("v1.2.3", "abc123", "2025-01-10T12:00:00Z", "d41d8cd98f00b204e9800998ecf8427e")
+	defer restore()
+
+	info := version.Info()
+
+	if info["uiBuildHash"] != "d41d8cd98f00b204e9800998ecf8427e" {
+		t.Errorf("Info()['uiBuildHash'] = %q, want md5 hash", info["uiBuildHash"])
 	}
 }
 
@@ -228,10 +257,8 @@ func TestInfoReturnsNewMapEachCall(t *testing.T) {
 	info1 := version.Info()
 	info2 := version.Info()
 
-	// Modify info1
 	info1["version"] = "modified"
 
-	// info2 should not be affected
 	if info2["version"] == "modified" {
 		t.Error("Info() returns same map instance, expected new map each call")
 	}
@@ -241,10 +268,8 @@ func TestInfoMapIsNotShared(t *testing.T) {
 	info1 := version.Info()
 	info2 := version.Info()
 
-	// Add extra key to info1
 	info1["extra"] = "value"
 
-	// info2 should not have the extra key
 	if _, ok := info2["extra"]; ok {
 		t.Error("Info() maps share underlying storage")
 	}
@@ -260,15 +285,20 @@ func TestInfoWithEmptyValues(t *testing.T) {
 
 	info := version.Info()
 
-	// Should still return a map with empty strings
-	if info["version"] != "" {
-		t.Errorf("Info()['version'] = %q, want empty string", info["version"])
+	// Empty Version falls back to debug.ReadBuildInfo / "dev". Commit and
+	// BuildTime get coerced to "unknown" when empty. UIBuildHash defaults
+	// to "unknown" when empty.
+	if info["version"] == "" {
+		t.Error("Info()['version'] should never be empty (fallback path)")
 	}
-	if info["commit"] != "" {
-		t.Errorf("Info()['commit'] = %q, want empty string", info["commit"])
+	if info["commit"] == "" {
+		t.Error("Info()['commit'] should never be empty (coerces to 'unknown')")
 	}
-	if info["buildTime"] != "" {
-		t.Errorf("Info()['buildTime'] = %q, want empty string", info["buildTime"])
+	if info["buildTime"] == "" {
+		t.Error("Info()['buildTime'] should never be empty (coerces to 'unknown')")
+	}
+	if info["uiBuildHash"] == "" {
+		t.Error("Info()['uiBuildHash'] should never be empty (coerces to 'unknown')")
 	}
 }
 
@@ -329,8 +359,7 @@ func TestInfoWithLongValues(t *testing.T) {
 func TestInfoKeysAreJSONSafe(t *testing.T) {
 	info := version.Info()
 
-	// Verify all keys are valid JSON keys (no special characters)
-	expectedKeys := []string{"version", "commit", "buildTime"}
+	expectedKeys := []string{"version", "commit", "buildTime", "uiBuildHash"}
 
 	for _, key := range expectedKeys {
 		if _, ok := info[key]; !ok {
@@ -338,7 +367,6 @@ func TestInfoKeysAreJSONSafe(t *testing.T) {
 		}
 	}
 
-	// Verify no unexpected keys
 	for key := range info {
 		if !slices.Contains(expectedKeys, key) {
 			t.Errorf("Info() map contains unexpected key %q", key)
@@ -351,7 +379,6 @@ func TestInfoKeysAreJSONSafe(t *testing.T) {
 // ============================================================================
 
 func TestInfoConcurrentCalls(t *testing.T) {
-	// Info() should be safe to call concurrently since it creates a new map each time
 	done := make(chan bool)
 
 	for range 100 {
@@ -367,10 +394,10 @@ func TestInfoConcurrentCalls(t *testing.T) {
 			_ = info["version"]
 			_ = info["commit"]
 			_ = info["buildTime"]
+			_ = info["uiBuildHash"]
 		}()
 	}
 
-	// Wait for all goroutines
 	for range 100 {
 		<-done
 	}
@@ -392,5 +419,6 @@ func BenchmarkInfoAccess(b *testing.B) {
 		_ = info["version"]
 		_ = info["commit"]
 		_ = info["buildTime"]
+		_ = info["uiBuildHash"]
 	}
 }

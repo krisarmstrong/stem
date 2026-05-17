@@ -99,6 +99,12 @@ ui/coverage/
 ui/dist/
 ui/node_modules/
 ui/playwright-report/
+
+# Frontend build outputs (Vite builds directly to internal/api/ui)
+internal/api/ui/*
+!internal/api/ui/.gitkeep
+# Legacy embed output (migrated to internal/api/ui/)
+internal/api/dist/
 ui/test-results/
 vendor/
 yarn-error.log*

@@ -51,7 +51,9 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: '../internal/api/dist',
+    // Output directly into the Go embed directory — no copying or syncing.
+    // Canonical path shared with niac and seed: internal/api/ui/.
+    outDir: '../internal/api/ui',
     sourcemap: true,
     modulePreload: false,
     cssCodeSplit: false,

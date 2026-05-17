@@ -39,9 +39,9 @@ updates:
           - "minor"
           - "patch"
 
-  # Keep npm dependencies up to date
+  # Keep npm dependencies up to date for the embedded React/Vite UI.
   - package-ecosystem: "npm"
-    directory: "/web"
+    directory: "/ui"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -61,3 +61,17 @@ updates:
         update-types:
           - "minor"
           - "patch"
+
+  # Keep the Dockerfile base images (node, golang, debian) up to date.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"

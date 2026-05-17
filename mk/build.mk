@@ -15,7 +15,6 @@
         build build-darwin build-linux \
         c-build dataplane c-build-docker \
         build-minimal build-xdp build-dpdk \
-        build-iperf3 build-iperf3-docker \
         build-linux-docker \
         ui-dev go-dev dev
 
@@ -156,22 +155,6 @@ endif
 c-build-docker: ## Build C code using Docker (cross-platform)
 	@echo "Building C dataplane in Docker..."
 	docker run --rm -v $(PWD):/src -w /src gcc:latest make c-build
-
-# =============================================================================
-# iperf3 Bundling
-# =============================================================================
-
-IPERF3_VERSION ?= 3.18
-
-build-iperf3: ## Build iperf3 from source for bundling
-	@echo "Building iperf3 $(IPERF3_VERSION)..."
-	@chmod +x scripts/build-iperf3.sh
-	./scripts/build-iperf3.sh $(IPERF3_VERSION)
-
-build-iperf3-docker: ## Build iperf3 in Docker (cross-platform)
-	@echo "Building iperf3 $(IPERF3_VERSION) via Docker..."
-	docker run --rm -v $(PWD):/workspace -w /workspace \
-		ubuntu:24.04 bash -c "apt-get update -qq && apt-get install -y -qq build-essential curl > /dev/null 2>&1 && ./scripts/build-iperf3.sh $(IPERF3_VERSION)"
 
 # =============================================================================
 # Cross-Platform Builds

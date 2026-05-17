@@ -130,7 +130,7 @@ const (
 	classBMaxOctet = 31
 )
 
-//go:embed dist/*
+//go:embed ui/*
 var staticFiles embed.FS
 
 // Server represents the web server.
@@ -653,7 +653,7 @@ func (s *Server) Run() error {
 	}
 	logging.Info("Starting The Stem web server",
 		"address", fmt.Sprintf("%s://localhost%s", protocol, addr),
-		"version", version.Version(),
+		"version", version.GetVersion(),
 		"tls_enabled", s.tlsConfig.Enabled,
 	)
 

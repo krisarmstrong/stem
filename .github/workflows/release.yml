@@ -1,13 +1,27 @@
 # =============================================================================
-# Release - The Stem
+# Release (goreleaser)
 # =============================================================================
-# Release workflow for creating versioned releases.
-# Builds multi-arch packages (.tar.gz, .deb, .rpm, .pkg) for Linux and macOS.
-# Triggered on version tags (v*) or manual dispatch.
+# Canonical release pipeline. Replaces the prior hand-coded matrix workflow
+# (release-linux / release-macos / release-windows / publish) plus the
+# standalone .nfpm.yaml. Drives .goreleaser.yml inside the goreleaser-cross
+# container.
 #
-# NOTE: Full CI validation happens in ci.yml on every push to main.
-# Tags should only be created after CI passes on main.
-# This workflow focuses on building release artifacts.
+# Triggers:
+#   - push to a v* tag: real release - builds, signs, publishes
+#   - workflow_dispatch with dry_run=true: snapshot only - no publish, no
+#     signing; artifacts uploaded for inspection
+#
+# Mirrors seed and niac's release.yml shape so all three projects converge
+# on the same release tooling.
+#
+# Toolchain notes:
+#   stem builds with CGO_ENABLED=0 across all targets (pure-Go networking,
+#   no libpcap), so the per-target compiler overrides used by seed and
+#   niac inside goreleaser-cross aren't needed. The container is still
+#   used for the bundled goreleaser + ancillary tooling parity.
+#
+# Inputs: only the typed `dry_run` boolean - no untrusted event fields
+# are interpolated into shell commands.
 # =============================================================================
 
 name: Release
@@ -19,7 +33,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Build artifacts and exit (skip publishing the GitHub release)"
+        description: "Snapshot build only - do not publish or sign"
         type: boolean
         default: true
 
@@ -29,549 +43,151 @@ concurrency:
 
 permissions:
   contents: write
+  id-token: write # cosign keyless OIDC
+  packages: write
 
 jobs:
-  # ===========================================================================
-  # Build Linux Release Packages
-  # ===========================================================================
-  release-linux:
-    name: Linux (${{ matrix.arch }})
+  # =========================================================================
+  # UI build - done outside the goreleaser-cross container because that
+  # image is Go-focused and doesn't ship Node. Vite writes directly to
+  # internal/api/ui/; the next job inherits the workspace.
+  # =========================================================================
+  build-ui:
+    name: Build UI
     runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: amd64
-            goarch: amd64
-          - arch: arm64
-            goarch: arm64
-
+    outputs:
+      ui_hash: ${{ steps.ui-hash.outputs.hash }}
     steps:
       - uses: actions/checkout@v6.0.2
-        with:
-          fetch-depth: 0
-
-      - name: Set up Go
-        uses: actions/setup-go@v6.4.0
-        with:
-          go-version-file: go.mod
-          cache: true
 
       - name: Set up Node.js
         uses: actions/setup-node@v6.4.0
         with:
-          node-version: "25"
+          node-version: "25.2.1"
           cache: npm
           cache-dependency-path: ui/package-lock.json
 
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y rpm
-
-      - name: Build frontend
+      - name: Build UI
         run: |
           cd ui
           npm ci
           npm run build
 
-      - name: Extract version from tag
-        id: version
-        env:
-          GITHUB_REF_NAME: ${{ github.ref_name }}
-          GITHUB_REF_TYPE: ${{ github.ref_type }}
-          GITHUB_SHA: ${{ github.sha }}
+      - name: Compute UI build hash
+        id: ui-hash
         run: |
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-            PKG_VERSION=$(echo "$VERSION" | sed 's/-dirty$//;s/-[0-9]*-g[0-9a-f]*$//')
-          else
-            VERSION="0.0.0-dryrun-${GITHUB_SHA:0:7}"
-            PKG_VERSION="${VERSION}"
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "pkg_version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
+          UI_BUILD_HASH=$(find internal/api/ui -type f -exec md5sum {} \; | sort | md5sum | cut -d' ' -f1)
+          echo "hash=$UI_BUILD_HASH" >> "$GITHUB_OUTPUT"
 
-      - name: Build binary
-        env:
-          GOOS: linux
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: "0"
-          BUILD_VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          COMMIT=$(git rev-parse --short HEAD)
-          BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-
-          go build -trimpath -buildvcs=false \
-            -ldflags "-s -w \
-              -X github.com/krisarmstrong/stem/internal/version.semver=${BUILD_VERSION} \
-              -X github.com/krisarmstrong/stem/internal/version.commit=${COMMIT} \
-              -X github.com/krisarmstrong/stem/internal/version.buildTime=${BUILD_TIME}" \
-            -o "dist/stem-linux-${{ matrix.arch }}" \
-            ./cmd/stem/
-
-      - name: Verify binary (smoke test)
-        run: |
-          echo "=== Binary file type ==="
-          file "dist/stem-linux-${{ matrix.arch }}"
-
-          if [ "${{ matrix.arch }}" = "amd64" ]; then
-            echo ""
-            echo "=== Version smoke test ==="
-            "./dist/stem-linux-${{ matrix.arch }}" version || echo "Version check done"
-          fi
-
-      - name: Install nfpm
-        run: go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.46.3
-
-      - name: Create release packages
-        env:
-          VERSION: ${{ github.ref_name }}
-          ARCH: ${{ matrix.arch }}
-          PKG_VERSION: ${{ steps.version.outputs.pkg_version }}
-        run: |
-          mkdir -p "release/stem-${VERSION}-linux-${ARCH}"
-          cp "dist/stem-linux-${ARCH}" "release/stem-${VERSION}-linux-${ARCH}/stem"
-          chmod +x "release/stem-${VERSION}-linux-${ARCH}/stem"
-          cp deploy/config/stem.yaml "release/stem-${VERSION}-linux-${ARCH}/"
-          cp deploy/systemd/stem.service "release/stem-${VERSION}-linux-${ARCH}/"
-          if [ -d ui/dist ]; then
-            cp -r ui/dist "release/stem-${VERSION}-linux-${ARCH}/ui/"
-          fi
-          cd release
-          tar -czvf "stem-${VERSION}-linux-${ARCH}.tar.gz" "stem-${VERSION}-linux-${ARCH}"
-          cd ..
-
-          export STEM_VERSION="${PKG_VERSION}"
-          export STEM_ARCH="${ARCH}"
-          export STEM_BINARY="./dist/stem-linux-${ARCH}"
-          envsubst < .nfpm.yaml > nfpm.rendered.yaml
-
-          case "${ARCH}" in
-            amd64) RPM_ARCH=x86_64 ;;
-            arm64) RPM_ARCH=aarch64 ;;
-            *)     RPM_ARCH="${ARCH}" ;;
-          esac
-
-          nfpm pkg --config nfpm.rendered.yaml --packager deb \
-            --target "release/stem_${PKG_VERSION}_${ARCH}.deb"
-          nfpm pkg --config nfpm.rendered.yaml --packager rpm \
-            --target "release/stem-${PKG_VERSION}-1.${RPM_ARCH}.rpm"
-
-      - name: Upload release artifacts
+      - name: Upload UI dist
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: release-linux-${{ matrix.arch }}
-          path: |
-            release/*.tar.gz
-            release/*.deb
-            release/*.rpm
+          name: ui-dist
+          path: internal/api/ui/
+          retention-days: 1
+          include-hidden-files: true
 
-  # ===========================================================================
-  # Build macOS Release
-  # ===========================================================================
-  release-macos:
-    name: macOS (${{ matrix.arch }})
-    permissions:
-      contents: write
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-14
-            arch: arm64
-            goarch: arm64
-          - os: macos-15-intel
-            arch: amd64
-            goarch: amd64
-
-    runs-on: ${{ matrix.os }}
-
-    steps:
-      - uses: actions/checkout@v6.0.2
-        with:
-          fetch-depth: 0
-
-      - name: Set up Go
-        uses: actions/setup-go@v6.4.0
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6.4.0
-        with:
-          node-version: "25"
-          cache: npm
-          cache-dependency-path: ui/package-lock.json
-
-      - name: Build frontend
-        run: |
-          cd ui
-          npm ci
-          npm run build
-
-      - name: Extract version from tag
-        id: version
-        env:
-          GITHUB_REF_NAME: ${{ github.ref_name }}
-          GITHUB_REF_TYPE: ${{ github.ref_type }}
-          GITHUB_SHA: ${{ github.sha }}
-        run: |
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-            PKG_VERSION=$(echo "$VERSION" | sed 's/-dirty$//;s/-[0-9]*-g[0-9a-f]*$//')
-          else
-            VERSION="0.0.0-dryrun-${GITHUB_SHA:0:7}"
-            PKG_VERSION="${VERSION}"
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "pkg_version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Build binary
-        env:
-          GOOS: darwin
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: "0"
-          BUILD_VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          COMMIT=$(git rev-parse --short HEAD)
-          BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-
-          go build -trimpath -buildvcs=false \
-            -ldflags "-s -w \
-              -X github.com/krisarmstrong/stem/internal/version.semver=${BUILD_VERSION} \
-              -X github.com/krisarmstrong/stem/internal/version.commit=${COMMIT} \
-              -X github.com/krisarmstrong/stem/internal/version.buildTime=${BUILD_TIME}" \
-            -o "dist/stem-darwin-${{ matrix.arch }}" \
-            ./cmd/stem/
-
-      - name: Verify binary (smoke test)
-        run: |
-          echo "=== Binary file type ==="
-          file "dist/stem-darwin-${{ matrix.arch }}"
-
-          echo ""
-          echo "=== Version smoke test ==="
-          "./dist/stem-darwin-${{ matrix.arch }}" version || echo "Version check done"
-
-      - name: Create .tar.gz package
-        env:
-          VERSION: ${{ github.ref_name }}
-          ARCH: ${{ matrix.arch }}
-        run: |
-          mkdir -p "release/stem-${VERSION}-darwin-${ARCH}"
-          cp "dist/stem-darwin-${ARCH}" "release/stem-${VERSION}-darwin-${ARCH}/stem"
-          chmod +x "release/stem-${VERSION}-darwin-${ARCH}/stem"
-          cp deploy/config/stem.yaml "release/stem-${VERSION}-darwin-${ARCH}/"
-          if [ -d ui/dist ]; then
-            cp -r ui/dist "release/stem-${VERSION}-darwin-${ARCH}/ui/"
-          fi
-          cd release
-          tar -czvf "stem-${VERSION}-darwin-${ARCH}.tar.gz" "stem-${VERSION}-darwin-${ARCH}"
-
-      - name: Create .pkg installer
-        env:
-          ARCH: ${{ matrix.arch }}
-          PKG_VERSION: ${{ steps.version.outputs.pkg_version }}
-        run: |
-          chmod +x deploy/macos/build-pkg.sh
-          ./deploy/macos/build-pkg.sh "./dist/stem-darwin-${ARCH}" "${PKG_VERSION}"
-
-      - name: Upload release artifacts
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: release-darwin-${{ matrix.arch }}
-          path: |
-            release/*.tar.gz
-            dist/*.pkg
-
-  # ===========================================================================
-  # Build Windows Release
-  # ===========================================================================
-  release-windows:
-    name: Windows (${{ matrix.arch }})
+  # =========================================================================
+  # goreleaser build + (when not dry-run) publish.
+  # =========================================================================
+  goreleaser:
+    name: goreleaser
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: amd64
-            goarch: amd64
-          - arch: arm64
-            goarch: arm64
-
+    needs: [build-ui]
+    container:
+      # Docker Hub tag scheme: <go-version>-<bundle-revision>. v1.26.2-3
+      # tracks Go 1.26.2 + goreleaser v2.15.4. Pinned for reproducibility;
+      # bump via dependabot when newer revs land.
+      image: goreleaser/goreleaser-cross:v1.26.2-3
+    outputs:
+      # base64-encoded SHA-256 hashes of all release artifacts, formatted
+      # for slsa-github-generator's base64-subjects input. Set only on a
+      # real (non-snapshot) release.
+      hashes: ${{ steps.hashes.outputs.hashes }}
     steps:
       - uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
 
-      - name: Set up Go
-        uses: actions/setup-go@v6.4.0
-        with:
-          go-version-file: go.mod
-          cache: true
+      - name: Mark workspace as safe (container runs as root)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v6.4.0
-        with:
-          node-version: "25"
-          cache: npm
-          cache-dependency-path: ui/package-lock.json
-
-      - name: Build frontend
-        run: |
-          cd ui
-          npm ci
-          npm run build
-
-      - name: Extract version from tag
-        id: version
-        env:
-          GITHUB_REF_NAME: ${{ github.ref_name }}
-          GITHUB_REF_TYPE: ${{ github.ref_type }}
-          GITHUB_SHA: ${{ github.sha }}
-        run: |
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-            PKG_VERSION=$(echo "$VERSION" | sed 's/-dirty$//;s/-[0-9]*-g[0-9a-f]*$//')
-          else
-            VERSION="0.0.0-dryrun-${GITHUB_SHA:0:7}"
-            PKG_VERSION="${VERSION}"
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "pkg_version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Build binary
-        env:
-          GOOS: windows
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: "0"
-          BUILD_VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          COMMIT=$(git rev-parse --short HEAD)
-          BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-
-          go build -trimpath -buildvcs=false \
-            -ldflags "-s -w \
-              -X github.com/krisarmstrong/stem/internal/version.semver=${BUILD_VERSION} \
-              -X github.com/krisarmstrong/stem/internal/version.commit=${COMMIT} \
-              -X github.com/krisarmstrong/stem/internal/version.buildTime=${BUILD_TIME}" \
-            -o "dist/stem-windows-${{ matrix.arch }}.exe" \
-            ./cmd/stem/
-
-      - name: Verify binary
-        run: |
-          file "dist/stem-windows-${{ matrix.arch }}.exe"
-          echo "Windows ${{ matrix.arch }} binary built"
-
-      - name: Create Windows distribution
-        env:
-          PKG_VERSION: ${{ steps.version.outputs.pkg_version }}
-          ARCH: ${{ matrix.arch }}
-        run: |
-          PKG_NAME="stem-${PKG_VERSION}-windows-${ARCH}"
-          mkdir -p "release/${PKG_NAME}"
-          cp "dist/stem-windows-${ARCH}.exe" "release/${PKG_NAME}/stem.exe"
-          cp deploy/config/stem.yaml "release/${PKG_NAME}/"
-          if [ -d ui/dist ]; then
-            cp -r ui/dist "release/${PKG_NAME}/ui/"
-          fi
-          cd release
-          zip -r "${PKG_NAME}.zip" "${PKG_NAME}"
-
-      - name: Upload release artifacts
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: release-windows-${{ matrix.arch }}
-          path: release/*.zip
-
-  # ===========================================================================
-  # Publish Release
-  # ===========================================================================
-  publish:
-    name: Publish Release
-    runs-on: ubuntu-latest
-    needs: [release-linux, release-macos, release-windows]
-    permissions:
-      contents: write
-      id-token: write
-
-    steps:
-      - uses: actions/checkout@v6.0.2
-        with:
-          fetch-depth: 0
-
-      - name: Download all release artifacts
+      - name: Download UI dist
         uses: actions/download-artifact@v8.0.1
         with:
-          path: artifacts/
+          name: ui-dist
+          path: internal/api/ui/
 
-      - name: Prepare release files
+      - name: Install Syft (SBOM) inside container
         run: |
-          mkdir -p dist
-          find artifacts -name "*.tar.gz" -exec cp {} dist/ \;
-          find artifacts -name "*.deb" -exec cp {} dist/ \;
-          find artifacts -name "*.rpm" -exec cp {} dist/ \;
-          find artifacts -name "*.pkg" -exec cp {} dist/ \;
-          find artifacts -name "*.zip" -exec cp {} dist/ \;
-          cd dist
-          sha256sum * > checksums.txt 2>/dev/null || true
-          cat checksums.txt
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
 
-      - name: Install Syft for SBOM generation
-        uses: anchore/sbom-action/download-syft@v0
-
-      - name: Generate SBOMs for packages
+      - name: Install Cosign inside container
         run: |
-          cd dist
-          for pkg in *.tar.gz; do
-            if [ -f "${pkg}" ]; then
-              echo "Generating SBOM for ${pkg}..."
-              syft "${pkg}" -o cyclonedx-json > "${pkg%.tar.gz}.sbom.json"
-            fi
-          done
+          COSIGN_VERSION=v2.4.1
+          curl -sSfL -o /usr/local/bin/cosign "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64"
+          chmod +x /usr/local/bin/cosign
 
-      - name: Install Cosign for signing
-        uses: sigstore/cosign-installer@v4.1.2
+      - name: Run goreleaser (snapshot/dry-run)
+        if: inputs.dry_run
+        env:
+          UI_BUILD_HASH: ${{ needs.build-ui.outputs.ui_hash }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: goreleaser release --snapshot --clean --skip=publish,announce
 
-      - name: Sign release artifacts with cosign (keyless OIDC)
+      - name: Run goreleaser (publish)
+        if: ${{ !inputs.dry_run }}
+        env:
+          UI_BUILD_HASH: ${{ needs.build-ui.outputs.ui_hash }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # --skip=validate: the UI build downloaded into internal/api/ui/
+        # overwrites tracked stubs (index.html with the prior bundle's
+        # hashed asset refs), which goreleaser would otherwise flag as
+        # "git is in a dirty state". PR-level CI validates the same
+        # content via the dry-run snapshot.
+        run: goreleaser release --clean --skip=validate
+
+      - name: Capture artifact hashes for SLSA provenance
+        if: ${{ !inputs.dry_run }}
+        id: hashes
+        shell: bash
         run: |
-          cd dist
-          for file in *.tar.gz *.deb *.rpm *.pkg *.zip checksums.txt *.sbom.json; do
-            if [ -f "${file}" ]; then
-              echo "Signing ${file}..."
-              cosign sign-blob --yes --bundle "${file}.cosign.bundle" "${file}"
-            fi
-          done
+          # goreleaser drops artifacts.json describing every produced
+          # artifact. Filter to the user-facing ones (archive/package
+          # types) and base64-encode their SHA-256 list for the
+          # slsa-github-generator reusable workflow.
+          set -euo pipefail
+          hashes=$(jq -r '
+            map(select(.type == "Archive" or .type == "Linux Package")) |
+            map("\(.extra.Checksum | sub("^sha256:"; ""))  \(.name)") |
+            join("\n")
+          ' dist/artifacts.json | base64 -w0)
+          echo "hashes=${hashes}" >> "$GITHUB_OUTPUT"
 
-      - name: Upload assembled artifacts (dry-run inspectable)
+      - name: Upload dry-run artifact bundle for inspection
+        if: inputs.dry_run
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: release-bundle-${{ github.ref_type == 'tag' && github.ref_name || format('dryrun-{0}', github.run_id) }}
+          name: goreleaser-dryrun-${{ github.run_id }}
           path: dist/
           retention-days: 14
 
-      - name: Generate changelog
-        id: changelog
-        run: |
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          if [ -n "$PREV_TAG" ]; then
-            CHANGELOG=$(git log --pretty=format:"- %s (%h)" "$PREV_TAG"..HEAD)
-          else
-            CHANGELOG=$(git log --pretty=format:"- %s (%h)" -20)
-          fi
-          echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-
-      - name: Create Release
-        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == false)
-        uses: softprops/action-gh-release@v3.0.0
-        with:
-          body: |
-            ## Changes
-
-            ${{ steps.changelog.outputs.changelog }}
-
-            ## Checksums
-
-            ```
-            $(cat dist/checksums.txt)
-            ```
-
-            ## Installation
-
-            ### Debian/Ubuntu (.deb - Recommended for Linux)
-
-            **AMD64:**
-            ```bash
-            sudo dpkg -i stem_<version>_amd64.deb
-            ```
-
-            **ARM64:**
-            ```bash
-            sudo dpkg -i stem_<version>_arm64.deb
-            ```
-
-            ### Fedora/RHEL (.rpm)
-
-            **x86_64:**
-            ```bash
-            sudo rpm -i stem-<version>.x86_64.rpm
-            ```
-
-            **aarch64:**
-            ```bash
-            sudo rpm -i stem-<version>.aarch64.rpm
-            ```
-
-            ### macOS (.pkg Installer - Recommended for macOS)
-
-            **Apple Silicon (M1/M2/M3/M4):**
-            ```bash
-            sudo installer -pkg stem-<version>-arm64.pkg -target /
-            ```
-
-            **Intel Mac:**
-            ```bash
-            sudo installer -pkg stem-<version>-amd64.pkg -target /
-            ```
-
-            ### Linux Manual (tar.gz)
-
-            ```bash
-            tar -xzf stem-<version>-linux-amd64.tar.gz
-            cd stem-*-linux-amd64
-            sudo mv stem /usr/bin/
-            sudo cp stem.service /usr/lib/systemd/system/
-            sudo mkdir -p /etc/stem
-            sudo cp stem.yaml /etc/stem/config.yaml
-            sudo systemctl enable --now stem
-            ```
-
-            ### Windows
-
-            ```powershell
-            Expand-Archive stem-<version>-windows-amd64.zip -DestinationPath .
-            cd stem-*-windows-amd64
-            .\stem.exe --help
-            ```
-
-            ## After Installation
-
-            - **Web UI:** http://localhost:8080
-            - **CLI:** `stem --help`
-            - **TUI:** `stem tui`
-            - **Status:** `sudo systemctl status stem` (Linux) / `sudo launchctl list | grep stem` (macOS)
-
-            ## Supply Chain Security
-
-            All release artifacts include:
-            - **SBOM** (Software Bill of Materials) in CycloneDX JSON format
-            - **Cosign signatures** for cryptographic verification
-
-            Verify signatures:
-            ```bash
-            cosign verify-blob \
-              --bundle <artifact>.cosign.bundle \
-              --certificate-identity-regexp='https://github.com/krisarmstrong/stem' \
-              --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
-              <artifact>
-            ```
-          files: |
-            dist/*.tar.gz
-            dist/*.deb
-            dist/*.rpm
-            dist/*.pkg
-            dist/*.zip
-            dist/checksums.txt
-            dist/*.sbom.json
-            dist/*.cosign.bundle
-          draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
+  # =========================================================================
+  # SLSA Level 3 provenance — runs only on real releases (not dry-run).
+  # The slsa-github-generator reusable workflow builds an in-toto
+  # attestation signed via Sigstore keyless OIDC and uploads it alongside
+  # the release artifacts. Mirrors seed and niac's provenance job.
+  # =========================================================================
+  provenance:
+    name: SLSA provenance
+    if: ${{ !inputs.dry_run }}
+    needs: [goreleaser]
+    permissions:
+      id-token: write   # for Sigstore OIDC
+      contents: write   # for uploading attestation to the release
+      actions: read
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
+    with:
+      base64-subjects: ${{ needs.goreleaser.outputs.hashes }}
+      upload-assets: true
+      provenance-name: stem-slsa-provenance.intoto.jsonl

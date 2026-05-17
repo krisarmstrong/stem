@@ -1,0 +1,237 @@
+# =============================================================================
+# goreleaser config for The Stem
+# =============================================================================
+# Canonical packaging config. .github/workflows/release.yml drives this on
+# tag push (or workflow_dispatch dry-run). Replaces the prior hand-coded
+# matrix workflow + .nfpm.yaml sidecar.
+#
+# Shape mirrors seed and niac's .goreleaser.yml so the three projects share
+# the same release tooling.
+#
+# Covers natively:
+#   - Multi-arch builds (linux/darwin/windows × amd64/arm64)
+#   - Archives (.tar.gz, .zip), Linux packages (.deb, .rpm) via nfpm
+#   - ldflags injection (Version, Commit, BuildTime, UIBuildHash) into
+#     internal/version — the canonical contract shared with seed and niac
+#   - cosign keyless signing of every artifact
+#   - syft SBOM per archive
+#   - SHA-256 checksums
+#
+# Handled outside goreleaser:
+#   - macOS .pkg installer via deploy/macos/build-pkg.sh — kept as a
+#     local-only convenience; the .tar.gz is the published artifact
+#   - UI frontend build — runs in the build-ui job inside release.yml;
+#     Vite writes directly to internal/api/ui/ which Go embeds. The
+#     `before:` hook below just verifies the dist landed.
+#
+# Stem builds with CGO_ENABLED=0 across all targets (pure-Go networking
+# via gopacket without the libpcap C dependency), so the cross-compile
+# overrides used by seed and niac aren't needed here.
+#
+# Tested against goreleaser v2.x inside goreleaser-cross:v1.26.2-3.
+# =============================================================================
+
+version: 2
+
+project_name: stem
+
+before:
+  hooks:
+    - go mod download
+    # UI dist is built BEFORE goreleaser runs (in the build-ui job inside
+    # release.yml) and written to internal/api/ui/. internal/api/server.go
+    # then `go:embed`s it into the binary. Just verify it landed.
+    - bash -c 'test -f internal/api/ui/index.html || (echo "internal/api/ui/index.html missing — UI build step failed or artifact missing"; exit 1)'
+
+builds:
+  - id: stem-linux
+    main: ./cmd/stem
+    binary: stem
+    env:
+      - CGO_ENABLED=0
+    goos: [linux]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+      - -buildvcs=false
+    ldflags: &ldflags
+      - -s -w
+      - -X github.com/krisarmstrong/stem/internal/version.Version={{.Version}}
+      - -X github.com/krisarmstrong/stem/internal/version.Commit={{.Commit}}
+      - -X github.com/krisarmstrong/stem/internal/version.BuildTime={{.Date}}
+      - -X github.com/krisarmstrong/stem/internal/version.UIBuildHash={{.Env.UI_BUILD_HASH}}
+
+  - id: stem-darwin
+    main: ./cmd/stem
+    binary: stem
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+      - -buildvcs=false
+    ldflags: *ldflags
+
+  - id: stem-windows
+    main: ./cmd/stem
+    binary: stem
+    env:
+      - CGO_ENABLED=0
+    goos: [windows]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+      - -buildvcs=false
+    ldflags: *ldflags
+
+archives:
+  - id: linux-archive
+    ids: [stem-linux]
+    name_template: "stem-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    formats: [tar.gz]
+    files:
+      - src: deploy/config/stem.yaml
+        dst: stem.yaml
+      - src: deploy/systemd/stem.service
+        dst: systemd/stem.service
+
+  - id: darwin-archive
+    ids: [stem-darwin]
+    name_template: "stem-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    formats: [tar.gz]
+    files:
+      - src: deploy/config/stem.yaml
+        dst: stem.yaml
+      # launchd plist + helper scripts for macOS users who run stem as a
+      # service. Filename matches the in-tree convention.
+      - src: deploy/launchd/*
+        dst: launchd/
+
+  - id: windows-archive
+    ids: [stem-windows]
+    name_template: "stem-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    formats: [zip]
+    files:
+      - src: deploy/config/stem.yaml
+        dst: stem.yaml
+
+# Linux .deb + .rpm via nfpm (built into goreleaser). This block replaces
+# the prior .nfpm.yaml sidecar at the goreleaser cutover.
+nfpms:
+  - id: linux-packages
+    ids: [stem-linux]
+    package_name: stem
+    vendor: Mustard Seed Networks
+    homepage: https://github.com/krisarmstrong/stem
+    maintainer: Kris Armstrong <kris@mustardseednetworks.com>
+    description: |
+      The Stem - Network Performance Testing Tool by Mustard Seed Networks
+      .
+      The Stem is a high-performance network testing tool supporting RFC 2544,
+      ITU-T Y.1564, ITU-T Y.1731, packet reflection, and WebUI/TUI/CLI workflows.
+    license: Proprietary
+    section: net
+    priority: optional
+    formats:
+      - deb
+      - rpm
+    file_name_template: >-
+      {{- if eq .ConventionalExtension ".deb" -}}
+        stem_{{ .Version }}_{{ .Arch }}
+      {{- else if eq .ConventionalExtension ".rpm" -}}
+        {{- $rpmarch := .Arch -}}
+        {{- if eq .Arch "amd64" }}{{ $rpmarch = "x86_64" }}{{ end -}}
+        {{- if eq .Arch "arm64" }}{{ $rpmarch = "aarch64" }}{{ end -}}
+        stem-{{ .Version }}-1.{{ $rpmarch }}
+      {{- end -}}
+    dependencies:
+      - systemd
+    overrides:
+      deb:
+        dependencies:
+          - systemd
+          - libcap2-bin
+      rpm:
+        dependencies:
+          - systemd
+          - libcap
+    contents:
+      - src: ./deploy/systemd/stem.service
+        dst: /usr/lib/systemd/system/stem.service
+        file_info:
+          mode: 0o644
+      - src: ./deploy/config/stem.yaml
+        dst: /usr/share/stem/config.yaml
+        file_info:
+          mode: 0o640
+          owner: root
+          group: stem
+      - dst: /etc/stem
+        type: dir
+        file_info:
+          mode: 0o750
+          owner: root
+          group: stem
+      - dst: /usr/share/stem
+        type: dir
+        file_info:
+          mode: 0o755
+          owner: root
+          group: root
+      - dst: /var/lib/stem
+        type: dir
+        file_info:
+          mode: 0o750
+          owner: stem
+          group: stem
+      - dst: /var/log/stem
+        type: dir
+        file_info:
+          mode: 0o750
+          owner: stem
+          group: stem
+    scripts:
+      preinstall: ./deploy/nfpm/preinstall.sh
+      postinstall: ./deploy/nfpm/postinstall.sh
+      preremove: ./deploy/nfpm/preremove.sh
+      postremove: ./deploy/nfpm/postremove.sh
+    bindir: /usr/bin
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+sboms:
+  - id: archives-sbom
+    artifacts: archive
+    documents:
+      - "{{ .ArtifactName }}.sbom.json"
+
+signs:
+  # Sign all release artifacts via cosign keyless OIDC. Mirrors seed and
+  # niac's signing block.
+  - cmd: cosign
+    signature: "${artifact}.cosign.bundle"
+    args:
+      - sign-blob
+      - "--yes"
+      - "--bundle"
+      - "${artifact}.cosign.bundle"
+      - "${artifact}"
+    artifacts: all
+    output: true
+
+release:
+  github:
+    owner: krisarmstrong
+    name: stem
+  replace_existing_artifacts: true
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    The Stem {{ .Tag }} — Network Performance Testing Tool by Mustard Seed Networks.
+
+snapshot:
+  version_template: "0.0.0-dryrun-{{ .ShortCommit }}"

@@ -193,8 +193,7 @@ clean: ## Clean build artifacts
 	rm -f $(BINARY) $(BINARY)-*
 	rm -f bin/$(BINARY) bin/$(BINARY)-*
 	rm -f coverage.out coverage.html
-	rm -rf ui/dist
-	rm -rf internal/api/embed/*
+	rm -rf internal/api/ui
 	rm -f bin/test_*
 	rm -f src/**/*.o
 

@@ -152,16 +152,16 @@ func main() {
 }
 
 func printVersion(w io.Writer) {
-	_, _ = fmt.Fprintf(w, "%s %s\n", ProductName, version.Version())
-	_, _ = fmt.Fprintf(w, "Commit: %s\n", version.Commit())
-	_, _ = fmt.Fprintf(w, "Built:  %s\n", version.BuildTime())
+	_, _ = fmt.Fprintf(w, "%s %s\n", ProductName, version.GetVersion())
+	_, _ = fmt.Fprintf(w, "Commit: %s\n", version.GetCommit())
+	_, _ = fmt.Fprintf(w, "Built:  %s\n", version.GetBuildTime())
 	_, _ = fmt.Fprintf(w, "Copyright (c) 2025 %s\n", Company)
 	_, _ = fmt.Fprintln(w, "Network Performance Testing")
 }
 
 func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintf(w, `%s %s
-%s - Network Performance Testing`, ProductName, version.Version(), Company)
+%s - Network Performance Testing`, ProductName, version.GetVersion(), Company)
 	_, _ = fmt.Fprint(w, `
 
 USAGE:
@@ -492,7 +492,7 @@ func buildReflectorConfig(parsed *reflectCmdArgs, sigFilter string) *reflectorCo
 }
 
 func printReflectorStartup(parsed *reflectCmdArgs) {
-	_, _ = fmt.Fprintf(os.Stdout, "%s %s - Reflector\n", ProductName, version.Version())
+	_, _ = fmt.Fprintf(os.Stdout, "%s %s - Reflector\n", ProductName, version.GetVersion())
 	_, _ = fmt.Fprintf(os.Stdout, "Interface:  %s\n", parsed.iface)
 	_, _ = fmt.Fprintf(os.Stdout, "Profile:    %s\n", parsed.profile)
 	if parsed.port > 0 {
@@ -552,7 +552,7 @@ func printTestConfiguration(
 	resolution, maxLoss float64,
 	warmup int,
 ) {
-	_, _ = fmt.Fprintf(os.Stdout, "%s %s - Network Testing\n", ProductName, version.Version())
+	_, _ = fmt.Fprintf(os.Stdout, "%s %s - Network Testing\n", ProductName, version.GetVersion())
 	_, _ = fmt.Fprintln(os.Stdout, strings.Repeat("=", bannerWidth))
 	_, _ = fmt.Fprintf(os.Stdout, "Interface:    %s\n", iface)
 	_, _ = fmt.Fprintf(os.Stdout, "Tests:        %s\n", testTypes)
@@ -1132,7 +1132,7 @@ func webCmd(args []string) {
 		os.Exit(1)
 	}
 
-	_, _ = fmt.Fprintf(os.Stdout, "%s %s - WebUI Server\n", ProductName, version.Version())
+	_, _ = fmt.Fprintf(os.Stdout, "%s %s - WebUI Server\n", ProductName, version.GetVersion())
 	_, _ = fmt.Fprintf(os.Stdout, "Starting on http://%s:%d\n", *host, *port)
 
 	srv, err := api.NewServer(*port)
@@ -1271,7 +1271,7 @@ func tuiCmd(args []string) error {
 		return err
 	}
 
-	_, _ = fmt.Fprintf(os.Stdout, "%s %s - Terminal UI\n", ProductName, version.Version())
+	_, _ = fmt.Fprintf(os.Stdout, "%s %s - Terminal UI\n", ProductName, version.GetVersion())
 
 	switch *mode {
 	case "reflect", "reflector":

@@ -87,11 +87,24 @@ jobs:
       - name: Check coverage threshold
         run: |
           COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
-          echo "Coverage: ${COVERAGE}%"
-          # Note: Overall coverage is ~58% due to platform-specific code (Linux dataplane, TUI)
-          # Critical packages (auth, database, logging, modules, config) are at 90%+
-          if (( $(echo "$COVERAGE < 50" | bc -l) )); then
-            echo "Coverage ${COVERAGE}% is below 50% threshold"
+          echo "Current coverage: ${COVERAGE}%"
+
+          # Minimum coverage threshold. Acts as an anti-regression floor.
+          # Overall coverage is ~58% (platform-specific code in Linux
+          # dataplane and TUI pulls the average down; critical packages —
+          # auth, database, logging, modules, config — are 90%+).
+          #
+          # Ratchet plan (raise after each release exceeds the next tier
+          # by 5+ points):
+          #   2026-Q2: 50 (current)
+          #   2026-Q3: 55
+          #   2026-Q4: 60
+          #   2027-Q2: 65
+          #   long-term: 70
+          MIN_COVERAGE=50
+
+          if (( $(echo "$COVERAGE < $MIN_COVERAGE" | bc -l) )); then
+            echo "ERROR: Coverage ${COVERAGE}% is below minimum threshold of ${MIN_COVERAGE}%"
             exit 1
           fi
 
@@ -294,12 +307,12 @@ jobs:
           npm audit --audit-level=high
 
       - name: Run gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -557,7 +570,7 @@ jobs:
           exit 1
 
       - name: Run Lighthouse
-        uses: treosh/lighthouse-ci-action@v12
+        uses: treosh/lighthouse-ci-action@3e7e23fb74242897f95c0ba9cabad3d0227b9b18 # v12
         with:
           urls: |
             http://localhost:8080

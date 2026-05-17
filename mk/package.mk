@@ -12,7 +12,8 @@
 
 .PHONY: deb rpm pkg packages packages-all \
         deb-amd64 deb-arm64 rpm-amd64 rpm-arm64 _deb-arch _rpm-arch \
-        container
+        container \
+        deploy-validate deploy-ubuntu deploy-fedora deploy-all
 
 # =============================================================================
 # Package Variables
@@ -37,10 +38,6 @@ deb: build-linux ## Build Debian package (.deb)
 	@mkdir -p dist/deb/var/log/stem
 	@cp bin/stem-linux dist/deb/usr/bin/stem
 	@chmod 755 dist/deb/usr/bin/stem
-	@if [ -f bin/iperf3 ]; then \
-		cp bin/iperf3 dist/deb/usr/bin/stem-iperf3; \
-		chmod 755 dist/deb/usr/bin/stem-iperf3; \
-	fi
 	@cp deploy/systemd/stem.service dist/deb/usr/lib/systemd/system/
 	@cp deploy/config/stem.yaml dist/deb/usr/share/stem/config.yaml
 	@sed 's/__VERSION__/$(PKG_VERSION)/g; s/__ARCHITECTURE__/$(DEB_ARCH)/g' \
@@ -88,9 +85,6 @@ rpm: build-linux ## Build RPM package (.rpm)
 	@mkdir -p dist/rpm/BUILD dist/rpm/RPMS dist/rpm/SOURCES dist/rpm/SPECS dist/rpm/SRPMS
 	@mkdir -p dist/rpm/SOURCES/stem-$(PKG_VERSION)
 	@cp bin/stem-linux dist/rpm/SOURCES/stem-$(PKG_VERSION)/stem
-	@if [ -f bin/iperf3 ]; then \
-		cp bin/iperf3 dist/rpm/SOURCES/stem-$(PKG_VERSION)/stem-iperf3; \
-	fi
 	@cp deploy/systemd/stem.service dist/rpm/SOURCES/stem-$(PKG_VERSION)/
 	@cp deploy/config/stem.yaml dist/rpm/SOURCES/stem-$(PKG_VERSION)/
 	@sed 's/__VERSION__/$(PKG_VERSION)/g; s/__ARCHITECTURE__/$(RPM_ARCH)/g; s|%{_repo_root}|$(CURDIR)|g' \
@@ -167,5 +161,70 @@ container: ## Build container image locally (Pack/Buildpacks)
 	@pack build $(CONTAINER_IMAGE):$(VERSION) \
 		--builder paketobuildpacks/builder-jammy-base \
 		--env BP_GO_TARGETS="./cmd/stem" \
-		--env BP_GO_BUILD_LDFLAGS="-s -w -X $(VERSION_PKG).semver=$(VERSION) -X $(VERSION_PKG).commit=$(COMMIT)"
+		--env BP_GO_BUILD_LDFLAGS="-s -w -X $(VERSION_PKG).Version=$(VERSION) -X $(VERSION_PKG).Commit=$(COMMIT) -X $(VERSION_PKG).BuildTime=$(BUILD_TIME) -X $(VERSION_PKG).UIBuildHash=$(UI_BUILD_HASH)"
 	@printf "$(GREEN)Container: $(CONTAINER_IMAGE):$(VERSION) (local)$(RESET)\n"
+
+# =============================================================================
+# Deployment Targets
+# =============================================================================
+# Mirrors niac/go's deploy block so the three projects share a deployment
+# contract. Honors the Universal Build Contract in CLAUDE.md.
+#
+# Prerequisites:
+#   - SSH access to target servers (key-based auth recommended)
+#   - Packages built with 'make packages'
+#   - Target servers configured in ~/.ssh/config
+# =============================================================================
+
+DEPLOY_UBUNTU_HOST ?= niac-srv-ubuntu
+DEPLOY_FEDORA_HOST ?= niac-srv-fedora
+DEPLOY_PORT ?= 8080
+
+deploy-validate: ## Validate deployment on a remote host (HOST=hostname)
+	@if [ -z "$(HOST)" ]; then \
+		printf "$(RED)ERROR: HOST is required. Usage: make deploy-validate HOST=hostname$(RESET)\n"; \
+		exit 1; \
+	fi
+	@printf "$(BOLD)Validating deployment on $(HOST)...$(RESET)\n"
+	./scripts/deploy-validate.sh $(VERSION) $(COMMIT) $(HOST) $(DEPLOY_PORT)
+
+deploy-ubuntu: packages ## Deploy .deb to Ubuntu test server and validate
+	@printf "$(BOLD)Deploying to $(DEPLOY_UBUNTU_HOST)...$(RESET)\n"
+	@DEB_FILE=$$(ls -t dist/stem_*_amd64.deb 2>/dev/null | head -1); \
+	if [ -z "$$DEB_FILE" ]; then \
+		printf "$(RED)ERROR: No .deb file found in dist/. Run 'make packages' first.$(RESET)\n"; \
+		exit 1; \
+	fi; \
+	printf "  Uploading $$DEB_FILE...\n"; \
+	scp "$$DEB_FILE" $(DEPLOY_UBUNTU_HOST):/tmp/stem.deb; \
+	printf "  Installing package...\n"; \
+	ssh $(DEPLOY_UBUNTU_HOST) 'sudo dpkg -i /tmp/stem.deb'; \
+	printf "  Restarting service...\n"; \
+	ssh $(DEPLOY_UBUNTU_HOST) 'sudo systemctl restart stem || sudo systemctl start stem'; \
+	printf "  Waiting for service startup...\n"; \
+	sleep 3; \
+	printf "  Validating deployment...\n"
+	@./scripts/deploy-validate.sh $(VERSION) $(COMMIT) $(DEPLOY_UBUNTU_HOST) $(DEPLOY_PORT)
+	@printf "$(GREEN)✓ Ubuntu deployment complete and validated$(RESET)\n"
+
+deploy-fedora: packages ## Deploy .rpm to Fedora test server and validate
+	@printf "$(BOLD)Deploying to $(DEPLOY_FEDORA_HOST)...$(RESET)\n"
+	@RPM_FILE=$$(ls -t dist/stem-*-1.*.rpm 2>/dev/null | head -1); \
+	if [ -z "$$RPM_FILE" ]; then \
+		printf "$(RED)ERROR: No .rpm file found in dist/. Run 'make packages' first.$(RESET)\n"; \
+		exit 1; \
+	fi; \
+	printf "  Uploading $$RPM_FILE...\n"; \
+	scp "$$RPM_FILE" $(DEPLOY_FEDORA_HOST):/tmp/stem.rpm; \
+	printf "  Installing package...\n"; \
+	ssh $(DEPLOY_FEDORA_HOST) 'sudo rpm -Uvh --nodeps /tmp/stem.rpm || sudo rpm -ivh --nodeps /tmp/stem.rpm'; \
+	printf "  Restarting service...\n"; \
+	ssh $(DEPLOY_FEDORA_HOST) 'sudo systemctl restart stem || sudo systemctl start stem'; \
+	printf "  Waiting for service startup...\n"; \
+	sleep 3; \
+	printf "  Validating deployment...\n"
+	@./scripts/deploy-validate.sh $(VERSION) $(COMMIT) $(DEPLOY_FEDORA_HOST) $(DEPLOY_PORT)
+	@printf "$(GREEN)✓ Fedora deployment complete and validated$(RESET)\n"
+
+deploy-all: deploy-ubuntu deploy-fedora ## Deploy to all test servers
+	@printf "\n$(GREEN)✓ ALL DEPLOYMENTS VALIDATED$(RESET)\n"

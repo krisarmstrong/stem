@@ -131,11 +131,11 @@ func testCategories() []testCategory {
 }
 
 func TestVersion(t *testing.T) {
-	if version.Version() == "" {
+	if version.GetVersion() == "" {
 		t.Error("Version should not be empty")
 	}
 	// Version is "dev" when not built with ldflags, or semver when built.
-	if version.Version() != "dev" && !strings.Contains(version.Version(), ".") {
+	if version.GetVersion() != "dev" && !strings.Contains(version.GetVersion(), ".") {
 		t.Error("Version should be 'dev' or contain dots (semantic versioning)")
 	}
 }
@@ -361,7 +361,7 @@ func TestPrintVersion(t *testing.T) {
 	if !strings.Contains(output, ProductName) {
 		t.Error("printVersion should contain ProductName")
 	}
-	if !strings.Contains(output, version.Version()) {
+	if !strings.Contains(output, version.GetVersion()) {
 		t.Error("printVersion should contain Version")
 	}
 	if !strings.Contains(output, Company) {
