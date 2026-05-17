@@ -286,7 +286,11 @@ func TestMiddleware_ChainedMiddleware(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestMiddleware_NormalizesModulesPath(t *testing.T) {
-	t.Parallel()
+	// Serialized against TestMiddleware_ExactPrefixPaths and
+	// TestMiddleware_NormalizesTestPath because all four read+increment the
+	// shared /api/modules or /api/test Prometheus counters; running them
+	// in parallel causes flaky 'expected +1' assertions when concurrent
+	// requests increment between the before/after reads.
 
 	// Paths like /api/modules/123 should be normalized to /api/modules.
 	// We verify by checking the counter increases by at least 1 for each request.
@@ -320,7 +324,7 @@ func TestMiddleware_NormalizesModulesPath(t *testing.T) {
 }
 
 func TestMiddleware_NormalizesTestPath(t *testing.T) {
-	t.Parallel()
+	// Serialized — see TestMiddleware_NormalizesModulesPath for rationale.
 
 	// Paths like /api/test/123 should be normalized to /api/test.
 	// We verify by checking the counter increases by at least 1 for each request.
@@ -426,7 +430,8 @@ func TestMiddleware_ShortPaths(t *testing.T) {
 }
 
 func TestMiddleware_ExactPrefixPaths(t *testing.T) {
-	t.Parallel()
+	// Serialized — see TestMiddleware_NormalizesModulesPath for rationale.
+	// Sub-tests also run sequentially because both touch shared counters.
 
 	// Paths that are exactly the prefix should be normalized.
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -437,7 +442,6 @@ func TestMiddleware_ExactPrefixPaths(t *testing.T) {
 
 	// Test exact /api/modules path.
 	t.Run("/api/modules", func(t *testing.T) {
-		t.Parallel()
 		// Note: /api/modules is exactly 12 characters, so length check passes.
 		// But the path[:12] check requires len > 12.
 		// So /api/modules itself should NOT be normalized.
@@ -455,7 +459,6 @@ func TestMiddleware_ExactPrefixPaths(t *testing.T) {
 
 	// Test exact /api/test path.
 	t.Run("/api/test", func(t *testing.T) {
-		t.Parallel()
 		// /api/test is exactly 9 characters.
 		initialValue := getCounterValue(t, metrics.GetMetrics().HTTPRequestsTotal, "GET", "/api/test", "200")
 
