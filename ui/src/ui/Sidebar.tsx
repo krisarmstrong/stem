@@ -256,9 +256,9 @@ const SidebarBody: FC<SidebarBodyProps> = ({
   <>
     <SidebarHeader collapsed={collapsed} onCollapse={onCollapse} />
     <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-6">
-      {groups.map((group) => (
-        <div key={group.label}>
-          {!collapsed ? (
+      {groups.map((group, groupIndex) => (
+        <div key={group.label || `nav-group-${String(groupIndex)}`}>
+          {!collapsed && group.label ? (
             <h3 className="px-3 mb-2 text-xs font-semibold text-text-muted uppercase tracking-wider">
               {group.label}
             </h3>

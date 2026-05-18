@@ -3,10 +3,11 @@
  * @description Guides users through the first-time setup process for The Stem application.
  */
 
-import { Activity, Copy, Eye, EyeOff, Lock, Zap } from 'lucide-react';
+import { Activity, Copy, Eye, EyeOff, Lock, Repeat, Target, Zap } from 'lucide-react';
 import type { FormEvent, ReactElement } from 'react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { type StemRole, useRole } from '../../contexts/RoleContext';
 
 /** Minimum password length (matches backend validation) */
 const MIN_PASSWORD_LENGTH = 12;
@@ -39,6 +40,8 @@ export function SetupWizard({
   setupToken,
 }: SetupWizardProps): ReactElement {
   const { t } = useTranslation('setup');
+  const { role: currentRole, setRole } = useRole();
+  const [selectedRole, setSelectedRole] = useState<StemRole>(currentRole);
   const [passwordMode, setPasswordMode] = useState<'generated' | 'custom'>('custom');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -114,7 +117,10 @@ export function SetupWizard({
         return;
       }
 
-      // Step 2: Automatically log in with the new password
+      // Step 2: Persist the chosen role to RoleContext + localStorage.
+      setRole(selectedRole);
+
+      // Step 3: Automatically log in with the new password
       const loginSuccess = await onLogin(username, password);
 
       if (!loginSuccess) {
@@ -123,7 +129,7 @@ export function SetupWizard({
         return;
       }
 
-      // Step 3: Setup complete and user is logged in
+      // Step 4: Setup complete and user is logged in
       onComplete();
     } catch {
       setError(t('errors.networkError'));
@@ -160,6 +166,67 @@ export function SetupWizard({
             <p className="text-xs text-[var(--color-text-muted)] mt-1">
               {t('username.description')}
             </p>
+          </div>
+
+          {/* Role selection */}
+          <div className="mb-6 space-y-3">
+            <div>
+              <p className="text-xs font-semibold text-[var(--color-text-muted)]">
+                {t('role.title', "Choose this stem's role")}
+              </p>
+              <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                {t(
+                  'role.subtitle',
+                  'Each stem instance runs as either a passive Reflector or an active Test Master. You can switch roles later from the header.',
+                )}
+              </p>
+            </div>
+
+            <label className="flex items-start gap-3 p-3 rounded-xl border border-[var(--color-surface-border)] cursor-pointer hover:bg-[var(--color-surface-base)] transition-colors">
+              <input
+                type="radio"
+                name="stemRole"
+                value="reflector"
+                checked={selectedRole === 'reflector'}
+                onChange={() => setSelectedRole('reflector')}
+                className="mt-1 w-4 h-4 text-[var(--color-brand-primary)]"
+              />
+              <div>
+                <span className="text-sm font-medium text-[var(--color-text-primary)] flex items-center gap-2">
+                  <Repeat className="w-4 h-4" />
+                  {t('role.reflector.title', 'Reflector')}
+                </span>
+                <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                  {t(
+                    'role.reflector.description',
+                    'Passive loopback — bounces frames back to a Test Master for end-to-end measurement.',
+                  )}
+                </p>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-3 p-3 rounded-xl border border-[var(--color-surface-border)] cursor-pointer hover:bg-[var(--color-surface-base)] transition-colors">
+              <input
+                type="radio"
+                name="stemRole"
+                value="test_master"
+                checked={selectedRole === 'test_master'}
+                onChange={() => setSelectedRole('test_master')}
+                className="mt-1 w-4 h-4 text-[var(--color-brand-primary)]"
+              />
+              <div>
+                <span className="text-sm font-medium text-[var(--color-text-primary)] flex items-center gap-2">
+                  <Target className="w-4 h-4" />
+                  {t('role.testMaster.title', 'Test Master')}
+                </span>
+                <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                  {t(
+                    'role.testMaster.description',
+                    'Active testing — runs RFC 2544, Y.1564, Y.1731, MEF, TSN, and traffic-generation modules.',
+                  )}
+                </p>
+              </div>
+            </label>
           </div>
 
           {/* Password mode selection */}

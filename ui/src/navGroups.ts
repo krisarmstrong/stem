@@ -1,16 +1,17 @@
 /**
  * Sidebar navigation groups for The Stem.
  *
- * Tests are grouped under a single 'Tests' header (one entry per
- * module). Reflector is the default landing route. History lives at
- * the top level alongside it.
+ * Reflector and History are top-level items (no group header). Tests
+ * remain grouped under a single 'Tests' header (one entry per module).
+ * The previous singleton 'Mode' group was removed in #66; the role
+ * selector now lives in the header RoleChip.
  */
 import { Award, BarChart3, History, Repeat, Settings2, Waves, Zap } from 'lucide-react';
 import type { SidebarNavGroup } from './ui/Sidebar';
 
 export const navGroups: SidebarNavGroup[] = [
   {
-    label: 'Mode',
+    label: '',
     items: [{ path: '/reflector', label: 'Reflector', icon: Repeat }],
   },
   {
@@ -24,7 +25,7 @@ export const navGroups: SidebarNavGroup[] = [
     ],
   },
   {
-    label: 'History',
+    label: '',
     items: [{ path: '/history', label: 'History', icon: History }],
   },
 ];

@@ -10,11 +10,12 @@ import { createContext, type Dispatch, type SetStateAction, useContext } from 'r
 import type { RFC2544Config } from '../components/RFC2544ConfigForm';
 import type { RFC2889Config } from '../components/RFC2889ConfigForm';
 import type { RFC6349Config } from '../components/RFC6349ConfigForm';
+import type { ReflectorProfile } from '../components/settings/types';
 import type { TrafficGenConfig } from '../components/TrafficGenConfigForm';
 import type { TSNConfig } from '../components/TSNConfigForm';
 import type { Y1564Config } from '../components/Y1564ConfigForm';
 import type { Y1731Config } from '../components/Y1731ConfigForm';
-import type { TestResult } from '../types/api';
+import type { InterfaceInfo, Stats, TestResult } from '../types/api';
 
 export interface AppContextValue {
   // Test configs
@@ -38,6 +39,19 @@ export interface AppContextValue {
 
   // Test result for History page
   testResult: TestResult | null;
+
+  // Reflector-page surface (filled when the Reflector page mounts).
+  interfaces: InterfaceInfo[];
+  selectedInterface: string;
+  setSelectedInterface: (name: string) => void;
+  stats: Stats;
+  reflectorProfile: ReflectorProfile;
+  setReflectorProfile: Dispatch<SetStateAction<ReflectorProfile>>;
+  onStartReflector: () => void;
+  onStopReflector: () => void;
+  isStartingReflector: boolean;
+  isStoppingReflector: boolean;
+  reflectorStartError: string | null;
 }
 
 export const AppContext = createContext<AppContextValue | null>(null);

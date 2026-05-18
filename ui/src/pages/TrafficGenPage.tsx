@@ -1,4 +1,5 @@
 import { Zap } from 'lucide-react';
+import { RoleGuard } from '../components/RoleGuard';
 import { TrafficGenConfigForm } from '../components/TrafficGenConfigForm';
 import { useAppContext } from '../contexts/AppContext';
 import { Breadcrumbs } from '../ui/Breadcrumbs';
@@ -15,11 +16,13 @@ export function TrafficGenPage() {
         description="Custom traffic generation — shape streams, drive load, and validate paths."
         iconColorClass="text-[var(--color-module-trafficgen)]"
       />
-      <TrafficGenConfigForm
-        config={trafficGenConfig}
-        setConfig={setTrafficGenConfig}
-        selectedTests={selectedTests}
-      />
+      <RoleGuard requires="test_master" moduleName="TrafficGen">
+        <TrafficGenConfigForm
+          config={trafficGenConfig}
+          setConfig={setTrafficGenConfig}
+          selectedTests={selectedTests}
+        />
+      </RoleGuard>
     </section>
   );
 }

@@ -143,5 +143,28 @@
     "tryAgain": "Try again",
     "reload": "Reload Page",
     "persistMessage": "If this problem persists, please contact support."
+  },
+  "role": {
+    "label": "Stem role",
+    "reflector": "Reflector",
+    "testMaster": "Test Master",
+    "reflectorDescription": "Passive loopback — bounces frames back to a Test Master for end-to-end measurement.",
+    "testMasterDescription": "Active testing — runs RFC 2544, Y.1564, Y.1731, MEF, TSN, and traffic-generation modules.",
+    "confirm": {
+      "confirmLabel": "Switch role",
+      "toReflector": {
+        "title": "Switch to Reflector?",
+        "message": "Any in-progress test will be cancelled. This stem will start as a Reflector."
+      },
+      "toTestMaster": {
+        "title": "Switch to Test Master?",
+        "message": "The current Reflector will stop. Any in-progress tests will be cancelled."
+      }
+    },
+    "guard": {
+      "needTestMaster": "This stem is currently configured as Reflector. Switch to Test Master to run {{module}}.",
+      "needReflector": "This stem is currently configured as Test Master. Switch to Reflector to use the loopback reflector.",
+      "switchAction": "Switch role"
+    }
   }
 }

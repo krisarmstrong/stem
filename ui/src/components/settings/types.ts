@@ -14,6 +14,8 @@ export interface InterfaceInfo {
   physical: boolean;
   xdp: boolean;
   score: number;
+  /** Advisory flag from /api/v1/interfaces — up + has IP, not virtual. */
+  usable?: boolean;
 }
 
 export type OperatingMode = 'reflector' | 'test_master';

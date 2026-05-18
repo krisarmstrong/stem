@@ -143,5 +143,28 @@
     "tryAgain": "Reintentar",
     "reload": "Recargar Pagina",
     "persistMessage": "Si este problema persiste, contacte a soporte."
+  },
+  "role": {
+    "label": "Rol del Stem",
+    "reflector": "Reflector",
+    "testMaster": "Test Master",
+    "reflectorDescription": "Loopback pasivo — devuelve las tramas a un Test Master para medicion extremo a extremo.",
+    "testMasterDescription": "Pruebas activas — ejecuta modulos RFC 2544, Y.1564, Y.1731, MEF, TSN y generacion de trafico.",
+    "confirm": {
+      "confirmLabel": "Cambiar rol",
+      "toReflector": {
+        "title": "Cambiar a Reflector?",
+        "message": "Cualquier prueba en curso se cancelara. Este stem se iniciara como Reflector."
+      },
+      "toTestMaster": {
+        "title": "Cambiar a Test Master?",
+        "message": "El Reflector actual se detendra. Cualquier prueba en curso se cancelara."
+      }
+    },
+    "guard": {
+      "needTestMaster": "Este stem esta configurado actualmente como Reflector. Cambia a Test Master para ejecutar {{module}}.",
+      "needReflector": "Este stem esta configurado actualmente como Test Master. Cambia a Reflector para usar el reflector de loopback.",
+      "switchAction": "Cambiar rol"
+    }
   }
 }

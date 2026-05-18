@@ -9,8 +9,6 @@
 import {
   Activity,
   AlertTriangle,
-  Clock,
-  Gauge,
   Lock,
   LogOut,
   Moon,
@@ -29,6 +27,7 @@ import { ResultHistory } from './components/ResultHistory';
 import { defaultRFC2544Config, type RFC2544Config } from './components/RFC2544ConfigForm';
 import { defaultRFC2889Config, type RFC2889Config } from './components/RFC2889ConfigForm';
 import { defaultRFC6349Config, type RFC6349Config } from './components/RFC6349ConfigForm';
+import { RoleChip } from './components/RoleChip';
 import { RecoveryForm } from './components/recovery/RecoveryForm';
 import { SettingsDrawer } from './components/SettingsDrawer';
 import type { ReflectorProfile } from './components/settings/types';
@@ -41,6 +40,7 @@ import { defaultY1564Config, type Y1564Config } from './components/Y1564ConfigFo
 import { defaultY1731Config, type Y1731Config } from './components/Y1731ConfigForm';
 import { AppContext, type AppContextValue } from './contexts/AppContext';
 import { ModuleSettingsProvider, useModuleSettings } from './contexts/ModuleSettingsContext';
+import { RoleProvider, useRole } from './contexts/RoleContext';
 import { useFocusTrap } from './hooks/useFocusTrap';
 import { useTheme } from './hooks/useTheme';
 import { navGroups } from './navGroups';
@@ -91,30 +91,6 @@ function formatNumber(num: number): string {
   return num.toString();
 }
 
-function formatUptime(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-}
-
-function getStatusClassName(status: Stats['testStatus']): string {
-  switch (status) {
-    case 'running':
-      return 'text-[var(--color-status-success)]';
-    case 'error':
-      return 'text-[var(--color-status-error)]';
-    case 'completed':
-      return 'text-[var(--color-status-info)]';
-    case 'starting':
-      return 'text-[var(--color-status-info)]';
-    case 'cancelled':
-      return 'text-[var(--color-status-warning)]';
-    default:
-      return 'text-[var(--color-text-muted)]';
-  }
-}
-
 // Helper: check if test just completed (status transition to completed/error)
 function isTestCompleted(prev: string, curr: string): boolean {
   return (curr === 'completed' || curr === 'error') && prev !== 'completed' && prev !== 'error';
@@ -123,82 +99,6 @@ function isTestCompleted(prev: string, curr: string): boolean {
 // Helper: check if new test is starting
 function isTestStarting(prev: string, curr: string): boolean {
   return curr === 'starting' && prev !== 'starting';
-}
-
-interface StatsCardProps {
-  icon: React.ReactNode;
-  title: string;
-  value: string;
-  subvalue: string;
-}
-
-function StatsCard({ icon, title, value, subvalue }: StatsCardProps): ReactElement {
-  return (
-    <div className="card">
-      <div className="card-header">
-        {icon}
-        {title}
-      </div>
-      <div className="card-value">{value}</div>
-      <div className="card-subvalue">{subvalue}</div>
-    </div>
-  );
-}
-
-interface InterfaceDetailsProps {
-  iface: InterfaceInfo;
-}
-
-function InterfaceDetails({ iface }: InterfaceDetailsProps): ReactElement {
-  const stateClassName =
-    iface.state === 'up'
-      ? 'text-[var(--color-status-success)]'
-      : 'text-[var(--color-status-error)]';
-
-  return (
-    <div className="card mb-6">
-      <div className="card-header">
-        <Wifi className="w-4 h-4" />
-        Interface Details
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-        <div>
-          <div className="text-[var(--color-text-muted)]">Name</div>
-          <div className="font-medium">{iface.name}</div>
-        </div>
-        <div>
-          <div className="text-[var(--color-text-muted)]">MAC</div>
-          <div className="font-mono">{iface.mac}</div>
-        </div>
-        <div>
-          <div className="text-[var(--color-text-muted)]">Speed</div>
-          <div>
-            {iface.speed} Mbps / {iface.duplex}
-          </div>
-        </div>
-        <div>
-          <div className="text-[var(--color-text-muted)]">Driver</div>
-          <div>{iface.driver}</div>
-        </div>
-        <div>
-          <div className="text-[var(--color-text-muted)]">State</div>
-          <div className={stateClassName}>{iface.state}</div>
-        </div>
-        <div>
-          <div className="text-[var(--color-text-muted)]">XDP Support</div>
-          <div>{iface.xdp ? 'Yes' : 'No'}</div>
-        </div>
-        <div>
-          <div className="text-[var(--color-text-muted)]">DPDK Support</div>
-          <div>{iface.dpdk ? 'Yes' : 'No'}</div>
-        </div>
-        <div>
-          <div className="text-[var(--color-text-muted)]">Score</div>
-          <div>{iface.score}</div>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 interface TestResultsProps {
@@ -441,7 +341,10 @@ function AppContent(): ReactElement {
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [interfaces, setInterfaces] = useState<InterfaceInfo[]>([]);
   const [selectedInterface, setSelectedInterface] = useState<string>('');
-  const [mode, setMode] = useState<'reflector' | 'test_master'>('test_master');
+  // The Stem instance role drives the legacy `mode` state. RoleContext
+  // persists the choice to localStorage and is mutated by the header
+  // RoleChip and per-page RoleGuard.
+  const { role: mode } = useRole();
   const [selectedTests, setSelectedTests] = useState<string[]>([
     'rfc2544_throughput',
     'rfc2544_latency',
@@ -1019,8 +922,6 @@ function AppContent(): ReactElement {
     setHistoryOpen(true);
   };
 
-  const selectedIface = interfaces.find((i) => i.name === selectedInterface);
-
   const appContextValue: AppContextValue = {
     rfc2544Config,
     setRFC2544Config,
@@ -1038,24 +939,46 @@ function AppContent(): ReactElement {
     setTrafficGenConfig,
     selectedTests,
     testResult,
+    interfaces,
+    selectedInterface,
+    setSelectedInterface,
+    stats,
+    reflectorProfile,
+    setReflectorProfile,
+    onStartReflector: () => {
+      handleStartTest().catch(() => {
+        // Errors surface via testStartError state.
+      });
+    },
+    onStopReflector: () => {
+      handleStopTest().catch(() => {
+        // Errors are already logged inside handleStopTest.
+      });
+    },
+    isStartingReflector: isStartingTest,
+    isStoppingReflector: isStoppingTest,
+    reflectorStartError: testStartError,
   };
 
   const topBar = (
     <div className="px-4 sm:px-6 lg:px-8 pt-6 pb-2 space-y-4">
-      {/* Top strip: connection status + theme/refresh/logout */}
+      {/* Top strip: connection status + role chip + theme/refresh/logout */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className={`status-badge ${connected ? 'success' : 'error'}`}>
-          {connected ? (
-            <>
-              <Wifi className="h-3 w-3" /> Connected
-            </>
-          ) : (
-            <>
-              <WifiOff className="h-3 w-3" /> Disconnected
-            </>
-          )}
+        <div className="flex items-center gap-3">
+          <div className={`status-badge ${connected ? 'success' : 'error'}`}>
+            {connected ? (
+              <>
+                <Wifi className="h-3 w-3" /> Connected
+              </>
+            ) : (
+              <>
+                <WifiOff className="h-3 w-3" /> Disconnected
+              </>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
+          <RoleChip />
           <button
             type="button"
             onClick={toggleTheme}
@@ -1091,137 +1014,107 @@ function AppContent(): ReactElement {
         </div>
       </div>
 
-      {/* Test control row: interface + start/stop + status */}
-      <div className="flex flex-wrap items-center gap-3">
-        <select
-          value={selectedInterface}
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>): void =>
-            setSelectedInterface(e.target.value)
-          }
-          className="w-48"
-          aria-label="Select network interface"
-        >
-          <option value="">Select Interface</option>
-          {interfaces.map((iface) => (
-            <option key={iface.name} value={iface.name}>
-              {iface.name} ({iface.speed}Mbps)
-            </option>
-          ))}
-        </select>
-
-        {stats.testStatus === 'running' || stats.testStatus === 'starting' ? (
-          <button
-            type="button"
-            onClick={handleStopTest}
-            className="btn btn-secondary"
-            disabled={isStoppingTest}
-            aria-busy={isStoppingTest}
+      {/* Test-Master control row — only when role is test_master. The
+          Reflector role drives Start/Stop from the Reflector page. The
+          per-test-page Start/Stop is coming in Phase A.1 (#64). */}
+      {mode === 'test_master' ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            value={selectedInterface}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>): void =>
+              setSelectedInterface(e.target.value)
+            }
+            className="w-48"
+            aria-label="Select network interface"
           >
-            {isStoppingTest ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" aria-hidden="true" />
-                Stopping...
-              </>
-            ) : (
-              <>
-                <Square className="w-4 h-4" aria-hidden="true" />
-                Stop {mode === 'reflector' ? 'Reflector' : 'Test'}
-              </>
-            )}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={handleStartTest}
-            className="btn btn-primary"
-            disabled={!selectedInterface || isStartingTest}
-            aria-busy={isStartingTest}
-          >
-            {isStartingTest ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" aria-hidden="true" />
-                Starting...
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4" aria-hidden="true" />
-                Start {mode === 'reflector' ? 'Reflector' : 'Test'}
-              </>
-            )}
-          </button>
-        )}
+            <option value="">Select Interface</option>
+            {interfaces.map((iface) => (
+              <option key={iface.name} value={iface.name}>
+                {iface.name} ({iface.speed}Mbps)
+              </option>
+            ))}
+          </select>
 
-        {testStartError ? (
-          <div
-            className="text-sm text-[var(--color-status-error)] flex items-center gap-2"
-            role="alert"
-            aria-live="assertive"
-          >
-            <AlertTriangle className="w-4 h-4" aria-hidden="true" />
-            {testStartError}
-          </div>
-        ) : null}
-
-        <div className="flex items-center gap-3 ml-auto" aria-live="polite" aria-atomic="true">
           {stats.testStatus === 'running' || stats.testStatus === 'starting' ? (
-            <output className="status-badge success flex items-center gap-2">
-              <span
-                className="w-2 h-2 rounded-full bg-[var(--color-status-success)] animate-pulse"
-                aria-hidden="true"
-              />
-              {stats.testStatus === 'starting' ? 'Starting' : 'Running'}:{' '}
-              {stats.currentTest || mode}
-            </output>
+            <button
+              type="button"
+              onClick={handleStopTest}
+              className="btn btn-secondary"
+              disabled={isStoppingTest}
+              aria-busy={isStoppingTest}
+            >
+              {isStoppingTest ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" aria-hidden="true" />
+                  Stopping...
+                </>
+              ) : (
+                <>
+                  <Square className="w-4 h-4" aria-hidden="true" />
+                  Stop Test
+                </>
+              )}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleStartTest}
+              className="btn btn-primary"
+              disabled={!selectedInterface || isStartingTest}
+              aria-busy={isStartingTest}
+            >
+              {isStartingTest ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" aria-hidden="true" />
+                  Starting...
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4" aria-hidden="true" />
+                  Start Test
+                </>
+              )}
+            </button>
+          )}
+
+          {testStartError ? (
+            <div
+              className="text-sm text-[var(--color-status-error)] flex items-center gap-2"
+              role="alert"
+              aria-live="assertive"
+            >
+              <AlertTriangle className="w-4 h-4" aria-hidden="true" />
+              {testStartError}
+            </div>
           ) : null}
-          {stats.testStatus === 'completed' ? (
-            <output className="status-badge info">Completed: {stats.currentTest}</output>
-          ) : null}
-          {stats.testStatus === 'error' ? (
-            <output className="status-badge error" role="alert">
-              Error: {stats.currentTest || 'Test failed'}
-            </output>
-          ) : null}
-          {stats.testStatus === 'cancelled' ? (
-            <output className="status-badge warning">Stopped: {stats.currentTest}</output>
-          ) : null}
+
+          <div className="flex items-center gap-3 ml-auto" aria-live="polite" aria-atomic="true">
+            {stats.testStatus === 'running' || stats.testStatus === 'starting' ? (
+              <output className="status-badge success flex items-center gap-2">
+                <span
+                  className="w-2 h-2 rounded-full bg-[var(--color-status-success)] animate-pulse"
+                  aria-hidden="true"
+                />
+                {stats.testStatus === 'starting' ? 'Starting' : 'Running'}:{' '}
+                {stats.currentTest || mode}
+              </output>
+            ) : null}
+            {stats.testStatus === 'completed' ? (
+              <output className="status-badge info">Completed: {stats.currentTest}</output>
+            ) : null}
+            {stats.testStatus === 'error' ? (
+              <output className="status-badge error" role="alert">
+                Error: {stats.currentTest || 'Test failed'}
+              </output>
+            ) : null}
+            {stats.testStatus === 'cancelled' ? (
+              <output className="status-badge warning">Stopped: {stats.currentTest}</output>
+            ) : null}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <TestProgressBar progress={testProgress} />
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard
-          icon={<Activity className="w-4 h-4" />}
-          title="Packets Received"
-          value={formatNumber(stats.packetsReceived)}
-          subvalue={`${formatNumber(stats.bytesReceived)} bytes`}
-        />
-        <StatsCard
-          icon={<Activity className="w-4 h-4" />}
-          title="Packets Sent"
-          value={formatNumber(stats.packetsSent)}
-          subvalue={`${formatNumber(stats.bytesSent)} bytes`}
-        />
-        <StatsCard
-          icon={<Gauge className="w-4 h-4" />}
-          title="Current Rate"
-          value={`${formatNumber(stats.currentPps)} pps`}
-          subvalue={`${stats.currentMbps.toFixed(2)} Mbps`}
-        />
-        <div className="card">
-          <div className="card-header">
-            <Clock className="w-4 h-4" />
-            Uptime
-          </div>
-          <div className="card-value font-mono">{formatUptime(stats.uptime)}</div>
-          <div className="card-subvalue">
-            Status: <span className={getStatusClassName(stats.testStatus)}>{stats.testStatus}</span>
-          </div>
-        </div>
-      </div>
-
-      {selectedIface ? <InterfaceDetails iface={selectedIface} /> : null}
     </div>
   );
 
@@ -1256,15 +1149,8 @@ function AppContent(): ReactElement {
         <SettingsDrawer
           isOpen={settingsOpen}
           onClose={() => setSettingsOpen(false)}
-          mode={mode}
-          setMode={setMode}
-          interfaces={interfaces}
-          selectedInterface={selectedInterface}
-          setSelectedInterface={setSelectedInterface}
           selectedTests={selectedTests}
           setSelectedTests={setSelectedTests}
-          reflectorProfile={reflectorProfile}
-          setReflectorProfile={setReflectorProfile}
           rfc2544Config={rfc2544Config}
           setRFC2544Config={setRFC2544Config}
           rfc2889Config={rfc2889Config}
@@ -1413,9 +1299,11 @@ function AppContent(): ReactElement {
 // Wrapper component that provides context
 function App(): ReactElement {
   return (
-    <ModuleSettingsProvider>
-      <AppContent />
-    </ModuleSettingsProvider>
+    <RoleProvider>
+      <ModuleSettingsProvider>
+        <AppContent />
+      </ModuleSettingsProvider>
+    </RoleProvider>
   );
 }
 

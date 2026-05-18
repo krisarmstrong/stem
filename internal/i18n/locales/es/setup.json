@@ -32,6 +32,18 @@
     "settingUp": "Configurando...",
     "completeSetup": "Completar Configuración"
   },
+  "role": {
+    "title": "Elija el rol de este stem",
+    "subtitle": "Cada instancia de stem se ejecuta como Reflector pasivo o como Test Master activo. Puede cambiar el rol mas tarde desde el encabezado.",
+    "reflector": {
+      "title": "Reflector",
+      "description": "Loopback pasivo — devuelve las tramas a un Test Master para medicion extremo a extremo."
+    },
+    "testMaster": {
+      "title": "Test Master",
+      "description": "Pruebas activas — ejecuta modulos RFC 2544, Y.1564, Y.1731, MEF, TSN y generacion de trafico."
+    }
+  },
   "errors": {
     "passwordTooShort": "La contraseña debe tener al menos {{count}} caracteres",
     "passwordMismatch": "Las contraseñas no coinciden",
