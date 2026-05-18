@@ -1,0 +1,25 @@
+import { Waves } from 'lucide-react';
+import { Y1731ConfigForm } from '../components/Y1731ConfigForm';
+import { useAppContext } from '../contexts/AppContext';
+import { Breadcrumbs } from '../ui/Breadcrumbs';
+import { PageHeader } from '../ui/PageHeader';
+
+export function MeasurePage() {
+  const { y1731Config, setY1731Config, selectedTests } = useAppContext();
+  return (
+    <section className="space-y-6">
+      <Breadcrumbs />
+      <PageHeader
+        icon={Waves}
+        title="Measure"
+        description="Y.1731 OAM delay / loss / synthetic loss measurement."
+        iconColorClass="text-[var(--color-module-measure)]"
+      />
+      <Y1731ConfigForm
+        config={y1731Config}
+        setConfig={setY1731Config}
+        selectedTests={selectedTests}
+      />
+    </section>
+  );
+}

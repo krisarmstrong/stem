@@ -1,0 +1,25 @@
+import { Zap } from 'lucide-react';
+import { TrafficGenConfigForm } from '../components/TrafficGenConfigForm';
+import { useAppContext } from '../contexts/AppContext';
+import { Breadcrumbs } from '../ui/Breadcrumbs';
+import { PageHeader } from '../ui/PageHeader';
+
+export function TrafficGenPage() {
+  const { trafficGenConfig, setTrafficGenConfig, selectedTests } = useAppContext();
+  return (
+    <section className="space-y-6">
+      <Breadcrumbs />
+      <PageHeader
+        icon={Zap}
+        title="TrafficGen"
+        description="Custom traffic generation — shape streams, drive load, and validate paths."
+        iconColorClass="text-[var(--color-module-trafficgen)]"
+      />
+      <TrafficGenConfigForm
+        config={trafficGenConfig}
+        setConfig={setTrafficGenConfig}
+        selectedTests={selectedTests}
+      />
+    </section>
+  );
+}

@@ -11,23 +11,20 @@ import {
   AlertTriangle,
   Clock,
   Gauge,
-  HelpCircle,
-  History,
   Lock,
   LogOut,
   Moon,
   Play,
   RefreshCw,
-  Settings,
   Square,
   Sun,
   Wifi,
   WifiOff,
 } from 'lucide-react';
 import type { FormEvent, ReactElement } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { HelpDrawer } from './components/HelpDrawer';
-import { ModuleCard } from './components/ModuleCard';
 import { ResultHistory } from './components/ResultHistory';
 import { defaultRFC2544Config, type RFC2544Config } from './components/RFC2544ConfigForm';
 import { defaultRFC2889Config, type RFC2889Config } from './components/RFC2889ConfigForm';
@@ -41,8 +38,11 @@ import { defaultTrafficGenConfig, type TrafficGenConfig } from './components/Tra
 import { defaultTSNConfig, type TSNConfig } from './components/TSNConfigForm';
 import { defaultY1564Config, type Y1564Config } from './components/Y1564ConfigForm';
 import { defaultY1731Config, type Y1731Config } from './components/Y1731ConfigForm';
+import { AppContext, type AppContextValue } from './contexts/AppContext';
 import { ModuleSettingsProvider, useModuleSettings } from './contexts/ModuleSettingsContext';
 import { useFocusTrap } from './hooks/useFocusTrap';
+import { navGroups } from './navGroups';
+import { pages } from './pageRegistry';
 import {
   type InterfaceInfo,
   initialStats,
@@ -52,6 +52,8 @@ import {
   type Stats,
   type TestResult,
 } from './types/api';
+import { PageLoader } from './ui/PageLoader';
+import { SidebarLayout } from './ui/Sidebar';
 import { logError, logWarn } from './utils/logger';
 
 // Note: Tokens are now stored in httpOnly cookies set by the backend.
@@ -402,6 +404,7 @@ function buildTestConfig(
   return;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: AppContent orchestrates auth, test state, dark mode, and the routed shell — the topBar JSX adds one branch over the existing 40 threshold; planned to extract into a TopBar component in the follow-up Phase A.1 commit.
 function AppContent(): ReactElement {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -465,18 +468,9 @@ function AppContent(): ReactElement {
     restoreFocus: false, // No element to restore to after login
   });
 
-  // Module settings context
-  const {
-    modules,
-    moduleStatuses,
-    moduleResults,
-    toggleModule,
-    toggleAutoStart,
-    toggleTest,
-    setModuleStatus,
-    setModuleResults,
-    clearModuleResults,
-  } = useModuleSettings();
+  // Module settings context — used by per-module test pages (consumed
+  // via ModuleSettingsProvider mounted around App).
+  useModuleSettings();
 
   // Calculate expected test duration based on config
   const expectedDuration =
@@ -806,110 +800,17 @@ function AppContent(): ReactElement {
     }
   }, [authFetch, isAuthenticated]);
 
-  // Helper: Check if module needs RFC 2544 style frame size initialization
-  const needsFrameSizeInit = useCallback(
-    (moduleName: string): boolean => moduleName === 'benchmark' || moduleName === 'certify',
-    [],
-  );
+  // Frame-size result initialization (previously used by per-module Start
+  // buttons) returns alongside the Phase A.1 follow-up that wires each
+  // test page's Start button. Helper kept available via setModuleResults
+  // when that work lands.
 
-  // Helper: Initialize frame size results for module
-  const { frameSizes } = rfc2544Config;
-  const initFrameSizeResults = useCallback(
-    (moduleName: string, testType: string): void => {
-      if (!needsFrameSizeInit(moduleName)) {
-        return;
-      }
-      setModuleResults(moduleName, {
-        testType,
-        startedAt: new Date().toISOString(),
-        frameSizeResults: frameSizes.map((size) => ({
-          frameSize: size,
-          status: 'pending' as const,
-        })),
-      });
-    },
-    [frameSizes, setModuleResults, needsFrameSizeInit],
-  );
-
-  // Module-specific start handler
-  const handleModuleStart = useCallback(
-    async (moduleName: string): Promise<void> => {
-      if (!(isAuthenticated && selectedInterface)) {
-        return;
-      }
-
-      const moduleConfig = modules.find((m) => m.name === moduleName);
-      if (!moduleConfig) {
-        return;
-      }
-
-      const enabledTests = moduleConfig.tests.filter((t) => t.enabled);
-      if (enabledTests.length === 0) {
-        return;
-      }
-
-      const testType = enabledTests[0].id;
-
-      clearModuleResults(moduleName);
-      initFrameSizeResults(moduleName, testType);
-      setModuleStatus(moduleName, { status: 'starting', currentTest: testType });
-
-      try {
-        await authFetch('/api/v1/test/start', {
-          method: 'POST',
-          body: JSON.stringify({
-            interface: selectedInterface,
-            testType,
-            module: moduleName,
-            tests: enabledTests.map((t) => t.id),
-          }),
-        });
-
-        setModuleStatus(moduleName, { status: 'running', currentTest: testType });
-        setStats((prev) => ({ ...prev, testStatus: 'running', currentTest: testType }));
-      } catch {
-        setModuleStatus(moduleName, { status: 'error', currentTest: null });
-      }
-    },
-    [
-      authFetch,
-      clearModuleResults,
-      initFrameSizeResults,
-      modules,
-      isAuthenticated,
-      selectedInterface,
-      setModuleStatus,
-    ],
-  );
-
-  // Module-specific stop handler
-  const handleModuleStop = useCallback(
-    async (moduleName: string): Promise<void> => {
-      if (!isAuthenticated) {
-        return;
-      }
-
-      try {
-        await authFetch('/api/v1/test/stop', { method: 'POST' });
-        setModuleStatus(moduleName, { status: 'cancelled', currentTest: null });
-      } catch (error) {
-        // Log error but still update status - stop may have succeeded
-        logError(error, {
-          component: 'App',
-          action: 'handleModuleStop',
-          additionalData: { moduleName },
-        });
-        // Still mark as cancelled since user intended to stop
-        setModuleStatus(moduleName, { status: 'cancelled', currentTest: null });
-      }
-    },
-    [authFetch, isAuthenticated, setModuleStatus],
-  );
-
-  // Open settings drawer for module configuration
-  const handleModuleConfigure = useCallback((_moduleName: string): void => {
-    setSettingsOpen(true);
-  }, []);
+  // Module-level start/stop/configure handlers were previously invoked by
+  // the in-page Module Cards grid. After the Phase A router refactor the
+  // module cards live on their dedicated /tests/* pages and use the
+  // global start/stop button at the top of the shell. The per-module
+  // helpers will return in a follow-up commit when each test page wires
+  // its own Start/Stop button.
 
   // Logout handler - clears auth state and calls server to clear cookies
   const handleLogout = useCallback(async () => {
@@ -1133,514 +1034,381 @@ function AppContent(): ReactElement {
 
   const selectedIface = interfaces.find((i) => i.name === selectedInterface);
 
-  const iconButtonClass =
-    'p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 focus-visible:ring-offset-surface-raised';
+  const appContextValue: AppContextValue = {
+    rfc2544Config,
+    setRFC2544Config,
+    rfc2889Config,
+    setRFC2889Config,
+    rfc6349Config,
+    setRFC6349Config,
+    y1564Config,
+    setY1564Config,
+    y1731Config,
+    setY1731Config,
+    tsnConfig,
+    setTSNConfig,
+    trafficGenConfig,
+    setTrafficGenConfig,
+    selectedTests,
+    testResult,
+  };
+
+  const topBar = (
+    <div className="px-4 sm:px-6 lg:px-8 pt-6 pb-2 space-y-4">
+      {/* Top strip: connection status + theme/refresh/logout */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className={`status-badge ${connected ? 'success' : 'error'}`}>
+          {connected ? (
+            <>
+              <Wifi className="h-3 w-3" /> Connected
+            </>
+          ) : (
+            <>
+              <WifiOff className="h-3 w-3" /> Disconnected
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleDarkMode}
+            className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-hover"
+            title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {darkMode ? (
+              <Sun className="h-5 w-5" aria-hidden="true" />
+            ) : (
+              <Moon className="h-5 w-5" aria-hidden="true" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={fetchInterfaces}
+            className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-hover"
+            title="Refresh interfaces"
+            aria-label="Refresh interfaces"
+          >
+            <RefreshCw className="h-5 w-5" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-hover"
+            title="Logout"
+            aria-label="Logout"
+            data-testid="logout-button"
+          >
+            <LogOut className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+
+      {/* Test control row: interface + start/stop + status */}
+      <div className="flex flex-wrap items-center gap-3">
+        <select
+          value={selectedInterface}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>): void =>
+            setSelectedInterface(e.target.value)
+          }
+          className="w-48"
+          aria-label="Select network interface"
+        >
+          <option value="">Select Interface</option>
+          {interfaces.map((iface) => (
+            <option key={iface.name} value={iface.name}>
+              {iface.name} ({iface.speed}Mbps)
+            </option>
+          ))}
+        </select>
+
+        {stats.testStatus === 'running' || stats.testStatus === 'starting' ? (
+          <button
+            type="button"
+            onClick={handleStopTest}
+            className="btn btn-secondary"
+            disabled={isStoppingTest}
+            aria-busy={isStoppingTest}
+          >
+            {isStoppingTest ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" aria-hidden="true" />
+                Stopping...
+              </>
+            ) : (
+              <>
+                <Square className="w-4 h-4" aria-hidden="true" />
+                Stop {mode === 'reflector' ? 'Reflector' : 'Test'}
+              </>
+            )}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleStartTest}
+            className="btn btn-primary"
+            disabled={!selectedInterface || isStartingTest}
+            aria-busy={isStartingTest}
+          >
+            {isStartingTest ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" aria-hidden="true" />
+                Starting...
+              </>
+            ) : (
+              <>
+                <Play className="w-4 h-4" aria-hidden="true" />
+                Start {mode === 'reflector' ? 'Reflector' : 'Test'}
+              </>
+            )}
+          </button>
+        )}
+
+        {testStartError ? (
+          <div
+            className="text-sm text-[var(--color-status-error)] flex items-center gap-2"
+            role="alert"
+            aria-live="assertive"
+          >
+            <AlertTriangle className="w-4 h-4" aria-hidden="true" />
+            {testStartError}
+          </div>
+        ) : null}
+
+        <div className="flex items-center gap-3 ml-auto" aria-live="polite" aria-atomic="true">
+          {stats.testStatus === 'running' || stats.testStatus === 'starting' ? (
+            <output className="status-badge success flex items-center gap-2">
+              <span
+                className="w-2 h-2 rounded-full bg-[var(--color-status-success)] animate-pulse"
+                aria-hidden="true"
+              />
+              {stats.testStatus === 'starting' ? 'Starting' : 'Running'}:{' '}
+              {stats.currentTest || mode}
+            </output>
+          ) : null}
+          {stats.testStatus === 'completed' ? (
+            <output className="status-badge info">Completed: {stats.currentTest}</output>
+          ) : null}
+          {stats.testStatus === 'error' ? (
+            <output className="status-badge error" role="alert">
+              Error: {stats.currentTest || 'Test failed'}
+            </output>
+          ) : null}
+          {stats.testStatus === 'cancelled' ? (
+            <output className="status-badge warning">Stopped: {stats.currentTest}</output>
+          ) : null}
+        </div>
+      </div>
+
+      <TestProgressBar progress={testProgress} />
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatsCard
+          icon={<Activity className="w-4 h-4" />}
+          title="Packets Received"
+          value={formatNumber(stats.packetsReceived)}
+          subvalue={`${formatNumber(stats.bytesReceived)} bytes`}
+        />
+        <StatsCard
+          icon={<Activity className="w-4 h-4" />}
+          title="Packets Sent"
+          value={formatNumber(stats.packetsSent)}
+          subvalue={`${formatNumber(stats.bytesSent)} bytes`}
+        />
+        <StatsCard
+          icon={<Gauge className="w-4 h-4" />}
+          title="Current Rate"
+          value={`${formatNumber(stats.currentPps)} pps`}
+          subvalue={`${stats.currentMbps.toFixed(2)} Mbps`}
+        />
+        <div className="card">
+          <div className="card-header">
+            <Clock className="w-4 h-4" />
+            Uptime
+          </div>
+          <div className="card-value font-mono">{formatUptime(stats.uptime)}</div>
+          <div className="card-subvalue">
+            Status: <span className={getStatusClassName(stats.testStatus)}>{stats.testStatus}</span>
+          </div>
+        </div>
+      </div>
+
+      {selectedIface ? <InterfaceDetails iface={selectedIface} /> : null}
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-[var(--color-surface-base)]">
-      {/* Header */}
-      <header className="border-b border-surface-border bg-surface-raised">
-        <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-primary text-text-inverse">
-                  <Activity className="h-5 w-5" />
+    <BrowserRouter>
+      <AppContext.Provider value={appContextValue}>
+        <SidebarLayout
+          groups={navGroups}
+          version="0.1.0"
+          onOpenHelp={openHelp}
+          onOpenSettings={openSettings}
+          onOpenHistory={openHistory}
+          topBar={topBar}
+        >
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Navigate to="/reflector" replace={true} />} />
+              {pages.map((page) => (
+                <Route key={page.path} path={page.path} element={<page.component />} />
+              ))}
+              <Route path="*" element={<Navigate to="/reflector" replace={true} />} />
+            </Routes>
+          </Suspense>
+
+          {/* Pinned below the routed page so test outcomes stay visible no
+              matter which page is active. */}
+          <div className="mt-6">
+            <TestResults testStatus={stats.testStatus} result={testResult} />
+          </div>
+        </SidebarLayout>
+
+        <SettingsDrawer
+          isOpen={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          mode={mode}
+          setMode={setMode}
+          interfaces={interfaces}
+          selectedInterface={selectedInterface}
+          setSelectedInterface={setSelectedInterface}
+          selectedTests={selectedTests}
+          setSelectedTests={setSelectedTests}
+          reflectorProfile={reflectorProfile}
+          setReflectorProfile={setReflectorProfile}
+          rfc2544Config={rfc2544Config}
+          setRFC2544Config={setRFC2544Config}
+          rfc2889Config={rfc2889Config}
+          setRFC2889Config={setRFC2889Config}
+          rfc6349Config={rfc6349Config}
+          setRFC6349Config={setRFC6349Config}
+          y1564Config={y1564Config}
+          setY1564Config={setY1564Config}
+          y1731Config={y1731Config}
+          setY1731Config={setY1731Config}
+          tsnConfig={tsnConfig}
+          setTSNConfig={setTSNConfig}
+          trafficGenConfig={trafficGenConfig}
+          setTrafficGenConfig={setTrafficGenConfig}
+        />
+
+        <HelpDrawer isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
+
+        <ResultHistory
+          isOpen={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          currentResult={testResult}
+        />
+
+        {/* Setup Wizard - shown before login if initial setup required */}
+        {setupChecked && setupStatus?.needsSetup ? (
+          <SetupWizard
+            onComplete={handleSetupComplete}
+            onLogin={performLogin}
+            suggestedPassword={setupStatus.suggestedPassword}
+            username={setupStatus.username}
+            setupToken={setupStatus.setupToken}
+          />
+        ) : null}
+
+        {/* Recovery Form - shown when user clicks "Forgot Password" and recovery is available */}
+        {showRecoveryForm && recoveryStatus?.active ? (
+          <RecoveryForm
+            onRecoveryComplete={handleRecoveryComplete}
+            onBackToLogin={handleBackToLogin}
+            remainingTime={recoveryStatus.remainingTime}
+            tokenFilePath={recoveryStatus.instructions}
+          />
+        ) : null}
+
+        {/* Login Modal - shown after setup complete or if setup not needed */}
+        {!isAuthenticated && setupChecked && !setupStatus?.needsSetup && !showRecoveryForm ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div
+              ref={loginModalRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="login-dialog-title"
+              className="w-full max-w-md rounded-3xl border border-[var(--color-surface-border)] bg-[var(--color-surface-raised)] p-6 shadow-2xl"
+            >
+              <h2
+                id="login-dialog-title"
+                className="flex items-center gap-2 text-lg font-semibold text-[var(--color-text-primary)]"
+              >
+                <Lock className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                Sign in to continue
+              </h2>
+              <p className="text-sm text-[var(--color-text-muted)]">
+                Authenticate with your Stem credentials.
+              </p>
+              <form className="mt-6 space-y-4" onSubmit={handleLogin}>
+                <div>
+                  <label
+                    htmlFor="stem-login-username"
+                    className="text-xs font-semibold text-[var(--color-text-muted)]"
+                  >
+                    Username
+                  </label>
+                  <input
+                    id="stem-login-username"
+                    name="username"
+                    type="text"
+                    autoComplete="username"
+                    value={username}
+                    onChange={(event: React.ChangeEvent<HTMLInputElement>): void =>
+                      setUsername(event.target.value)
+                    }
+                    className="mt-1 w-full rounded-xl border border-[var(--color-surface-border)] bg-[var(--color-surface-base)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-brand-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)]/30"
+                  />
                 </div>
                 <div>
-                  <h1 className="heading-4 text-text-primary">The Stem</h1>
-                  <p className="caption text-text-muted">Mustard Seed Networks</p>
+                  <label
+                    htmlFor="stem-login-password"
+                    className="text-xs font-semibold text-[var(--color-text-muted)]"
+                  >
+                    Password
+                  </label>
+                  <input
+                    id="stem-login-password"
+                    name="password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(event: React.ChangeEvent<HTMLInputElement>): void =>
+                      setPassword(event.target.value)
+                    }
+                    className="mt-1 w-full rounded-xl border border-[var(--color-surface-border)] bg-[var(--color-surface-base)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-brand-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)]/30"
+                  />
                 </div>
-              </div>
-
-              {/* Connection Status */}
-              <div className={`status-badge ${connected ? 'success' : 'error'}`}>
-                {connected ? (
-                  <>
-                    <Wifi className="h-3 w-3" /> Connected
-                  </>
-                ) : (
-                  <>
-                    <WifiOff className="h-3 w-3" /> Disconnected
-                  </>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* Theme Toggle */}
-              <button
-                type="button"
-                onClick={toggleDarkMode}
-                className={iconButtonClass}
-                title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-                aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-              >
-                {darkMode ? (
-                  <Sun className="h-5 w-5" aria-hidden="true" />
-                ) : (
-                  <Moon className="h-5 w-5" aria-hidden="true" />
-                )}
-              </button>
-
-              {/* Refresh */}
-              <button
-                type="button"
-                onClick={fetchInterfaces}
-                className={iconButtonClass}
-                title="Refresh interfaces"
-                aria-label="Refresh interfaces"
-              >
-                <RefreshCw className="h-5 w-5" aria-hidden="true" />
-              </button>
-
-              {/* History */}
-              <button
-                type="button"
-                onClick={openHistory}
-                className={iconButtonClass}
-                title="Test History"
-                aria-label="Open test history"
-              >
-                <History className="h-5 w-5" aria-hidden="true" />
-              </button>
-
-              {/* Help */}
-              <button
-                type="button"
-                onClick={openHelp}
-                className={iconButtonClass}
-                title="Help & Documentation"
-                aria-label="Open help and documentation"
-              >
-                <HelpCircle className="h-5 w-5" aria-hidden="true" />
-              </button>
-
-              {/* Settings */}
-              <button
-                type="button"
-                onClick={openSettings}
-                className={iconButtonClass}
-                title="Settings"
-                aria-label="Open settings"
-              >
-                <Settings className="h-5 w-5" aria-hidden="true" />
-              </button>
-
-              {/* Logout */}
-              <button
-                type="button"
-                onClick={handleLogout}
-                className={iconButtonClass}
-                title="Logout"
-                aria-label="Logout"
-                data-testid="logout-button"
-              >
-                <LogOut className="h-5 w-5" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        {/* Test Controls */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <select
-              value={selectedInterface}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>): void =>
-                setSelectedInterface(e.target.value)
-              }
-              className="w-48"
-              aria-label="Select network interface"
-            >
-              <option value="">Select Interface</option>
-              {interfaces.map((iface) => (
-                <option key={iface.name} value={iface.name}>
-                  {iface.name} ({iface.speed}Mbps)
-                </option>
-              ))}
-            </select>
-
-            {stats.testStatus === 'running' || stats.testStatus === 'starting' ? (
-              <button
-                type="button"
-                onClick={handleStopTest}
-                className="btn btn-secondary"
-                disabled={isStoppingTest}
-                aria-busy={isStoppingTest}
-              >
-                {isStoppingTest ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" aria-hidden="true" />
-                    Stopping...
-                  </>
-                ) : (
-                  <>
-                    <Square className="w-4 h-4" aria-hidden="true" />
-                    Stop {mode === 'reflector' ? 'Reflector' : 'Test'}
-                  </>
-                )}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleStartTest}
-                className="btn btn-primary"
-                disabled={!selectedInterface || isStartingTest}
-                aria-busy={isStartingTest}
-              >
-                {isStartingTest ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" aria-hidden="true" />
-                    Starting...
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4" aria-hidden="true" />
-                    Start {mode === 'reflector' ? 'Reflector' : 'Test'}
-                  </>
-                )}
-              </button>
-            )}
-
-            {/* Test Start Error Display */}
-            {testStartError ? (
-              <div
-                className="text-sm text-[var(--color-status-error)] flex items-center gap-2"
-                role="alert"
-                aria-live="assertive"
-              >
-                <AlertTriangle className="w-4 h-4" aria-hidden="true" />
-                {testStartError}
-              </div>
-            ) : null}
-          </div>
-
-          {/* Test Status Indicator */}
-          <div className="flex items-center gap-3" aria-live="polite" aria-atomic="true">
-            {(stats.testStatus === 'running' || stats.testStatus === 'starting') && (
-              <output className="status-badge success flex items-center gap-2">
-                <span
-                  className="w-2 h-2 rounded-full bg-[var(--color-status-success)] animate-pulse"
-                  aria-hidden="true"
-                />
-                {stats.testStatus === 'starting' ? 'Starting' : 'Running'}:{' '}
-                {stats.currentTest || mode}
-              </output>
-            )}
-            {stats.testStatus === 'completed' && (
-              <output className="status-badge info">Completed: {stats.currentTest}</output>
-            )}
-            {stats.testStatus === 'error' && (
-              <output className="status-badge error" role="alert">
-                Error: {stats.currentTest || 'Test failed'}
-              </output>
-            )}
-            {stats.testStatus === 'cancelled' && (
-              <output className="status-badge warning">Stopped: {stats.currentTest}</output>
-            )}
-          </div>
-        </div>
-
-        {/* Test Progress Bar */}
-        <TestProgressBar progress={testProgress} />
-
-        {/* Module Cards */}
-        <div className="mb-6">
-          <h2 className="section-title mb-4">Test Modules</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-            {modules.map((moduleConfig) => (
-              <ModuleCard
-                key={moduleConfig.name}
-                config={moduleConfig}
-                status={
-                  moduleStatuses[moduleConfig.name] ?? {
-                    status: 'idle',
-                    currentTest: null,
-                  }
-                }
-                results={moduleResults[moduleConfig.name]}
-                onToggleModule={(enabled: boolean): void =>
-                  toggleModule(moduleConfig.name, enabled)
-                }
-                onToggleAutoStart={(enabled: boolean): void =>
-                  toggleAutoStart(moduleConfig.name, enabled)
-                }
-                onToggleTest={(testId: string, enabled: boolean): void =>
-                  toggleTest(moduleConfig.name, testId, enabled)
-                }
-                onStart={() => handleModuleStart(moduleConfig.name)}
-                onStop={() => handleModuleStop(moduleConfig.name)}
-                onConfigure={() => handleModuleConfigure(moduleConfig.name)}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <StatsCard
-            icon={<Activity className="w-4 h-4" />}
-            title="Packets Received"
-            value={formatNumber(stats.packetsReceived)}
-            subvalue={`${formatNumber(stats.bytesReceived)} bytes`}
-          />
-          <StatsCard
-            icon={<Activity className="w-4 h-4" />}
-            title="Packets Sent"
-            value={formatNumber(stats.packetsSent)}
-            subvalue={`${formatNumber(stats.bytesSent)} bytes`}
-          />
-          <StatsCard
-            icon={<Gauge className="w-4 h-4" />}
-            title="Current Rate"
-            value={`${formatNumber(stats.currentPps)} pps`}
-            subvalue={`${stats.currentMbps.toFixed(2)} Mbps`}
-          />
-          <div className="card">
-            <div className="card-header">
-              <Clock className="w-4 h-4" />
-              Uptime
-            </div>
-            <div className="card-value font-mono">{formatUptime(stats.uptime)}</div>
-            <div className="card-subvalue">
-              Status:{' '}
-              <span className={getStatusClassName(stats.testStatus)}>{stats.testStatus}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Interface Details */}
-        {selectedIface && <InterfaceDetails iface={selectedIface} />}
-
-        {/* Results Area */}
-        <TestResults testStatus={stats.testStatus} result={testResult} />
-      </main>
-
-      {/* Footer */}
-      <footer className="mt-8">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="rounded-2xl border border-surface-border bg-surface-raised p-6">
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {/* Product Info */}
-              <div>
-                <h3 className="heading-4 text-text-primary mb-2">The Stem</h3>
-                <p className="body-small text-text-muted mb-1">by Mustard Seed Networks</p>
-                <p className="caption text-text-muted">Version 0.1.0</p>
-              </div>
-
-              {/* Contact */}
-              <div>
-                <h4 className="body-small font-medium text-text-primary mb-2">Contact</h4>
-                <div className="space-y-1">
-                  <a
-                    href="mailto:support@mustardseednetworks.com"
-                    className="body-small text-brand-primary hover:underline block"
-                  >
-                    support@mustardseednetworks.com
-                  </a>
-                  <a
-                    href="tel:+18005551234"
-                    className="body-small text-text-muted hover:text-text-primary block"
-                  >
-                    1-800-555-1234
-                  </a>
-                </div>
-              </div>
-
-              {/* Website */}
-              <div>
-                <h4 className="body-small font-medium text-text-primary mb-2">Website</h4>
-                <a
-                  href="https://mustardseednetworks.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="body-small text-brand-primary hover:underline"
-                >
-                  mustardseednetworks.com
-                </a>
-              </div>
-
-              {/* Legal */}
-              <div>
-                <h4 className="body-small font-medium text-text-primary mb-2">Legal</h4>
-                <div className="flex flex-wrap gap-x-3 gap-y-1">
-                  <a href="/terms" className="body-small text-text-muted hover:text-brand-primary">
-                    Terms of Service
-                  </a>
-                  <a
-                    href="/privacy"
-                    className="body-small text-text-muted hover:text-brand-primary"
-                  >
-                    Privacy Policy
-                  </a>
-                  <a
-                    href="/license"
-                    className="body-small text-text-muted hover:text-brand-primary"
-                  >
-                    License
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            {/* Copyright */}
-            <div className="mt-6 pt-4 border-t border-surface-border text-center">
-              <p className="caption text-text-muted">
-                &copy; {new Date().getFullYear()} Mustard Seed Networks. All rights reserved.
-              </p>
-            </div>
-          </div>
-        </div>
-      </footer>
-
-      {/* Settings Drawer */}
-      <SettingsDrawer
-        isOpen={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        mode={mode}
-        setMode={setMode}
-        interfaces={interfaces}
-        selectedInterface={selectedInterface}
-        setSelectedInterface={setSelectedInterface}
-        selectedTests={selectedTests}
-        setSelectedTests={setSelectedTests}
-        reflectorProfile={reflectorProfile}
-        setReflectorProfile={setReflectorProfile}
-        rfc2544Config={rfc2544Config}
-        setRFC2544Config={setRFC2544Config}
-        rfc2889Config={rfc2889Config}
-        setRFC2889Config={setRFC2889Config}
-        rfc6349Config={rfc6349Config}
-        setRFC6349Config={setRFC6349Config}
-        y1564Config={y1564Config}
-        setY1564Config={setY1564Config}
-        y1731Config={y1731Config}
-        setY1731Config={setY1731Config}
-        tsnConfig={tsnConfig}
-        setTSNConfig={setTSNConfig}
-        trafficGenConfig={trafficGenConfig}
-        setTrafficGenConfig={setTrafficGenConfig}
-      />
-
-      {/* Help Drawer */}
-      <HelpDrawer isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
-
-      {/* Result History Drawer */}
-      <ResultHistory
-        isOpen={historyOpen}
-        onClose={() => setHistoryOpen(false)}
-        currentResult={testResult}
-      />
-      {/* Setup Wizard - shown before login if initial setup required */}
-      {setupChecked && setupStatus?.needsSetup ? (
-        <SetupWizard
-          onComplete={handleSetupComplete}
-          onLogin={performLogin}
-          suggestedPassword={setupStatus.suggestedPassword}
-          username={setupStatus.username}
-          setupToken={setupStatus.setupToken}
-        />
-      ) : null}
-
-      {/* Recovery Form - shown when user clicks "Forgot Password" and recovery is available */}
-      {showRecoveryForm && recoveryStatus?.active ? (
-        <RecoveryForm
-          onRecoveryComplete={handleRecoveryComplete}
-          onBackToLogin={handleBackToLogin}
-          remainingTime={recoveryStatus.remainingTime}
-          tokenFilePath={recoveryStatus.instructions}
-        />
-      ) : null}
-
-      {/* Login Modal - shown after setup complete or if setup not needed */}
-      {!isAuthenticated && setupChecked && !setupStatus?.needsSetup && !showRecoveryForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div
-            ref={loginModalRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="login-dialog-title"
-            className="w-full max-w-md rounded-3xl border border-[var(--color-surface-border)] bg-[var(--color-surface-raised)] p-6 shadow-2xl"
-          >
-            <h2
-              id="login-dialog-title"
-              className="flex items-center gap-2 text-lg font-semibold text-[var(--color-text-primary)]"
-            >
-              <Lock className="w-5 h-5 text-[var(--color-brand-primary)]" />
-              Sign in to continue
-            </h2>
-            <p className="text-sm text-[var(--color-text-muted)]">
-              Authenticate with your Stem credentials.
-            </p>
-            <form className="mt-6 space-y-4" onSubmit={handleLogin}>
-              <div>
-                <label
-                  htmlFor="stem-login-username"
-                  className="text-xs font-semibold text-[var(--color-text-muted)]"
-                >
-                  Username
-                </label>
-                <input
-                  id="stem-login-username"
-                  name="username"
-                  type="text"
-                  autoComplete="username"
-                  value={username}
-                  onChange={(event: React.ChangeEvent<HTMLInputElement>): void =>
-                    setUsername(event.target.value)
-                  }
-                  className="mt-1 w-full rounded-xl border border-[var(--color-surface-border)] bg-[var(--color-surface-base)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-brand-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)]/30"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="stem-login-password"
-                  className="text-xs font-semibold text-[var(--color-text-muted)]"
-                >
-                  Password
-                </label>
-                <input
-                  id="stem-login-password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(event: React.ChangeEvent<HTMLInputElement>): void =>
-                    setPassword(event.target.value)
-                  }
-                  className="mt-1 w-full rounded-xl border border-[var(--color-surface-border)] bg-[var(--color-surface-base)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-brand-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)]/30"
-                />
-              </div>
-              {loginError ? (
-                <p className="text-xs text-[var(--color-status-error)]">{loginError}</p>
-              ) : null}
-              <button
-                type="submit"
-                className="btn btn-primary w-full justify-center"
-                disabled={loginLoading}
-              >
-                {loginLoading ? 'Signing in...' : 'Sign In'}
-              </button>
-
-              {/* Forgot Password link - only shown when recovery is available */}
-              {recoveryStatus?.active ? (
+                {loginError ? (
+                  <p className="text-xs text-[var(--color-status-error)]">{loginError}</p>
+                ) : null}
                 <button
-                  type="button"
-                  onClick={() => setShowRecoveryForm(true)}
-                  className="w-full mt-4 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-brand-primary)]"
+                  type="submit"
+                  className="btn btn-primary w-full justify-center"
+                  disabled={loginLoading}
                 >
-                  Forgot password?
+                  {loginLoading ? 'Signing in...' : 'Sign In'}
                 </button>
-              ) : null}
-            </form>
+
+                {/* Forgot Password link - only shown when recovery is available */}
+                {recoveryStatus?.active ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowRecoveryForm(true)}
+                    className="w-full mt-4 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-brand-primary)]"
+                  >
+                    Forgot password?
+                  </button>
+                ) : null}
+              </form>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        ) : null}
+      </AppContext.Provider>
+    </BrowserRouter>
   );
 }
 
