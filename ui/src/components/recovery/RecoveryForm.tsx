@@ -9,7 +9,7 @@ import { ArrowLeft, Eye, EyeOff, KeyRound, Lock, Timer } from 'lucide-react';
 import type { FormEvent, ReactElement } from 'react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { alert, button, cn, icon, input, layout, radius, spacing } from '../../styles/theme';
+import { alert, button, cn, icon, input, layout, radius, spacing, status } from '../../styles/theme';
 
 /** Minimum password length (matches backend validation) */
 const MIN_PASSWORD_LENGTH = 12;
@@ -101,12 +101,12 @@ function PasswordInput({
         </button>
       </div>
       {helperText !== undefined && (
-        <p className={cn('caption mt-1', hasError ? 'text-status-error' : 'text-text-muted')}>
+        <p className={cn('caption mt-1', hasError ? status.text.error : 'text-text-muted')}>
           {helperText}
         </p>
       )}
       {errorText !== undefined && hasError && (
-        <p className="caption mt-1 text-status-error">{errorText}</p>
+        <p className={cn('caption mt-1', status.text.error)}>{errorText}</p>
       )}
     </div>
   );
@@ -278,7 +278,7 @@ export function RecoveryForm({
         <div className={cn('text-center', spacing.margin.bottom.section)}>
           <div
             className={cn(
-              'w-16 h-16 mx-auto rounded-2xl bg-status-warning text-text-inverse',
+              cn('w-16 h-16 mx-auto rounded-2xl text-text-inverse', status.bg.warning),
               layout.flex.center,
               spacing.margin.bottom.content,
             )}

@@ -37,7 +37,7 @@ import {
   tutorials,
 } from '../data/help-content';
 import { useFocusTrap } from '../hooks/useFocusTrap';
-import { cn, icon as iconTokens, layout, modal, radius, spacing } from '../styles/theme';
+import { cn, icon as iconTokens, layout, modal, radius, spacing, status } from '../styles/theme';
 import { CollapsibleSection } from './CollapsibleSection';
 
 type Tab = 'tests' | 'tutorials' | 'glossary';
@@ -221,7 +221,7 @@ export function HelpDrawer({ isOpen, onClose }: HelpDrawerProps): ReactElement |
                 'px-3 py-2 text-xs font-medium transition-colors',
                 radius.lg,
                 simpleMode
-                  ? 'bg-status-info text-text-inverse'
+                  ? cn(status.bg.info, 'text-text-inverse')
                   : 'bg-surface-base text-text-muted border border-surface-border hover:bg-surface-hover',
               )}
               title={simpleMode ? 'Showing simple explanations' : 'Showing technical explanations'}
@@ -436,8 +436,8 @@ function TestDetailView({
       </div>
 
       {/* When to Use */}
-      <div className={cn('bg-status-success/10', radius.lg, spacing.pad.default)}>
-        <h4 className={cn('section-title text-status-success', spacing.margin.bottom.inline)}>
+      <div className={cn(status.bg.successSoft, radius.lg, spacing.pad.default)}>
+        <h4 className={cn('section-title', status.text.success, spacing.margin.bottom.inline)}>
           When to Use This Test
         </h4>
         <p className="body-small text-text-primary whitespace-pre-line">{test.whenToUse}</p>
@@ -445,8 +445,8 @@ function TestDetailView({
 
       {/* When NOT to Use */}
       {test.whenNotToUse ? (
-        <div className={cn('bg-status-warning/10', radius.lg, spacing.pad.default)}>
-          <h4 className={cn('section-title text-status-warning', spacing.margin.bottom.inline)}>
+        <div className={cn(status.bg.warningSoft, radius.lg, spacing.pad.default)}>
+          <h4 className={cn('section-title', status.text.warning, spacing.margin.bottom.inline)}>
             When NOT to Use
           </h4>
           <p className="body-small text-text-primary whitespace-pre-line">{test.whenNotToUse}</p>
@@ -465,7 +465,7 @@ function TestDetailView({
                     {param.flag}
                   </code>
                   {param.required ? (
-                    <span className="caption text-status-warning">required</span>
+                    <span className={cn('caption', status.text.warning)}>required</span>
                   ) : null}
                 </div>
                 <p className="caption mt-1">
@@ -491,8 +491,8 @@ function TestDetailView({
                   <span className="font-medium body-small">{metric.name}</span>
                   <span className="caption">{metric.unit}</span>
                 </div>
-                <p className="caption text-status-success mt-1">Good: {metric.goodRange}</p>
-                <p className="caption text-status-warning mt-0.5">Bad: {metric.badMeaning}</p>
+                <p className={cn('caption mt-1', status.text.success)}>Good: {metric.goodRange}</p>
+                <p className={cn('caption mt-0.5', status.text.warning)}>Bad: {metric.badMeaning}</p>
               </div>
             ))}
           </div>
@@ -519,7 +519,7 @@ function TestDetailView({
                     title="Copy command"
                   >
                     {copiedCommand === example.command ? (
-                      <Check className={cn(iconTokens.size.xs, 'text-status-success')} />
+                      <Check className={cn(iconTokens.size.xs, status.text.success)} />
                     ) : (
                       <Copy className={cn(iconTokens.size.xs, 'text-text-muted')} />
                     )}
@@ -697,7 +697,7 @@ function TutorialDetailView({
                   title="Copy command"
                 >
                   {copiedCommand === step.command ? (
-                    <Check className={cn(iconTokens.size.xs, 'text-status-success')} />
+                    <Check className={cn(iconTokens.size.xs, status.text.success)} />
                   ) : (
                     <Copy className={cn(iconTokens.size.xs, 'text-text-muted')} />
                   )}
@@ -712,7 +712,7 @@ function TutorialDetailView({
             {step.tip ? (
               <div
                 className={cn(
-                  'mt-2 caption text-status-info bg-status-info/10 p-2',
+                  cn('mt-2 caption p-2', status.badge.info),
                   radius.default,
                 )}
               >

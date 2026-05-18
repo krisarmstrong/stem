@@ -20,7 +20,7 @@
 
 import { memo, type ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cn, icon as iconTokens, layout, radius, spacing } from '../styles/theme';
+import { cn, icon as iconTokens, layout, radius, spacing, status as statusColor } from '../styles/theme';
 
 // =============================================================================
 // Types
@@ -598,9 +598,7 @@ function ConnectionBadge({ status }: ConnectionBadgeProps): ReactElement {
         spacing.gap.tight,
         spacing.chip.sm,
         radius.full,
-        isConnected
-          ? 'bg-status-success/10 text-status-success'
-          : 'bg-status-error/10 text-status-error',
+        isConnected ? statusColor.badge.success : statusColor.badge.error,
       )}
     >
       {isConnected ? (
@@ -735,7 +733,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = memo(function HeaderBarCompon
             <div
               className={cn(
                 'flex h-8 w-8 items-center justify-center rounded-lg',
-                isConnected ? 'bg-brand-primary' : 'bg-status-error',
+                isConnected ? 'bg-brand-primary' : statusColor.bg.error,
                 'text-text-inverse transition-colors',
                 !isConnected && 'group-hover:opacity-80',
               )}
@@ -834,7 +832,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = memo(function HeaderBarCompon
             onClick={onReconnect}
             className={cn(
               'caption flex items-center gap-1.5',
-              isConnecting ? 'text-status-warning' : 'text-status-error',
+              isConnecting ? statusColor.text.warning : statusColor.text.error,
             )}
           >
             {isConnecting ? (

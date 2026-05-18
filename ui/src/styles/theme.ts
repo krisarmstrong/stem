@@ -38,6 +38,7 @@ import { twMerge } from 'tailwind-merge';
  * =============================================================================
  */
 
+export { status } from './themeColors';
 export { alert, badge, button, card, input, modal } from './themeComponents';
 export { border, icon, layout, radius } from './themeLayout';
 export { spacing } from './themeSpacing';

@@ -33,7 +33,7 @@
 import type { TFunction } from 'i18next';
 import { Component, type ErrorInfo, type ReactElement, type ReactNode } from 'react';
 import { Translation } from 'react-i18next';
-import { button, cn, icon as iconTokens, radius, spacing } from '../styles/theme';
+import { button, cn, icon as iconTokens, radius, spacing, status } from '../styles/theme';
 import { logError } from '../utils/logger';
 
 /**
@@ -66,7 +66,7 @@ interface ErrorBoundaryState {
 function AlertIcon(): ReactElement {
   return (
     <svg
-      className={cn(iconTokens.size.md, 'text-status-error shrink-0')}
+      className={cn(iconTokens.size.md, status.text.error, 'shrink-0')}
       fill="currentColor"
       viewBox="0 0 20 20"
       aria-hidden="true"
@@ -202,7 +202,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                     className={cn(
                       'flex items-center justify-center',
                       'h-10 w-10 rounded-full',
-                      'bg-status-error/10',
+                      status.bg.errorSoft,
                     )}
                   >
                     <AlertIcon />
@@ -228,7 +228,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                     <p className="text-sm font-medium text-text-primary mb-1">
                       {t('errorBoundary.errorDetails')}
                     </p>
-                    <p className="text-sm text-status-error font-mono break-all">
+                    <p className={cn('text-sm font-mono break-all', status.text.error)}>
                       {this.state.error.message}
                     </p>
                   </div>

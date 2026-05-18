@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
-import { cn, icon as iconTokens, spacing } from '../styles/theme';
+import { cn, icon as iconTokens, spacing, status as statusColor } from '../styles/theme';
 
 export interface ModuleTest {
   id: string;
@@ -144,12 +144,12 @@ function getLossColorClass(lossPercent: number, isPending: boolean): string {
     return 'text-text-muted';
   }
   if (lossPercent === 0) {
-    return 'text-status-success';
+    return statusColor.text.success;
   }
   if (lossPercent < 1) {
-    return 'text-status-warning';
+    return statusColor.text.warning;
   }
-  return 'text-status-error';
+  return statusColor.text.error;
 }
 
 /** Render rate cell content based on result status */
@@ -190,7 +190,7 @@ function FrameSizeResultsTable({
               key={result.frameSize}
               className={cn(
                 'border-b border-surface-border/50',
-                result.status === 'running' && 'bg-status-success/5',
+                result.status === 'running' && statusColor.bg.successSubtle,
               )}
             >
               <td className="py-2 pr-2 font-mono font-medium text-text-primary">
@@ -217,7 +217,7 @@ function FrameSizeResultsTable({
               </td>
               <td className="py-2 pl-2 text-center">
                 {result.status === 'completed' && (
-                  <Check className="w-4 h-4 text-status-success inline" />
+                  <Check className={cn('w-4 h-4 inline', statusColor.text.success)} />
                 )}
                 {result.status === 'running' && (
                   <div
@@ -229,7 +229,7 @@ function FrameSizeResultsTable({
                   />
                 )}
                 {result.status === 'error' && (
-                  <XCircle className="w-4 h-4 text-status-error inline" />
+                  <XCircle className={cn('w-4 h-4 inline', statusColor.text.error)} />
                 )}
                 {result.status === 'pending' && (
                   <Clock className="w-4 h-4 text-text-muted inline" />
@@ -252,7 +252,7 @@ function ServiceFlowResultsTable({ results }: { results: ServiceFlowResult[] }):
           key={flow.flowId}
           className={cn(
             'p-2 rounded-lg border border-surface-border',
-            flow.status === 'running' && 'bg-status-success/5',
+            flow.status === 'running' && statusColor.bg.successSubtle,
           )}
         >
           <div className="flex items-center justify-between mb-1">
@@ -260,10 +260,10 @@ function ServiceFlowResultsTable({ results }: { results: ServiceFlowResult[] }):
             <span
               className={cn(
                 'text-xs px-2 py-0.5 rounded-full',
-                flow.status === 'completed' && 'bg-status-success/10 text-status-success',
-                flow.status === 'running' && 'bg-status-info/10 text-status-info',
+                flow.status === 'completed' && statusColor.badge.success,
+                flow.status === 'running' && statusColor.badge.info,
                 flow.status === 'pending' && 'bg-surface-base text-text-muted',
-                flow.status === 'error' && 'bg-status-error/10 text-status-error',
+                flow.status === 'error' && statusColor.badge.error,
               )}
             >
               {flow.status}
@@ -312,7 +312,7 @@ function OamResultsTable({ results }: { results: OamMeasurementResult[] }): Reac
           key={measurement.measurementType}
           className={cn(
             'p-2 rounded-lg border border-surface-border',
-            measurement.status === 'running' && 'bg-status-success/5',
+            measurement.status === 'running' && statusColor.bg.successSubtle,
           )}
         >
           <div className="flex items-center justify-between mb-1">
@@ -322,10 +322,10 @@ function OamResultsTable({ results }: { results: OamMeasurementResult[] }): Reac
             <span
               className={cn(
                 'text-xs px-2 py-0.5 rounded-full',
-                measurement.status === 'completed' && 'bg-status-success/10 text-status-success',
-                measurement.status === 'running' && 'bg-status-info/10 text-status-info',
+                measurement.status === 'completed' && statusColor.badge.success,
+                measurement.status === 'running' && statusColor.badge.info,
                 measurement.status === 'pending' && 'bg-surface-base text-text-muted',
-                measurement.status === 'error' && 'bg-status-error/10 text-status-error',
+                measurement.status === 'error' && statusColor.badge.error,
               )}
             >
               {measurement.status}
@@ -370,9 +370,9 @@ function ModuleStatusIndicator({
 }): ReactElement | null {
   if (isRunning) {
     return (
-      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-status-success/10">
-        <span className="w-2 h-2 rounded-full bg-status-success animate-pulse" />
-        <span className="text-xs font-medium text-status-success">
+      <div className={cn('flex items-center gap-2 px-3 py-1.5 rounded-full', statusColor.bg.successSoft)}>
+        <span className={cn('w-2 h-2 rounded-full animate-pulse', statusColor.bg.success)} />
+        <span className={cn('text-xs font-medium', statusColor.text.success)}>
           {status.status === 'starting' ? 'Starting...' : status.currentTest || 'Running'}
         </span>
       </div>
@@ -380,15 +380,15 @@ function ModuleStatusIndicator({
   }
   if (status.status === 'completed') {
     return (
-      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-status-info/10">
-        <span className="text-xs font-medium text-status-info">Completed</span>
+      <div className={cn('flex items-center gap-2 px-3 py-1.5 rounded-full', statusColor.bg.infoSoft)}>
+        <span className={cn('text-xs font-medium', statusColor.text.info)}>Completed</span>
       </div>
     );
   }
   if (status.status === 'error') {
     return (
-      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-status-error/10">
-        <span className="text-xs font-medium text-status-error">
+      <div className={cn('flex items-center gap-2 px-3 py-1.5 rounded-full', statusColor.bg.errorSoft)}>
+        <span className={cn('text-xs font-medium', statusColor.text.error)}>
           Error{status.message ? `: ${status.message}` : ''}
         </span>
       </div>
@@ -421,8 +421,8 @@ function ModuleActionButton({
         onClick={onStop}
         className={cn(
           'px-4 py-2 rounded-lg flex items-center gap-2 transition-colors',
-          'bg-status-error/10 text-status-error',
-          'hover:bg-status-error/20',
+          statusColor.badge.error,
+          statusColor.hover.errorStrong,
         )}
       >
         <Square className="w-4 h-4" />
@@ -480,8 +480,8 @@ function ModuleResultsSection({
 
         {/* Error message */}
         {results?.error ? (
-          <div className="mt-2 p-2 rounded-lg bg-status-error/10 border border-status-error/20">
-            <span className="text-xs text-status-error">{results.error}</span>
+          <div className={cn('mt-2 p-2 rounded-lg border', statusColor.bg.errorSoft, statusColor.border.errorSoft)}>
+            <span className={cn('text-xs', statusColor.text.error)}>{results.error}</span>
           </div>
         ) : null}
 
@@ -564,7 +564,7 @@ function ModuleExpandedContent({
                 <div className="text-xs text-text-muted truncate">{test.description}</div>
               </div>
               {isRunning && status.currentTest === test.id && (
-                <span className="w-2 h-2 rounded-full bg-status-success animate-pulse" />
+                <span className={cn(statusColor.dot, statusColor.bg.success, 'animate-pulse')} />
               )}
             </label>
           ))}
@@ -613,7 +613,7 @@ export function ModuleCard({
             className={cn(
               'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
               config.enabled
-                ? 'bg-status-success/20 text-status-success'
+                ? statusColor.badge.successStrong
                 : 'bg-surface-base text-text-muted',
             )}
             title={config.enabled ? 'Disable module' : 'Enable module'}
