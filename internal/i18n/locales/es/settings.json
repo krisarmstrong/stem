@@ -16,7 +16,12 @@
   },
   "interface": {
     "defaultInterface": "Interfaz Predeterminada",
-    "autoSelect": "Seleccion automatica de interfaz"
+    "autoSelect": "Seleccion automatica de interfaz",
+    "title": "Interfaz",
+    "select": "Seleccionar interfaz de red",
+    "driver": "Driver",
+    "physical": "Fisica",
+    "showAll": "Mostrar todas las interfaces"
   },
   "testing": {
     "defaultFrameSize": "Tamano de Trama Predeterminado",

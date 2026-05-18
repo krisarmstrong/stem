@@ -1,22 +1,22 @@
 /**
  * SettingsDrawer Component
  *
- * Main configuration panel for The Stem test suite.
- * Refactored to use modular section components for maintainability.
+ * Slimmed configuration panel for The Stem.
  *
- * Features:
- * - Operating mode selection (Reflector / Test Master)
- * - Network interface selection
- * - Test suite configuration (RFC 2544, Y.1564, etc.)
- * - Reflector profile selection
- * - License management
+ * After the #66 redesign the drawer holds only app-global concerns:
+ *   - License management
+ *   - Test-suite configuration (RFC 2544, Y.1564, etc.)
  *
- * Uses theme tokens for consistent styling.
+ * Role selection moved to the header RoleChip. Interface selection
+ * moved to the top-bar HeaderInterfaceSelector. Reflector profile
+ * moved to the Reflector page. Uses theme tokens for consistent
+ * styling.
  */
 
 import { Grid, List, X } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRole } from '../contexts/RoleContext';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { cn, radius, spacing } from '../styles/theme';
 import { LicenseSection } from './LicenseSection';
@@ -25,10 +25,7 @@ import type { RFC2544Config } from './RFC2544ConfigForm';
 import type { RFC2889Config } from './RFC2889ConfigForm';
 import type { RFC6349Config } from './RFC6349ConfigForm';
 import {
-  InterfaceSection,
   MEFSection,
-  ModeSection,
-  ReflectorSection,
   RFC2544Section,
   RFC2889Section,
   RFC6349Section,
@@ -37,7 +34,6 @@ import {
   Y1564Section,
   Y1731Section,
 } from './settings';
-import type { InterfaceInfo, OperatingMode, ReflectorProfile } from './settings/types';
 import type { TrafficGenConfig } from './TrafficGenConfigForm';
 import type { TSNConfig } from './TSNConfigForm';
 import type { Y1564Config } from './Y1564ConfigForm';
@@ -46,15 +42,8 @@ import type { Y1731Config } from './Y1731ConfigForm';
 interface SettingsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  mode: OperatingMode;
-  setMode: (mode: OperatingMode) => void;
-  interfaces: InterfaceInfo[];
-  selectedInterface: string;
-  setSelectedInterface: (iface: string) => void;
   selectedTests: string[];
   setSelectedTests: (tests: string[]) => void;
-  reflectorProfile: ReflectorProfile;
-  setReflectorProfile: (profile: ReflectorProfile) => void;
   rfc2544Config: RFC2544Config;
   setRFC2544Config: (config: RFC2544Config) => void;
   rfc2889Config: RFC2889Config;
@@ -76,15 +65,8 @@ type ViewMode = 'standard' | 'module';
 export function SettingsDrawer({
   isOpen,
   onClose,
-  mode,
-  setMode,
-  interfaces,
-  selectedInterface,
-  setSelectedInterface,
   selectedTests,
   setSelectedTests,
-  reflectorProfile,
-  setReflectorProfile,
   rfc2544Config,
   setRFC2544Config,
   rfc2889Config,
@@ -101,6 +83,7 @@ export function SettingsDrawer({
   setTrafficGenConfig,
 }: SettingsDrawerProps): React.ReactElement | null {
   const { t } = useTranslation();
+  const { role } = useRole();
   const [viewMode, setViewMode] = useState<ViewMode>('standard');
 
   const drawerRef = useFocusTrap<HTMLDivElement>({
@@ -161,18 +144,10 @@ export function SettingsDrawer({
           {/* License Section */}
           <LicenseSection />
 
-          {/* Mode Selection */}
-          <ModeSection mode={mode} onModeChange={setMode} />
-
-          {/* Interface Selection */}
-          <InterfaceSection
-            interfaces={interfaces}
-            selectedInterface={selectedInterface}
-            onInterfaceChange={setSelectedInterface}
-          />
-
-          {/* Test Master Mode */}
-          {mode === 'test_master' && (
+          {/* Test-Master test selection — only relevant when this stem
+              is configured as a Test Master. Reflector role gets its
+              picker on the Reflector page. */}
+          {role === 'test_master' && (
             <>
               {/* View Toggle */}
               <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
@@ -238,11 +213,6 @@ export function SettingsDrawer({
                 </>
               )}
             </>
-          )}
-
-          {/* Reflector Mode */}
-          {mode === 'reflector' && (
-            <ReflectorSection profile={reflectorProfile} onProfileChange={setReflectorProfile} />
           )}
         </div>
       </div>

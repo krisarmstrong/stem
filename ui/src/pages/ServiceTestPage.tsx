@@ -1,4 +1,5 @@
 import { Settings2 } from 'lucide-react';
+import { RoleGuard } from '../components/RoleGuard';
 import { Y1564ConfigForm } from '../components/Y1564ConfigForm';
 import { useAppContext } from '../contexts/AppContext';
 import { Breadcrumbs } from '../ui/Breadcrumbs';
@@ -15,11 +16,13 @@ export function ServiceTestPage() {
         description="Y.1564 / MEF service activation and performance verification."
         iconColorClass="text-[var(--color-module-servicetest)]"
       />
-      <Y1564ConfigForm
-        config={y1564Config}
-        setConfig={setY1564Config}
-        selectedTests={selectedTests}
-      />
+      <RoleGuard requires="test_master" moduleName="ServiceTest">
+        <Y1564ConfigForm
+          config={y1564Config}
+          setConfig={setY1564Config}
+          selectedTests={selectedTests}
+        />
+      </RoleGuard>
     </section>
   );
 }

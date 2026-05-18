@@ -32,6 +32,18 @@
     "settingUp": "Setting up...",
     "completeSetup": "Complete Setup"
   },
+  "role": {
+    "title": "Choose this stem's role",
+    "subtitle": "Each stem instance runs as either a passive Reflector or an active Test Master. You can switch roles later from the header.",
+    "reflector": {
+      "title": "Reflector",
+      "description": "Passive loopback — bounces frames back to a Test Master for end-to-end measurement."
+    },
+    "testMaster": {
+      "title": "Test Master",
+      "description": "Active testing — runs RFC 2544, Y.1564, Y.1731, MEF, TSN, and traffic-generation modules."
+    }
+  },
   "errors": {
     "passwordTooShort": "Password must be at least {{count}} characters",
     "passwordMismatch": "Passwords do not match",

@@ -16,7 +16,12 @@
   },
   "interface": {
     "defaultInterface": "Default Interface",
-    "autoSelect": "Auto-select interface"
+    "autoSelect": "Auto-select interface",
+    "title": "Interface",
+    "select": "Select network interface",
+    "driver": "Driver",
+    "physical": "Physical",
+    "showAll": "Show all interfaces"
   },
   "testing": {
     "defaultFrameSize": "Default Frame Size",

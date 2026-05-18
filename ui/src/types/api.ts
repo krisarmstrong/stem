@@ -18,6 +18,8 @@ export interface InterfaceInfo {
   xdp: boolean;
   dpdk: boolean;
   score: number;
+  /** True when the interface is plausibly testable (up + has IP, not virtual). */
+  usable: boolean;
 }
 
 /** Runtime statistics from /api/v1/stats */

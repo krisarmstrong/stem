@@ -111,6 +111,53 @@ type InterfaceInfo struct {
 	MTU         int    `json:"mtu"`      // Maximum transmission unit
 	IPv4        string `json:"ipv4"`     // Primary IPv4 address
 	IPv6        string `json:"ipv6"`     // Primary IPv6 address
+	Usable      bool   `json:"usable"`   // true if the interface is plausibly testable
+}
+
+// virtualInterfacePrefixes lists name prefixes that indicate a virtual
+// or platform-managed interface that should not be exposed by default
+// when the UI is filtering for "usable" interfaces. Operators can still
+// opt to show all interfaces from the UI.
+var virtualInterfacePrefixes = []string{
+	// macOS virtual interfaces.
+	"utun", "awdl", "llw", "anpi", "ap", "bridge", "stf", "gif", "p2p",
+	// Linux container/tunnel/bridge surfaces.
+	"docker", "br-", "veth", "virbr", "tun", "tap", "vlan", "wg",
+	// Hypervisor/VPN virtual NICs.
+	"vmnet", "vboxnet", "vnic", "vboxnet0",
+}
+
+// isVirtualInterfaceName returns true when name starts with a known
+// virtual-interface prefix.
+func isVirtualInterfaceName(name string) bool {
+	lower := strings.ToLower(name)
+	for _, prefix := range virtualInterfacePrefixes {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// computeUsable returns true when an interface is plausibly testable:
+//   - state is "up" (carrier present)
+//   - has either an IPv4 or a non-link-local IPv6 address
+//   - is not a known virtual prefix (vmnet*, utun*, awdl*, docker*, ...)
+//
+// This is advisory only — the UI uses it to filter the default
+// interface dropdown. Operators can still pick "show all" to reveal
+// every detected interface.
+func computeUsable(info InterfaceInfo) bool {
+	if info.State != "up" {
+		return false
+	}
+	if info.IPv4 == "" && info.IPv6 == "" {
+		return false
+	}
+	if isVirtualInterfaceName(info.Name) {
+		return false
+	}
+	return true
 }
 
 // extractIPAddresses extracts IPv4 and IPv6 addresses from interface addresses.
@@ -159,6 +206,7 @@ func DetectInterfaces() ([]InterfaceInfo, error) {
 			MTU:         iface.MTU,
 			IPv4:        "",
 			IPv6:        "",
+			Usable:      false,
 		}
 
 		// Check interface state.
@@ -181,6 +229,9 @@ func DetectInterfaces() ([]InterfaceInfo, error) {
 
 		// Calculate score.
 		info.Score = calculateScore(info)
+
+		// Compute the advisory "usable" flag (UI default filter).
+		info.Usable = computeUsable(info)
 
 		result = append(result, info)
 	}
