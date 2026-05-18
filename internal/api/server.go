@@ -433,6 +433,11 @@ func (s *Server) setupRoutes() {
 	s.handle("/health/live", s.handleHealthLive)
 	s.handle("/health/ready", s.handleHealthReady)
 
+	// Build metadata (universal contract — seed/stem/niac all expose this
+	// unauthenticated for deployment validation). Returns lowercase JSON
+	// keys: version, commit, buildTime, uiBuildHash.
+	s.handle("/__version", s.handleBuildVersion)
+
 	// API v1 routes - Interfaces (rate limited).
 	s.handleRateLimited("/api/v1/interfaces", s.handleInterfaces, s.apiLimiter)
 

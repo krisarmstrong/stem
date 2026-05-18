@@ -41,6 +41,7 @@ import { defaultY1731Config, type Y1731Config } from './components/Y1731ConfigFo
 import { AppContext, type AppContextValue } from './contexts/AppContext';
 import { ModuleSettingsProvider, useModuleSettings } from './contexts/ModuleSettingsContext';
 import { RoleProvider, useRole } from './contexts/RoleContext';
+import { useBuildVersion } from './hooks/useBuildVersion';
 import { useFocusTrap } from './hooks/useFocusTrap';
 import { useTheme } from './hooks/useTheme';
 import { navGroups } from './navGroups';
@@ -313,6 +314,7 @@ function AppContent(): ReactElement {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const { isDark, toggleTheme } = useTheme();
+  const buildVersion = useBuildVersion();
   // Track authentication state (tokens are in httpOnly cookies, inaccessible to JS)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -1123,7 +1125,7 @@ function AppContent(): ReactElement {
       <AppContext.Provider value={appContextValue}>
         <SidebarLayout
           groups={navGroups}
-          version="0.1.0"
+          version={buildVersion.version}
           onOpenHelp={openHelp}
           onOpenSettings={openSettings}
           onOpenHistory={openHistory}
