@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0](https://github.com/krisarmstrong/stem/compare/v0.11.0...v0.12.0) (2026-05-18)
+
+
+### Features
+
+* **ui:** lift primitive kit, add command palette, polish dark mode ([#206](https://github.com/krisarmstrong/stem/issues/206)) ([b4339de](https://github.com/krisarmstrong/stem/commit/b4339dee8b13f0bdec1db10b30a4309b238cfe49))
+
 ## [0.11.0](https://github.com/krisarmstrong/stem/compare/v0.10.0...v0.11.0) (2026-05-18)
 
 
