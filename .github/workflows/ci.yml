@@ -594,16 +594,16 @@ jobs:
     name: Build (${{ matrix.os }}-${{ matrix.arch }})
     needs: [changes, backend, frontend]
     runs-on: ${{ matrix.runner }}
-    # linux-amd64 is the required check — always run when frontend ran.
-    # Non-required rows additionally skip on draft PRs to save runner time.
     # always() lets the if: evaluate when backend was skipped upstream.
+    # Note: matrix.required draft-skip was attempted here originally but
+    # GitHub Actions rejects `matrix` in job-level if: (the matrix context
+    # isn't bound until after the strategy expands). All matrix rows run
+    # on every PR; per-arch arches are fast enough that the savings weren't
+    # worth a workaround.
     if: |
       always() &&
       needs.frontend.result == 'success' &&
-      (needs.backend.result == 'success' || needs.backend.result == 'skipped') &&
-      (matrix.required ||
-       github.event_name != 'pull_request' ||
-       github.event.pull_request.draft == false)
+      (needs.backend.result == 'success' || needs.backend.result == 'skipped')
     strategy:
       fail-fast: false
       matrix:
