@@ -37,6 +37,20 @@ const (
 	EventRateLimited SecurityEventType = "rate_limited"
 	// EventSuspiciousActivity indicates suspicious behavior was detected.
 	EventSuspiciousActivity SecurityEventType = "suspicious_activity"
+	// EventPasswordChange records a password-set or password-change attempt
+	// (success or rejection). See AuditPasswordChange.
+	EventPasswordChange SecurityEventType = "password_change"
+)
+
+// PasswordChangeResult enumerates outcomes of a password change.
+type PasswordChangeResult string
+
+// Password change result constants.
+const (
+	// PasswordChangeSuccess indicates the password was changed and persisted.
+	PasswordChangeSuccess PasswordChangeResult = "success"
+	// PasswordChangeRejected indicates the new password was rejected (weak/breached/etc).
+	PasswordChangeRejected PasswordChangeResult = "rejected"
 )
 
 // SuspiciousActivityType represents the type of suspicious activity detected.
@@ -87,6 +101,19 @@ type SecurityEvent struct {
 
 	// WindowDuration is the time window for rate limiting or attempt counting.
 	WindowDuration string `json:"window_duration,omitempty"`
+
+	// Result is the outcome of a password change event (success/rejected).
+	Result string `json:"result,omitempty"`
+
+	// RejectReason is a machine-tag for why a password change was rejected
+	// (e.g. "weak_score", "breached", "too_short"). Distinct from Reason
+	// which is a free-form human-readable explanation.
+	RejectReason string `json:"reject_reason,omitempty"`
+
+	// PreviousAlgorithm identifies the algorithm of the prior password
+	// hash (e.g. "argon2id", "bcrypt"). Used by AuditPasswordChange to
+	// help operators track the bcrypt -> argon2id migration.
+	PreviousAlgorithm string `json:"previous_algorithm,omitempty"`
 }
 
 // FailedLoginTracker tracks failed login attempts for detecting suspicious activity.
@@ -172,6 +199,15 @@ func LogSecurityEvent(ctx context.Context, event *SecurityEvent) {
 	if event.WindowDuration != "" {
 		attrs = append(attrs, "window_duration", event.WindowDuration)
 	}
+	if event.Result != "" {
+		attrs = append(attrs, "result", event.Result)
+	}
+	if event.RejectReason != "" {
+		attrs = append(attrs, "reject_reason", event.RejectReason)
+	}
+	if event.PreviousAlgorithm != "" {
+		attrs = append(attrs, "previous_algorithm", event.PreviousAlgorithm)
+	}
 
 	// Log at appropriate level based on event type.
 	switch event.EventType {
@@ -181,26 +217,68 @@ func LogSecurityEvent(ctx context.Context, event *SecurityEvent) {
 		logger.WarnContext(ctx, "security_audit", attrs...)
 	case EventPermissionDenied, EventRateLimited, EventSuspiciousActivity:
 		logger.WarnContext(ctx, "security_audit", attrs...)
+	case EventPasswordChange:
+		// Successful changes are informational; rejections warrant WARN
+		// because they often indicate an attacker probing the policy.
+		if event.Result == string(PasswordChangeSuccess) {
+			logger.InfoContext(ctx, "security_audit", attrs...)
+		} else {
+			logger.WarnContext(ctx, "security_audit", attrs...)
+		}
 	default:
 		logger.InfoContext(ctx, "security_audit", attrs...)
 	}
 }
 
+// AuditPasswordChange records a password-set or password-change event.
+// `result` should be one of [PasswordChangeSuccess] / [PasswordChangeRejected].
+// `rejectReason` is a short machine-friendly tag (e.g. "weak_score",
+// "breached") that is empty on success. `previousAlgorithm` is the
+// algorithm of the prior hash (e.g. "bcrypt", "argon2id", "none").
+func AuditPasswordChange(
+	ctx context.Context,
+	r *http.Request,
+	username string,
+	result PasswordChangeResult,
+	rejectReason, previousAlgorithm, reason string,
+) {
+	LogSecurityEvent(ctx, &SecurityEvent{
+		Timestamp:         time.Time{},
+		EventType:         EventPasswordChange,
+		UserID:            username,
+		Username:          username,
+		IPAddress:         GetClientIP(r),
+		UserAgent:         r.UserAgent(),
+		RequestID:         "",
+		Resource:          "",
+		Reason:            reason,
+		SuspiciousType:    "",
+		FailedAttempts:    0,
+		WindowDuration:    "",
+		Result:            string(result),
+		RejectReason:      rejectReason,
+		PreviousAlgorithm: previousAlgorithm,
+	})
+}
+
 // AuditLoginSuccess logs a successful login event.
 func AuditLoginSuccess(ctx context.Context, r *http.Request, userID, username string) {
 	LogSecurityEvent(ctx, &SecurityEvent{
-		Timestamp:      time.Time{},
-		EventType:      EventLoginSuccess,
-		UserID:         userID,
-		Username:       username,
-		IPAddress:      GetClientIP(r),
-		UserAgent:      r.UserAgent(),
-		RequestID:      "",
-		Resource:       "",
-		Reason:         "",
-		SuspiciousType: "",
-		FailedAttempts: 0,
-		WindowDuration: "",
+		Timestamp:         time.Time{},
+		EventType:         EventLoginSuccess,
+		UserID:            userID,
+		Username:          username,
+		IPAddress:         GetClientIP(r),
+		UserAgent:         r.UserAgent(),
+		RequestID:         "",
+		Resource:          "",
+		Reason:            "",
+		SuspiciousType:    "",
+		FailedAttempts:    0,
+		WindowDuration:    "",
+		Result:            "",
+		RejectReason:      "",
+		PreviousAlgorithm: "",
 	})
 
 	// Clear failed login attempts for this IP on successful login.
@@ -213,18 +291,21 @@ func AuditLoginFailure(ctx context.Context, r *http.Request, username, reason st
 	ipAddress := GetClientIP(r)
 
 	LogSecurityEvent(ctx, &SecurityEvent{
-		Timestamp:      time.Time{},
-		EventType:      EventLoginFailure,
-		UserID:         "",
-		Username:       username,
-		IPAddress:      ipAddress,
-		UserAgent:      r.UserAgent(),
-		RequestID:      "",
-		Resource:       "",
-		Reason:         reason,
-		SuspiciousType: "",
-		FailedAttempts: 0,
-		WindowDuration: "",
+		Timestamp:         time.Time{},
+		EventType:         EventLoginFailure,
+		UserID:            "",
+		Username:          username,
+		IPAddress:         ipAddress,
+		UserAgent:         r.UserAgent(),
+		RequestID:         "",
+		Resource:          "",
+		Reason:            reason,
+		SuspiciousType:    "",
+		FailedAttempts:    0,
+		WindowDuration:    "",
+		Result:            "",
+		RejectReason:      "",
+		PreviousAlgorithm: "",
 	})
 
 	// Track this failed attempt and check for suspicious activity.
@@ -234,126 +315,147 @@ func AuditLoginFailure(ctx context.Context, r *http.Request, username, reason st
 // AuditTokenInvalid logs a token validation failure.
 func AuditTokenInvalid(ctx context.Context, r *http.Request, reason string) {
 	LogSecurityEvent(ctx, &SecurityEvent{
-		Timestamp:      time.Time{},
-		EventType:      EventTokenInvalid,
-		UserID:         "",
-		Username:       "",
-		IPAddress:      GetClientIP(r),
-		UserAgent:      r.UserAgent(),
-		RequestID:      "",
-		Resource:       "",
-		Reason:         reason,
-		SuspiciousType: "",
-		FailedAttempts: 0,
-		WindowDuration: "",
+		Timestamp:         time.Time{},
+		EventType:         EventTokenInvalid,
+		UserID:            "",
+		Username:          "",
+		IPAddress:         GetClientIP(r),
+		UserAgent:         r.UserAgent(),
+		RequestID:         "",
+		Resource:          "",
+		Reason:            reason,
+		SuspiciousType:    "",
+		FailedAttempts:    0,
+		WindowDuration:    "",
+		Result:            "",
+		RejectReason:      "",
+		PreviousAlgorithm: "",
 	})
 }
 
 // AuditTokenExpired logs an expired token event.
 func AuditTokenExpired(ctx context.Context, r *http.Request, userID string) {
 	LogSecurityEvent(ctx, &SecurityEvent{
-		Timestamp:      time.Time{},
-		EventType:      EventTokenExpired,
-		UserID:         userID,
-		Username:       "",
-		IPAddress:      GetClientIP(r),
-		UserAgent:      r.UserAgent(),
-		RequestID:      "",
-		Resource:       "",
-		Reason:         "",
-		SuspiciousType: "",
-		FailedAttempts: 0,
-		WindowDuration: "",
+		Timestamp:         time.Time{},
+		EventType:         EventTokenExpired,
+		UserID:            userID,
+		Username:          "",
+		IPAddress:         GetClientIP(r),
+		UserAgent:         r.UserAgent(),
+		RequestID:         "",
+		Resource:          "",
+		Reason:            "",
+		SuspiciousType:    "",
+		FailedAttempts:    0,
+		WindowDuration:    "",
+		Result:            "",
+		RejectReason:      "",
+		PreviousAlgorithm: "",
 	})
 }
 
 // AuditTokenRevoked logs a revoked token access attempt.
 func AuditTokenRevoked(ctx context.Context, r *http.Request, userID string) {
 	LogSecurityEvent(ctx, &SecurityEvent{
-		Timestamp:      time.Time{},
-		EventType:      EventTokenRevoked,
-		UserID:         userID,
-		Username:       "",
-		IPAddress:      GetClientIP(r),
-		UserAgent:      r.UserAgent(),
-		RequestID:      "",
-		Resource:       "",
-		Reason:         "",
-		SuspiciousType: "",
-		FailedAttempts: 0,
-		WindowDuration: "",
+		Timestamp:         time.Time{},
+		EventType:         EventTokenRevoked,
+		UserID:            userID,
+		Username:          "",
+		IPAddress:         GetClientIP(r),
+		UserAgent:         r.UserAgent(),
+		RequestID:         "",
+		Resource:          "",
+		Reason:            "",
+		SuspiciousType:    "",
+		FailedAttempts:    0,
+		WindowDuration:    "",
+		Result:            "",
+		RejectReason:      "",
+		PreviousAlgorithm: "",
 	})
 }
 
 // AuditTokenRefresh logs a token refresh event.
 func AuditTokenRefresh(ctx context.Context, r *http.Request, userID string) {
 	LogSecurityEvent(ctx, &SecurityEvent{
-		Timestamp:      time.Time{},
-		EventType:      EventTokenRefresh,
-		UserID:         userID,
-		Username:       "",
-		IPAddress:      GetClientIP(r),
-		UserAgent:      r.UserAgent(),
-		RequestID:      "",
-		Resource:       "",
-		Reason:         "",
-		SuspiciousType: "",
-		FailedAttempts: 0,
-		WindowDuration: "",
+		Timestamp:         time.Time{},
+		EventType:         EventTokenRefresh,
+		UserID:            userID,
+		Username:          "",
+		IPAddress:         GetClientIP(r),
+		UserAgent:         r.UserAgent(),
+		RequestID:         "",
+		Resource:          "",
+		Reason:            "",
+		SuspiciousType:    "",
+		FailedAttempts:    0,
+		WindowDuration:    "",
+		Result:            "",
+		RejectReason:      "",
+		PreviousAlgorithm: "",
 	})
 }
 
 // AuditLogout logs a logout event.
 func AuditLogout(ctx context.Context, r *http.Request, userID string) {
 	LogSecurityEvent(ctx, &SecurityEvent{
-		Timestamp:      time.Time{},
-		EventType:      EventLogout,
-		UserID:         userID,
-		Username:       "",
-		IPAddress:      GetClientIP(r),
-		UserAgent:      r.UserAgent(),
-		RequestID:      "",
-		Resource:       "",
-		Reason:         "",
-		SuspiciousType: "",
-		FailedAttempts: 0,
-		WindowDuration: "",
+		Timestamp:         time.Time{},
+		EventType:         EventLogout,
+		UserID:            userID,
+		Username:          "",
+		IPAddress:         GetClientIP(r),
+		UserAgent:         r.UserAgent(),
+		RequestID:         "",
+		Resource:          "",
+		Reason:            "",
+		SuspiciousType:    "",
+		FailedAttempts:    0,
+		WindowDuration:    "",
+		Result:            "",
+		RejectReason:      "",
+		PreviousAlgorithm: "",
 	})
 }
 
 // AuditPermissionDenied logs an authorization failure.
 func AuditPermissionDenied(ctx context.Context, r *http.Request, userID, resource, reason string) {
 	LogSecurityEvent(ctx, &SecurityEvent{
-		Timestamp:      time.Time{},
-		EventType:      EventPermissionDenied,
-		UserID:         userID,
-		Username:       "",
-		IPAddress:      GetClientIP(r),
-		UserAgent:      r.UserAgent(),
-		RequestID:      "",
-		Resource:       resource,
-		Reason:         reason,
-		SuspiciousType: "",
-		FailedAttempts: 0,
-		WindowDuration: "",
+		Timestamp:         time.Time{},
+		EventType:         EventPermissionDenied,
+		UserID:            userID,
+		Username:          "",
+		IPAddress:         GetClientIP(r),
+		UserAgent:         r.UserAgent(),
+		RequestID:         "",
+		Resource:          resource,
+		Reason:            reason,
+		SuspiciousType:    "",
+		FailedAttempts:    0,
+		WindowDuration:    "",
+		Result:            "",
+		RejectReason:      "",
+		PreviousAlgorithm: "",
 	})
 }
 
 // AuditRateLimited logs a rate limit exceeded event.
 func AuditRateLimited(ctx context.Context, r *http.Request, userID, resource, windowDuration string) {
 	LogSecurityEvent(ctx, &SecurityEvent{
-		Timestamp:      time.Time{},
-		EventType:      EventRateLimited,
-		UserID:         userID,
-		Username:       "",
-		IPAddress:      GetClientIP(r),
-		UserAgent:      r.UserAgent(),
-		RequestID:      "",
-		Resource:       resource,
-		Reason:         "",
-		SuspiciousType: "",
-		FailedAttempts: 0,
-		WindowDuration: windowDuration,
+		Timestamp:         time.Time{},
+		EventType:         EventRateLimited,
+		UserID:            userID,
+		Username:          "",
+		IPAddress:         GetClientIP(r),
+		UserAgent:         r.UserAgent(),
+		RequestID:         "",
+		Resource:          resource,
+		Reason:            "",
+		SuspiciousType:    "",
+		FailedAttempts:    0,
+		WindowDuration:    windowDuration,
+		Result:            "",
+		RejectReason:      "",
+		PreviousAlgorithm: "",
 	})
 }
 
@@ -366,18 +468,21 @@ func AuditSuspiciousActivity(
 	failedAttempts int,
 ) {
 	LogSecurityEvent(ctx, &SecurityEvent{
-		Timestamp:      time.Time{},
-		EventType:      EventSuspiciousActivity,
-		UserID:         "",
-		Username:       "",
-		IPAddress:      GetClientIP(r),
-		UserAgent:      r.UserAgent(),
-		RequestID:      "",
-		Resource:       "",
-		Reason:         reason,
-		SuspiciousType: suspiciousType,
-		FailedAttempts: failedAttempts,
-		WindowDuration: FailedLoginWindow.String(),
+		Timestamp:         time.Time{},
+		EventType:         EventSuspiciousActivity,
+		UserID:            "",
+		Username:          "",
+		IPAddress:         GetClientIP(r),
+		UserAgent:         r.UserAgent(),
+		RequestID:         "",
+		Resource:          "",
+		Reason:            reason,
+		SuspiciousType:    suspiciousType,
+		FailedAttempts:    failedAttempts,
+		WindowDuration:    FailedLoginWindow.String(),
+		Result:            "",
+		RejectReason:      "",
+		PreviousAlgorithm: "",
 	})
 }
 

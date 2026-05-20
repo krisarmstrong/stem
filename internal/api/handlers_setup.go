@@ -99,10 +99,11 @@ func (s *Server) handleSetupComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	username := os.Getenv("STEM_AUTH_USERNAME")
+	prevAlgorithm := detectHashAlgorithm(s.authManager.GetPasswordHash())
+
 	// Validate password strength.
-	passwordErr := auth.ValidatePasswordStrength(req.Password)
-	if passwordErr != nil {
-		http.Error(w, passwordErr.Error(), http.StatusBadRequest)
+	if !validatePasswordOrReject(w, r, req.Password, username, prevAlgorithm) {
 		return
 	}
 
@@ -110,6 +111,8 @@ func (s *Server) handleSetupComplete(w http.ResponseWriter, r *http.Request) {
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
 		logging.Error("Failed to hash password", "error", err)
+		logging.AuditPasswordChange(r.Context(), r, username,
+			logging.PasswordChangeRejected, "hash_failed", prevAlgorithm, err.Error())
 		WriteError(w, ErrInternalError)
 		return
 	}
@@ -128,7 +131,9 @@ func (s *Server) handleSetupComplete(w http.ResponseWriter, r *http.Request) {
 	// Log successful setup.
 	logging.Info("Initial setup completed - admin password configured",
 		"event", "auth.setup.complete",
-		"username", os.Getenv("STEM_AUTH_USERNAME"))
+		"username", username)
+	logging.AuditPasswordChange(r.Context(), r, username,
+		logging.PasswordChangeSuccess, "", prevAlgorithm, "initial setup")
 
 	writeJSON(w, map[string]string{
 		"status":  "success",

@@ -224,6 +224,13 @@ func NewServer(port int) (*Server, error) {
 		logging.Warn("No suitable interface found for auto-selection", "error", ifaceErr)
 	}
 
+	// Hook the auth package's HIBP soft-failure logger into our slog
+	// instance. Done before NewManager so any early breach checks (e.g.
+	// a credential rotation during boot) have a logger configured.
+	auth.SetHIBPLogger(func(msg string, hibpErr error) {
+		logging.Warn(msg, "error", hibpErr, "event", "auth.hibp.soft_failure")
+	})
+
 	// Create auth manager - credentials are required via env vars.
 	authMgr, err := auth.NewManager(
 		os.Getenv("STEM_JWT_SECRET"),
