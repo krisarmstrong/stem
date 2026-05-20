@@ -4,6 +4,7 @@ package api
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/krisarmstrong/stem/internal/auth"
 	"github.com/krisarmstrong/stem/internal/logging"
@@ -108,13 +109,14 @@ func (s *Server) handleRecoveryComplete(w http.ResponseWriter, r *http.Request) 
 
 	// Token is valid - proceed with password reset.
 
-	// Validate password strength.
-	passwordErr := auth.ValidatePasswordStrength(req.Password)
-	if passwordErr != nil {
-		logging.Warn("Recovery failed - weak password",
+	username := os.Getenv("STEM_AUTH_USERNAME")
+	prevAlgorithm := detectHashAlgorithm(s.authManager.GetPasswordHash())
+
+	// Run the layered password-policy check (length / zxcvbn / HIBP).
+	if !validatePasswordOrReject(w, r, req.Password, username, prevAlgorithm) {
+		logging.Warn("Recovery failed - password rejected",
 			"client_ip", clientIP,
 			"event", "auth.recovery.weak_password")
-		http.Error(w, passwordErr.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -122,12 +124,16 @@ func (s *Server) handleRecoveryComplete(w http.ResponseWriter, r *http.Request) 
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
 		logging.Error("Failed to hash password during recovery", "error", err)
+		logging.AuditPasswordChange(r.Context(), r, username,
+			logging.PasswordChangeRejected, "hash_failed", prevAlgorithm, err.Error())
 		WriteError(w, ErrInternalError)
 		return
 	}
 
 	// Update the auth manager with the new password hash.
 	s.authManager.UpdatePasswordHash(r.Context(), hash)
+	logging.AuditPasswordChange(r.Context(), r, username,
+		logging.PasswordChangeSuccess, "", prevAlgorithm, "recovery")
 
 	// Cleanup recovery files.
 	s.recoveryTokenManager.Cleanup()

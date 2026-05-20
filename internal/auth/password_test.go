@@ -4,11 +4,24 @@ package auth_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/krisarmstrong/stem/internal/auth"
+)
+
+// bcryptCost10Fixture is a deterministic fixture used to assert that
+// VerifyPassword flags legacy bcrypt hashes for re-hash. Generated with
+// bcrypt.DefaultCost (10) so callers can assert the rehash-on-login
+// migration path without running bcrypt at production cost.
+//
+// Plaintext for fixture: "legacyPassw0rd!123".
+const (
+	legacyBcryptPassword = "legacyPassw0rd!123"
+	// Generated once via bcrypt.GenerateFromPassword at cost 10.
+	legacyBcryptFixture = "$2a$10$.PLBMCDzHzrJWtvjJOq2tOztcj.oZVrB/gclaUFL1Qrgj2n6k4i32"
 )
 
 func TestIsDefaultPasswordHash(t *testing.T) {
@@ -148,7 +161,9 @@ func TestValidatePasswordStrength(t *testing.T) {
 	}
 }
 
-func TestHashPassword(t *testing.T) {
+// TestHashPassword_ProducesArgon2id verifies HashPassword now emits a
+// PHC-formatted Argon2id hash (task #84, Wave 2 migration off bcrypt).
+func TestHashPassword_ProducesArgon2id(t *testing.T) {
 	t.Parallel()
 
 	password := "testPassword123!"
@@ -157,23 +172,15 @@ func TestHashPassword(t *testing.T) {
 		t.Fatalf("HashPassword failed: %v", err)
 	}
 
-	if hash == "" {
-		t.Error("HashPassword returned empty hash")
+	if !strings.HasPrefix(hash, "$argon2id$") {
+		t.Errorf("HashPassword should produce $argon2id$-prefixed hash, got %q", hash)
 	}
-
-	// Verify the hash is valid bcrypt.
-	err = bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
-	if err != nil {
-		t.Errorf("bcrypt.CompareHashAndPassword failed: %v", err)
-	}
-
-	// Verify wrong password fails.
-	err = bcrypt.CompareHashAndPassword([]byte(hash), []byte("wrongPassword"))
-	if err == nil {
-		t.Error("bcrypt.CompareHashAndPassword should fail for wrong password")
+	if !strings.Contains(hash, "$v=19$") {
+		t.Errorf("HashPassword should embed v=19, got %q", hash)
 	}
 }
 
+// TestHashPassword_Unique ensures distinct salts are used per hash.
 func TestHashPassword_Unique(t *testing.T) {
 	t.Parallel()
 
@@ -194,6 +201,107 @@ func TestHashPassword_Unique(t *testing.T) {
 	}
 }
 
+// TestVerifyPassword_Argon2id_Match verifies the happy path for
+// Argon2id verification — matched=true, no rehash needed.
+func TestVerifyPassword_Argon2id_Match(t *testing.T) {
+	t.Parallel()
+
+	password := "argon2VerifyMatch!"
+	hash, err := auth.HashPassword(password)
+	if err != nil {
+		t.Fatalf("HashPassword failed: %v", err)
+	}
+
+	matched, needsRehash, vErr := auth.VerifyPassword(hash, password)
+	if vErr != nil {
+		t.Fatalf("VerifyPassword returned error: %v", vErr)
+	}
+	if !matched {
+		t.Error("VerifyPassword should match correct password")
+	}
+	if needsRehash {
+		t.Error("Argon2id hash should not trigger rehash")
+	}
+}
+
+// TestVerifyPassword_Argon2id_NoMatch verifies wrong-password rejection.
+func TestVerifyPassword_Argon2id_NoMatch(t *testing.T) {
+	t.Parallel()
+
+	hash, err := auth.HashPassword("right-password")
+	if err != nil {
+		t.Fatalf("HashPassword failed: %v", err)
+	}
+
+	matched, needsRehash, vErr := auth.VerifyPassword(hash, "wrong-password")
+	if vErr != nil {
+		t.Fatalf("VerifyPassword returned error: %v", vErr)
+	}
+	if matched {
+		t.Error("VerifyPassword should reject wrong password")
+	}
+	if needsRehash {
+		t.Error("Failed verify should not flag for rehash")
+	}
+}
+
+// TestVerifyPassword_Bcrypt_FlagsRehash is the centerpiece migration
+// test: a legacy bcrypt hash must verify successfully AND set
+// needsRehash=true so the caller upgrades the storage to Argon2id on
+// the next login.
+func TestVerifyPassword_Bcrypt_FlagsRehash(t *testing.T) {
+	t.Parallel()
+
+	// Sanity-check the fixture before the actual assertion so a
+	// fixture typo doesn't masquerade as a regression.
+	if err := bcrypt.CompareHashAndPassword(
+		[]byte(legacyBcryptFixture), []byte(legacyBcryptPassword),
+	); err != nil {
+		t.Fatalf("fixture bcrypt hash does not verify against fixture password: %v", err)
+	}
+
+	matched, needsRehash, vErr := auth.VerifyPassword(legacyBcryptFixture, legacyBcryptPassword)
+	if vErr != nil {
+		t.Fatalf("VerifyPassword returned error: %v", vErr)
+	}
+	if !matched {
+		t.Error("VerifyPassword should match legacy bcrypt hash")
+	}
+	if !needsRehash {
+		t.Error("VerifyPassword must flag bcrypt hash for rehash (migration path)")
+	}
+}
+
+// TestVerifyPassword_Bcrypt_WrongPassword verifies that a bcrypt-format
+// hash with the wrong password reports no match and no rehash.
+func TestVerifyPassword_Bcrypt_WrongPassword(t *testing.T) {
+	t.Parallel()
+
+	matched, needsRehash, vErr := auth.VerifyPassword(legacyBcryptFixture, "nope-not-it")
+	if vErr != nil {
+		t.Fatalf("VerifyPassword returned error: %v", vErr)
+	}
+	if matched {
+		t.Error("VerifyPassword should not match wrong password")
+	}
+	if needsRehash {
+		t.Error("Failed bcrypt verify must not request rehash")
+	}
+}
+
+// TestVerifyPassword_UnsupportedHash verifies the unknown-prefix path.
+func TestVerifyPassword_UnsupportedHash(t *testing.T) {
+	t.Parallel()
+
+	matched, needsRehash, vErr := auth.VerifyPassword("$pbkdf2$something", "whatever")
+	if matched || needsRehash {
+		t.Error("Unknown hash format must not match or trigger rehash")
+	}
+	if vErr == nil {
+		t.Error("Unknown hash format must return an error")
+	}
+}
+
 func TestUpdatePasswordHash(t *testing.T) {
 	t.Parallel()
 
@@ -207,7 +315,8 @@ func TestUpdatePasswordHash(t *testing.T) {
 		t.Fatalf("NewManager failed: %v", err)
 	}
 
-	newHash := "$2a$10$newHashValue12345678901234567890"
+	newHash := "$argon2id$v=19$m=8192,t=1,p=1$YWJjZGVmZ2hpamtsbW5vcA$" +
+		"aGFzaC1zdHViLWZvci10ZXN0aW5nLW9ubHkAAAAAAA"
 	manager.UpdatePasswordHash(context.Background(), newHash)
 
 	if got := manager.GetPasswordHash(); got != newHash {

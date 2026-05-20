@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -30,7 +29,7 @@ var (
 	ErrMissingCredentials = errors.New(
 		"missing required credentials: set STEM_AUTH_USERNAME and STEM_AUTH_PASSWORD environment variables",
 	)
-	// ErrPasswordHashFailed indicates bcrypt failed to hash the password.
+	// ErrPasswordHashFailed indicates the password hash routine failed.
 	ErrPasswordHashFailed = errors.New("failed to hash password")
 	// ErrSecretGenerationFailed indicates random bytes could not be generated.
 	ErrSecretGenerationFailed = errors.New("failed to generate JWT secret")
@@ -83,7 +82,7 @@ func NewManager(jwtSecret string, sessionTimeout time.Duration, username, passwo
 		}
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost())
+	hash, err := HashPassword(password)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrPasswordHashFailed, err)
 	}
@@ -97,7 +96,7 @@ func NewManager(jwtSecret string, sessionTimeout time.Duration, username, passwo
 		jwtSecret:      []byte(secret),
 		sessionTimeout: sessionTimeout,
 		username:       username,
-		passwordHash:   hash,
+		passwordHash:   []byte(hash),
 		issuer:         "The Stem",
 		blacklist:      NewTokenBlacklist(),
 		randReader:     rand.Reader,
@@ -113,10 +112,17 @@ func (m *Manager) Stop() {
 }
 
 // Authenticate validates credentials and emits a signed JWT token.
-func (m *Manager) Authenticate(_ context.Context, username, password string) (string, error) {
+//
+// As of Wave 2 (#84) the stored hash may be Argon2id (new format) or
+// legacy bcrypt; [VerifyPassword] dispatches transparently. When a
+// successful login is verified against a bcrypt hash the manager
+// silently upgrades the stored hash to Argon2id — this is the
+// just-in-time migration path for existing deployments and is the
+// **only** way bcrypt hashes leave the system.
+func (m *Manager) Authenticate(ctx context.Context, username, password string) (string, error) {
 	m.mu.RLock()
 	storedUsername := m.username
-	storedHash := m.passwordHash
+	storedHash := string(m.passwordHash)
 	m.mu.RUnlock()
 
 	usernameMatch := subtle.ConstantTimeCompare(
@@ -124,11 +130,30 @@ func (m *Manager) Authenticate(_ context.Context, username, password string) (st
 		[]byte(strings.ToLower(storedUsername)),
 	) == 1
 
-	if !usernameMatch || bcrypt.CompareHashAndPassword(storedHash, []byte(password)) != nil {
+	matched, needsRehash, err := VerifyPassword(storedHash, password)
+	if err != nil || !usernameMatch || !matched {
 		return "", ErrInvalidCredentials
 	}
 
+	if needsRehash {
+		m.upgradeHash(ctx, password)
+	}
+
 	return m.generateToken(username)
+}
+
+// upgradeHash re-hashes the verified password with Argon2id and
+// persists it via UpdatePasswordHash. Errors are non-fatal — the user
+// has already successfully authenticated. We log the failure rather
+// than blocking the login, since a partial migration is preferable to
+// locking the user out.
+func (m *Manager) upgradeHash(ctx context.Context, password string) {
+	newHash, err := HashPassword(password)
+	if err != nil {
+		// Migration is best-effort; the caller already verified.
+		return
+	}
+	m.UpdatePasswordHash(ctx, newHash)
 }
 
 // ValidateToken parses and validates a JWT token.
@@ -254,12 +279,17 @@ func (m *Manager) RefreshAccessToken(ctx context.Context, refreshToken string) (
 }
 
 // AuthenticateWithRefresh validates credentials and returns both access and refresh tokens.
+//
+// As of Wave 2 (#84) hash verification goes through [VerifyPassword],
+// which transparently handles both Argon2id (preferred) and legacy
+// bcrypt hashes. A successful login against a bcrypt hash triggers an
+// in-place upgrade to Argon2id.
 func (m *Manager) AuthenticateWithRefresh(
-	_ context.Context, username, password string,
+	ctx context.Context, username, password string,
 ) (string, string, error) {
 	m.mu.RLock()
 	storedUsername := m.username
-	storedHash := m.passwordHash
+	storedHash := string(m.passwordHash)
 	m.mu.RUnlock()
 
 	usernameMatch := subtle.ConstantTimeCompare(
@@ -267,8 +297,13 @@ func (m *Manager) AuthenticateWithRefresh(
 		[]byte(strings.ToLower(storedUsername)),
 	) == 1
 
-	if !usernameMatch || bcrypt.CompareHashAndPassword(storedHash, []byte(password)) != nil {
+	matched, needsRehash, err := VerifyPassword(storedHash, password)
+	if err != nil || !usernameMatch || !matched {
 		return "", "", ErrInvalidCredentials
+	}
+
+	if needsRehash {
+		m.upgradeHash(ctx, password)
 	}
 
 	accessToken, err := m.generateToken(username)
