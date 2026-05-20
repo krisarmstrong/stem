@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { mockAuthenticated } from './helpers/auth';
 
 /**
  * Module Pages Tests
@@ -9,27 +10,15 @@ import { expect, test } from '@playwright/test';
  * from "dashboard cards" to dedicated routes under /tests/*; the sidebar
  * has Test group nav links pointing at each.
  *
- * Mocks /api/v1/setup/status so the first-run setup wizard doesn't
- * intercept clicks, then logs in as admin/admin.
+ * Uses mockAuthenticated() to skip the login modal — these tests don't
+ * exercise the auth flow itself (see helpers/auth.ts).
  */
 
 const MODULE_NAMES = ['benchmark', 'servicetest', 'trafficgen', 'measure', 'certify'] as const;
 
 test.describe('Module Cards', () => {
   test.beforeEach(async ({ page }) => {
-    await page.route('**/api/v1/setup/status', (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ needsSetup: false }),
-      });
-    });
-
-    await page.goto('/');
-    await page.getByLabel(/username/i).fill('admin');
-    await page.getByLabel(/password/i).fill('admin');
-    await page.getByRole('button', { name: /sign in/i }).click();
-    await expect(page.getByRole('button', { name: /logout/i })).toBeVisible();
+    await mockAuthenticated(page);
   });
 
   test('should render each module page with its name visible', async ({ page }) => {

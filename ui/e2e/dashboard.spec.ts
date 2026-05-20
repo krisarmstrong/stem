@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { mockAuthenticated } from './helpers/auth';
 
 /**
  * Dashboard Tests
@@ -9,26 +10,15 @@ import { expect, test } from '@playwright/test';
  * - Connection status
  * - Test controls
  *
- * Mocks /api/v1/setup/status so the first-run setup wizard is dismissed
- * and then performs an admin/admin login, matching CI's STEM_AUTH_USERNAME
- * and STEM_AUTH_PASSWORD env vars.
+ * Uses mockAuthenticated() to skip the login modal — these tests don't
+ * exercise the auth flow itself and shouldn't burn the suite-wide
+ * 5-per-minute auth rate budget (see helpers/auth.ts for the why).
  */
 
 test.describe('Dashboard', () => {
   test.beforeEach(async ({ page }) => {
-    await page.route('**/api/v1/setup/status', (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ needsSetup: false }),
-      });
-    });
-
+    await mockAuthenticated(page);
     await page.goto('/');
-    await page.getByLabel(/username/i).fill('admin');
-    await page.getByLabel(/password/i).fill('admin');
-    await page.getByRole('button', { name: /sign in/i }).click();
-    await expect(page.getByRole('button', { name: /logout/i })).toBeVisible();
   });
 
   test('should display stats cards', async ({ page }) => {
