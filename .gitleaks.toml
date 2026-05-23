@@ -39,6 +39,10 @@ paths = [
     '''docs/NetAllyAirMapper/.*''',
     '''docs/.*\.md$''',
     '''configs/.*\.yaml$''',
+    # Structured-logging field-name token map. The `const FieldPassword =
+    # "password"` here is a slog dictionary KEY (RedactingHandler matches
+    # this to redact log values), not a credential.
+    '''internal/logging/logger\.go$''',
     # Build artifacts and caches (gitignored)
     '''build/.*''',
     '''dist/.*''',
@@ -66,16 +70,6 @@ regexes = [
     '''changeme''',
     '''admin123''',
     '''TestP@ssw0rd''',
-]
-
-# Stopwords: if a finding's secret contains any of these tokens, allow it.
-# Use sparingly — keeps history-scan-only false positives from blocking CI
-# without requiring per-commit fingerprints.
-stopwords = [
-    # FieldPassword is a slog field-NAME token used by RedactingHandler to
-    # identify password-bearing log keys. The literal "password" is a
-    # dictionary key in this context, not a credential value.
-    "FieldPassword",
 ]
 
 # Known safe commit hashes (documentation references)
