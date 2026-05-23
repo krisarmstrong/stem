@@ -65,7 +65,7 @@ const (
 // FieldPassword is the canonical field-name token used by RedactingHandler
 // to identify password-bearing log keys. Hoisted as a const so the redactor
 // + handler + tests stay in sync.
-const FieldPassword = "password"
+const FieldPassword = "password" // gitleaks:allow — field NAME, not a credential value
 
 // DefaultConfig returns sensible defaults for logging.
 func DefaultConfig() *Config {
