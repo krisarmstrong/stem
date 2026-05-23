@@ -180,6 +180,13 @@ linters:
       # Default: 0.0
       package-average: 10.0
 
+    goconst:
+      # Minimum occurrences of a string to flag. Default 3. Bumped to 10
+      # so data files (glossary, help content, test fixtures) with 3-7
+      # short-string key occurrences aren't forced into PascalCase consts.
+      min-occurrences: 10
+      min-len: 3
+
     depguard:
       # Rules to apply.
       #
