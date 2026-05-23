@@ -73,28 +73,6 @@ const (
 	testTypeMEF            = "mef"
 )
 
-// CLI flag strings repeated across help text + parsing.
-const (
-	flagDuration   = "--duration"
-	flagFrameSizes = "--frame-sizes"
-	flagCIR        = "--cir"
-)
-
-// Standard / acronym strings repeated in help text and tables.
-const (
-	standardRFC2544 = "RFC 2544"
-	standardRFC2889 = "RFC 2889"
-	standardRFC6349 = "RFC 6349"
-	standardY1564   = "Y.1564"
-	standardY1731   = "Y.1731"
-	standardITUY1564 = "ITU-T Y.1564"
-	standardITUY1731 = "ITU-T Y.1731"
-	standardMEF     = "MEF"
-	standardTSN     = "TSN"
-	termCIR         = "CIR"
-	termCIRFull     = "Committed Information Rate"
-)
-
 // Default values for test configuration.
 // Subcommand verbs. Hoisted out of the dispatch switch and per-subcommand
 // [flag.NewFlagSet] calls so the canonical spelling lives in one place.

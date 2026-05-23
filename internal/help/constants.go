@@ -21,13 +21,49 @@ const (
 
 // CLI flag strings repeated across help text and examples.
 const (
-	FlagDuration       = "--duration"
-	FlagFrameSizes     = "--frame-sizes"
-	FlagCIR            = "--cir"
-	ExampleDuration60  = "--duration 60"
-	ExampleCIR100      = "--cir 100"
-	ExampleFrameSizes  = "--frame-sizes 64,512,1518"
-	DefaultFrameSizes  = "64,128,256,512,1024,1280,1518"
-	LabelFrameSizes    = "Frame Sizes"
-	LabelDuration      = "Duration"
+	FlagDuration      = "--duration"
+	FlagFrameSizes    = "--frame-sizes"
+	FlagCIR           = "--cir"
+	ExampleDuration60 = "--duration 60"
+	ExampleCIR100     = "--cir 100"
+	ExampleFrameSizes = "--frame-sizes 64,512,1518"
+	DefaultFrameSizes = "64,128,256,512,1024,1280,1518"
+	LabelFrameSizes   = "Frame Sizes"
+	LabelDuration     = "Duration"
+)
+
+// Type/value strings repeated in help options (parameter types + boolean values).
+const (
+	TypeString         = "string"
+	TypeInteger        = "integer"
+	TypeIntegerSeconds = "integer (seconds)"
+	TypeBoolean        = "boolean"
+	ValueFalse         = "false"
+	ValueAuto          = "auto"
+	ValueAll           = "all"
+	ValueBaseline      = "baseline"
+)
+
+// Module name strings (matches internal/services/*/module.go ModuleName consts).
+// Duplicated here to avoid an import cycle from help → services.
+const (
+	ModuleBenchmark = "benchmark"
+	ModuleReflector = "reflector"
+)
+
+// Category / test-type wire identifiers used as lookup keys in the help
+// content tables (glossary cross-references, test-by-category dispatch,
+// tutorial routing). Lowercase to match the JSON/CLI representation.
+const (
+	CatRFC2544 = "rfc2544"
+	CatRFC2889 = "rfc2889"
+	CatRFC6349 = "rfc6349"
+	CatY1564   = "y1564"
+	CatY1731   = "y1731"
+	CatMEF     = "mef"
+	CatTSN     = "tsn"
+
+	TestTypeThroughput = "throughput"
+	TestTypeLatency    = "latency"
+	TestTypeFrameLoss  = "frame_loss"
 )

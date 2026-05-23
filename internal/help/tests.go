@@ -10,12 +10,12 @@ package help
 func GetAllTests() map[string]TestHelp {
 	return map[string]TestHelp{
 		// RFC 2544 Tests
-		"throughput":      rfc2544Throughput(),
-		"latency":         rfc2544Latency(),
-		"frame_loss":      rfc2544FrameLoss(),
-		"back_to_back":    rfc2544BackToBack(),
-		"system_recovery": rfc2544SystemRecovery(),
-		"reset":           rfc2544Reset(),
+		TestTypeThroughput: rfc2544Throughput(),
+		TestTypeLatency:    rfc2544Latency(),
+		TestTypeFrameLoss:  rfc2544FrameLoss(),
+		"back_to_back":     rfc2544BackToBack(),
+		"system_recovery":  rfc2544SystemRecovery(),
+		"reset":            rfc2544Reset(),
 
 		// Y.1564 Tests
 		"y1564_config":      y1564Config(),
@@ -59,7 +59,7 @@ func GetAllTests() map[string]TestHelp {
 func rfc2544Throughput() TestHelp {
 	return buildTestHelp(
 		testHelpMeta{
-			ID:       "throughput",
+			ID:       TestTypeThroughput,
 			Name:     "Throughput Test",
 			Standard: "RFC 2544 Section 26.1",
 			Category: StandardRFC2544,
@@ -123,7 +123,7 @@ func rfc2544ThroughputDetails() testHelpDetails {
 		Tips:               rfc2544ThroughputTips(),
 		CommonIssues:       rfc2544ThroughputIssues(),
 		RFCSection:         "Section 26.1",
-		SeeAlso:            []string{"latency", "frame_loss", "y1564_config"},
+		SeeAlso:            []string{TestTypeLatency, TestTypeFrameLoss, "y1564_config"},
 	}
 }
 
@@ -250,7 +250,7 @@ func rfc2544ThroughputIssues() []Issue {
 func rfc2544Latency() TestHelp {
 	return buildTestHelp(
 		testHelpMeta{
-			ID:       "latency",
+			ID:       TestTypeLatency,
 			Name:     "Latency Test",
 			Standard: "RFC 2544 Section 26.2",
 			Category: StandardRFC2544,
@@ -320,7 +320,7 @@ func rfc2544LatencyDetails() testHelpDetails {
 		Tips:               rfc2544LatencyTips(),
 		CommonIssues:       rfc2544LatencyIssues(),
 		RFCSection:         "Section 26.2",
-		SeeAlso:            []string{"throughput", "frame_delay", "y1564_performance"},
+		SeeAlso:            []string{TestTypeThroughput, "frame_delay", "y1564_performance"},
 	}
 }
 
@@ -340,7 +340,7 @@ func rfc2544LatencyParameters() []Parameter {
 			Name:       "Rate",
 			Flag:       "--rate",
 			Type:       "float (percentage) or 'auto'",
-			Default:    "auto",
+			Default:    ValueAuto,
 			Required:   false,
 			TechDesc:   "Rate at which to measure latency (auto uses throughput test result)",
 			LaymanDesc: "Network speed during test - 'auto' uses maximum lossless rate",
@@ -440,7 +440,7 @@ func rfc2544LatencyIssues() []Issue {
 func rfc2544FrameLoss() TestHelp {
 	return buildTestHelp(
 		testHelpMeta{
-			ID:       "frame_loss",
+			ID:       TestTypeFrameLoss,
 			Name:     "Frame Loss Rate Test",
 			Standard: "RFC 2544 Section 26.3",
 			Category: StandardRFC2544,
@@ -505,7 +505,7 @@ func rfc2544FrameLossDetails() testHelpDetails {
 		Tips:               rfc2544FrameLossTips(),
 		CommonIssues:       rfc2544FrameLossIssues(),
 		RFCSection:         "Section 26.3",
-		SeeAlso:            []string{"throughput", "y1731_frame_loss"},
+		SeeAlso:            []string{TestTypeThroughput, "y1731_frame_loss"},
 	}
 }
 
@@ -670,7 +670,7 @@ func rfc2544BackToBackDetails() testHelpDetails {
 		Tips:               rfc2544BackToBackTips(),
 		CommonIssues:       nil,
 		RFCSection:         "Section 26.4",
-		SeeAlso:            []string{"throughput", "congestion"},
+		SeeAlso:            []string{TestTypeThroughput, "congestion"},
 	}
 }
 
@@ -823,7 +823,7 @@ traffic spikes.`,
 		CommonIssues: nil,
 
 		RFCSection: "Section 26.5",
-		SeeAlso:    []string{"throughput", "reset"},
+		SeeAlso:    []string{TestTypeThroughput, "reset"},
 	}
 }
 
@@ -978,7 +978,7 @@ func y1564ConfigDetails() testHelpDetails {
 		Tips:               y1564ConfigTips(),
 		CommonIssues:       y1564ConfigIssues(),
 		RFCSection:         "",
-		SeeAlso:            []string{"y1564_performance", "throughput", "mef_config"},
+		SeeAlso:            []string{"y1564_performance", TestTypeThroughput, "mef_config"},
 	}
 }
 
@@ -1386,7 +1386,7 @@ Important for environments with many active connections simultaneously.`,
 		CommonIssues: nil,
 
 		RFCSection: "Section 5.2",
-		SeeAlso:    []string{"address_cache", "throughput"},
+		SeeAlso:    []string{"address_cache", TestTypeThroughput},
 	}
 }
 
@@ -1767,7 +1767,7 @@ func rfc6349TCPThroughputDetails() testHelpDetails {
 		Tips:               nil,
 		CommonIssues:       nil,
 		RFCSection:         "",
-		SeeAlso:            []string{"path_analysis", "throughput"},
+		SeeAlso:            []string{"path_analysis", TestTypeThroughput},
 	}
 }
 
@@ -1787,7 +1787,7 @@ func rfc6349TCPThroughputParameters() []Parameter {
 			Name:       "Window Size",
 			Flag:       "--window",
 			Type:       "integer (KB) or 'auto'",
-			Default:    "auto",
+			Default:    ValueAuto,
 			Required:   false,
 			TechDesc:   "TCP window size (or auto-calculate from BDP)",
 			LaymanDesc: "TCP buffer size - 'auto' calculates optimal value",
@@ -1913,7 +1913,7 @@ Use this when downloads are slow and you want to know WHY, not just HOW slow.`,
 		CommonIssues: nil,
 
 		RFCSection: "",
-		SeeAlso:    []string{"tcp_throughput", "latency"},
+		SeeAlso:    []string{"tcp_throughput", TestTypeLatency},
 	}
 }
 
@@ -1981,7 +1981,7 @@ func y1731FrameDelayDetails() testHelpDetails {
 		Tips:               nil,
 		CommonIssues:       nil,
 		RFCSection:         "",
-		SeeAlso:            []string{"latency", "y1731_frame_loss"},
+		SeeAlso:            []string{TestTypeLatency, "y1731_frame_loss"},
 	}
 }
 
@@ -2097,7 +2097,7 @@ Benefits:
 		CommonIssues: nil,
 
 		RFCSection: "",
-		SeeAlso:    []string{"frame_loss", "frame_delay"},
+		SeeAlso:    []string{TestTypeFrameLoss, "frame_delay"},
 	}
 }
 
@@ -2858,21 +2858,28 @@ into production.`,
 // GetAllCategories returns all test categories.
 func GetAllCategories() map[string]Category {
 	return map[string]Category{
-		"rfc2544": {
-			ID:       "rfc2544",
+		CatRFC2544: {
+			ID:       CatRFC2544,
 			Name:     StandardRFC2544,
 			FullName: "Benchmarking Methodology for Network Interconnect Devices",
 			Summary:  "The standard tests for measuring raw network equipment performance.",
 			Description: `RFC 2544 defines benchmarking methodology for network devices.
 These tests measure fundamental performance characteristics: throughput, latency,
 frame loss, and burst handling. Use these tests for equipment validation and comparison.`,
-			Tests:     []string{"throughput", "latency", "frame_loss", "back_to_back", "system_recovery", "reset"},
+			Tests: []string{
+				TestTypeThroughput,
+				TestTypeLatency,
+				TestTypeFrameLoss,
+				"back_to_back",
+				"system_recovery",
+				"reset",
+			},
 			WhenToUse: "Equipment benchmarking, performance validation, comparing vendors",
 			Standard:  StandardRFC2544,
-			SeeAlso:   []string{"y1564", "rfc2889"},
+			SeeAlso:   []string{CatY1564, CatRFC2889},
 		},
-		"y1564": {
-			ID:       "y1564",
+		CatY1564: {
+			ID:       CatY1564,
 			Name:     StandardY1564,
 			FullName: "Ethernet Service Activation Test Methodology",
 			Summary:  "The carrier standard for turning up ethernet services.",
@@ -2882,10 +2889,10 @@ at progressive load levels and over extended duration.`,
 			Tests:     []string{"y1564_config", "y1564_performance", "y1564_full"},
 			WhenToUse: "Carrier service activation, SLA validation, service acceptance",
 			Standard:  StandardITUY1564,
-			SeeAlso:   []string{"mef", "rfc2544"},
+			SeeAlso:   []string{CatMEF, CatRFC2544},
 		},
-		"rfc2889": {
-			ID:       "rfc2889",
+		CatRFC2889: {
+			ID:       CatRFC2889,
 			Name:     StandardRFC2889,
 			FullName: "Benchmarking Methodology for LAN Switching Devices",
 			Summary:  "Tests specifically for switch/bridge performance characteristics.",
@@ -2895,10 +2902,10 @@ MAC address table capacity, learning rate, and congestion handling.`,
 			Tests:     []string{"forwarding", "address_cache", "learning_rate", "broadcast", "congestion"},
 			WhenToUse: "Switch validation, data center planning, MAC table capacity verification",
 			Standard:  StandardRFC2889,
-			SeeAlso:   []string{"rfc2544"},
+			SeeAlso:   []string{CatRFC2544},
 		},
-		"rfc6349": {
-			ID:       "rfc6349",
+		CatRFC6349: {
+			ID:       CatRFC6349,
 			Name:     StandardRFC6349,
 			FullName: "Framework for TCP Throughput Testing",
 			Summary:  "Tests that measure real TCP application performance.",
@@ -2908,10 +2915,10 @@ and help identify network factors affecting TCP performance.`,
 			Tests:     []string{"tcp_throughput", "path_analysis"},
 			WhenToUse: "Application performance testing, WAN optimization, TCP troubleshooting",
 			Standard:  StandardRFC6349,
-			SeeAlso:   []string{"rfc2544"},
+			SeeAlso:   []string{CatRFC2544},
 		},
-		"y1731": {
-			ID:       "y1731",
+		CatY1731: {
+			ID:       CatY1731,
 			Name:     "Y.1731",
 			FullName: "OAM Functions and Mechanisms for Ethernet Networks",
 			Summary:  "Operations, Administration, and Maintenance for carrier ethernet.",
@@ -2921,10 +2928,10 @@ delay measurement, loss measurement, and connectivity verification.`,
 			Tests:     []string{"frame_delay", "y1731_frame_loss", "synthetic_loss", "loopback"},
 			WhenToUse: "Production monitoring, SLA verification, fault isolation",
 			Standard:  StandardITUY1731,
-			SeeAlso:   []string{"y1564", "mef"},
+			SeeAlso:   []string{CatY1564, CatMEF},
 		},
-		"mef": {
-			ID:       "mef",
+		CatMEF: {
+			ID:       CatMEF,
 			Name:     StandardMEF,
 			FullName: "Metro Ethernet Forum Service Tests",
 			Summary:  "Industry standard tests for carrier ethernet services.",
@@ -2934,10 +2941,10 @@ MEF specifications including bandwidth profiles and Class of Service.`,
 			Tests:     []string{"mef_config", "mef_performance", "mef_full"},
 			WhenToUse: "MEF-certified service validation, multi-CoS testing, carrier acceptance",
 			Standard:  "MEF 14/48",
-			SeeAlso:   []string{"y1564", "y1731"},
+			SeeAlso:   []string{CatY1564, CatY1731},
 		},
-		"tsn": {
-			ID:       "tsn",
+		CatTSN: {
+			ID:       CatTSN,
 			Name:     StandardTSN,
 			FullName: "Time-Sensitive Networking",
 			Summary:  "Tests for deterministic, time-critical industrial networks.",
@@ -2947,7 +2954,7 @@ isolation, and scheduled latency meet industrial automation requirements.`,
 			Tests:     []string{"gate_timing", "traffic_isolation", "scheduled_latency", "tsn_full"},
 			WhenToUse: "Industrial automation, automotive ethernet, deterministic networking",
 			Standard:  "IEEE 802.1Qbv/Qbu",
-			SeeAlso:   []string{"rfc2544"},
+			SeeAlso:   []string{CatRFC2544},
 		},
 	}
 }
