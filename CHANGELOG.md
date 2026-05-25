@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0](https://github.com/krisarmstrong/stem/compare/v0.17.2...v0.18.0) (2026-05-25)
+
+
+### Features
+
+* **api:** add go-playground/validator + tags on hot DTOs ([#294](https://github.com/krisarmstrong/stem/issues/294)) ([95236b5](https://github.com/krisarmstrong/stem/commit/95236b564fb25312a433fef35b3f6a453d469e33))
+* **api:** port invopop/jsonschema generator from NIAC ([#297](https://github.com/krisarmstrong/stem/issues/297)) ([d489eef](https://github.com/krisarmstrong/stem/commit/d489eef332981b2b18ecdf2b30afd50385ebb4d4)), closes [#269](https://github.com/krisarmstrong/stem/issues/269)
+* **ui:** harden RoleContext with valibot schemas ([#295](https://github.com/krisarmstrong/stem/issues/295)) ([ef93f25](https://github.com/krisarmstrong/stem/commit/ef93f251f5a0dbd3dc0028f372b33412f5ef956a)), closes [#272](https://github.com/krisarmstrong/stem/issues/272)
+
+
+### Bug Fixes
+
+* **ci:** inject UIBuildHash ldflag (Universal Build Contract) ([#282](https://github.com/krisarmstrong/stem/issues/282)) ([ca443be](https://github.com/krisarmstrong/stem/commit/ca443be20f491f7dcb36785e4eb485248006c2f6))
+* **ci:** trigger CodeQL on PR + push + weekly schedule ([#293](https://github.com/krisarmstrong/stem/issues/293)) ([736fed4](https://github.com/krisarmstrong/stem/commit/736fed43badd1852109845ee1011f4b452f8f539))
+* **ci:** verify UIBuildHash embedded in built binary ([#286](https://github.com/krisarmstrong/stem/issues/286)) ([b35a6f4](https://github.com/krisarmstrong/stem/commit/b35a6f4d1383f31a41fe8510a8e64396a9cf310a))
+* **docs:** correct PR template 'cd web' -&gt; 'cd ui' ([#283](https://github.com/krisarmstrong/stem/issues/283)) ([79c2782](https://github.com/krisarmstrong/stem/commit/79c27821344623197fe24006c34b4736f0f05379))
+* **scripts:** deploy-validate default scheme=https + port=8444 ([#292](https://github.com/krisarmstrong/stem/issues/292)) ([acdf2a6](https://github.com/krisarmstrong/stem/commit/acdf2a684758a25810a972e11582a55f388fd797))
+* **ui:** enable erasableSyntaxOnly + refactor ApiError TS-only syntax ([#290](https://github.com/krisarmstrong/stem/issues/290)) ([1cc7d6a](https://github.com/krisarmstrong/stem/commit/1cc7d6a5f3b19437659ee3d7c7aa2bbdcf1842e9)), closes [#285](https://github.com/krisarmstrong/stem/issues/285)
+
 ## [0.17.2](https://github.com/krisarmstrong/stem/compare/v0.17.1...v0.17.2) (2026-05-25)
 
 
