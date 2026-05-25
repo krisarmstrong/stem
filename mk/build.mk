@@ -11,12 +11,17 @@
 #
 # =============================================================================
 
-.PHONY: all ui ui-deps go quick clean \
+.PHONY: all ui ui-deps go quick clean schema \
         build build-darwin build-linux \
         c-build dataplane c-build-docker \
         build-minimal build-xdp build-dpdk \
         build-linux-docker \
         ui-dev go-dev dev
+
+schema: ## Regenerate docs/schemas/api/*.json from internal/api Go DTOs
+	@echo "Generating JSON Schemas for API DTOs..."
+	@go run ./cmd/stem-schema -o docs/schemas/api
+	@echo "Wrote $$(ls -1 docs/schemas/api/*.json 2>/dev/null | wc -l | tr -d ' ') schema(s) to docs/schemas/api/"
 
 # =============================================================================
 # Main Build Targets
