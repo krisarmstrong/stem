@@ -104,6 +104,28 @@ global.IntersectionObserver = vi.fn().mockImplementation(() => ({
   thresholds: [],
 })) as unknown as typeof IntersectionObserver;
 
+// EventSource: required by useSse (#302) SSE subscription hook. JSDoM does not
+// implement EventSource. Without this polyfill, any component test that mounts
+// a tree containing useSse() throws "ReferenceError: EventSource is not defined".
+// Tests that need to assert on SSE behavior should mock this further per-suite.
+const eventSourceMock = vi.fn().mockImplementation(() => ({
+  addEventListener: vi.fn(),
+  removeEventListener: vi.fn(),
+  close: vi.fn(),
+  dispatchEvent: vi.fn(() => true),
+  url: '/api/v1/events',
+  readyState: 1, // OPEN
+  withCredentials: false,
+  onerror: null,
+  onmessage: null,
+  onopen: null,
+  CONNECTING: 0,
+  OPEN: 1,
+  CLOSED: 2,
+}));
+Object.assign(eventSourceMock, { CONNECTING: 0, OPEN: 1, CLOSED: 2 });
+global.EventSource = eventSourceMock as unknown as typeof EventSource;
+
 // ============================================================
 // Mock localStorage
 // ============================================================

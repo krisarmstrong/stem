@@ -12,8 +12,14 @@ import { expect, test } from '@playwright/test';
 
 test.describe('Error Scenarios', () => {
   test('should handle network errors gracefully', async ({ page }) => {
-    // Intercept API calls and simulate failure
+    // Intercept API calls and simulate failure.
+    // SSE (/api/v1/events) is bypassed — its lifecycle is reconnect-driven,
+    // not a one-shot call, and aborting it would mask network-error rendering
+    // behind an SSE-init failure that no app code actually handles distinctly.
     await page.route('**/api/**', (route) => {
+      if (route.request().url().includes('/api/v1/events')) {
+        return route.continue();
+      }
       route.abort('failed');
     });
 
@@ -30,8 +36,15 @@ test.describe('Error Scenarios', () => {
   });
 
   test('should handle slow API responses', async ({ page }) => {
-    // Intercept and delay API calls
+    // Intercept and delay API calls.
+    // SSE (/api/v1/events) is bypassed — its connection establishment time
+    // is irrelevant to the "slow API" UX the app is supposed to handle
+    // (loading spinners on data calls), and delaying SSE handshake by 2s
+    // can cause spurious reconnect cycles that aren't the test target.
     await page.route('**/api/**', async (route) => {
+      if (route.request().url().includes('/api/v1/events')) {
+        return route.continue();
+      }
       await new Promise((resolve) => setTimeout(resolve, 2000));
       route.continue();
     });
