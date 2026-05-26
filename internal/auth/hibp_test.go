@@ -37,9 +37,13 @@ func suffixOf(t *testing.T, password string) string {
 	return strings.ToUpper(hex.EncodeToString(sum[:]))[auth.HibpPrefixLen:]
 }
 
+// NOTE: tests that call withTestEndpoint must NOT run in parallel.
+// SetHibpEndpointForTest swaps a package-level global; concurrent
+// tests stomp each other's value and read the wrong server's response.
+// The hibpMu RWMutex makes the writes data-race-clean, but the
+// stomping itself is a logical race that no lock can fix. Keep these
+// serial — each test is well under a second.
 func TestCheckPasswordBreached_Found(t *testing.T) {
-	t.Parallel()
-
 	password := "P@ssw0rd-known-breach"
 	wantSuffix := suffixOf(t, password)
 
@@ -65,8 +69,6 @@ func TestCheckPasswordBreached_Found(t *testing.T) {
 }
 
 func TestCheckPasswordBreached_NotFound(t *testing.T) {
-	t.Parallel()
-
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		// Return some other suffix so this password isn't found.
 		fmt.Fprintf(w, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:1\r\n")
@@ -90,7 +92,6 @@ func TestCheckPasswordBreached_NotFound(t *testing.T) {
 // air-gapped escape hatch: when the HIBP API is unreachable we must
 // degrade to (false, 0, nil) so password changes still go through.
 func TestCheckPasswordBreached_NetworkFailure_DoesNotBlock(t *testing.T) {
-	t.Parallel()
 
 	// Point at a closed port — Dial will fail immediately.
 	withTestEndpoint(t, "http://127.0.0.1:1/")
@@ -119,7 +120,6 @@ func TestCheckPasswordBreached_NetworkFailure_DoesNotBlock(t *testing.T) {
 // TestCheckPasswordBreached_Server5xx_DoesNotBlock — non-2xx is treated
 // the same as a network failure (degrade-open).
 func TestCheckPasswordBreached_Server5xx_DoesNotBlock(t *testing.T) {
-	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "boom", http.StatusServiceUnavailable)
