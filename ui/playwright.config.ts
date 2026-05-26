@@ -11,8 +11,9 @@ import { AUTH_STORAGE_STATE } from './e2e/helpers/auth';
  * - Test execution
  * - Settings management
  *
- * Browsers: Chromium, Firefox, WebKit (Safari)
- * Viewports: Desktop, Tablet, Mobile
+ * Browsers: Chromium (covers Chrome + Edge) and WebKit (covers Safari).
+ * Per msn-docs-internal/05-Engineering/E2E_CONVENTIONS.md, no other browsers
+ * or viewports are supported.
  */
 export default defineConfig({
   testDir: './e2e',
