@@ -22,7 +22,7 @@ func (s *Server) handleTestStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req TestStartRequest
-	if !decodeJSONStrict(w, r, &req) {
+	if !decodeJSONStrict(w, r, &req, maxRequestBodySize) {
 		return
 	}
 

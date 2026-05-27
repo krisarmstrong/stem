@@ -94,7 +94,7 @@ func (s *Server) handleRecoveryComplete(w http.ResponseWriter, r *http.Request) 
 
 	// Decode request.
 	var req RecoveryCompleteRequest
-	if !decodeJSONStrict(w, r, &req) {
+	if !decodeJSONStrict(w, r, &req, maxRequestBodySize) {
 		return
 	}
 

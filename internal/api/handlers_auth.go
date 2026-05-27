@@ -26,7 +26,7 @@ func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req AuthLoginRequest
-	if !decodeJSONStrict(w, r, &req) {
+	if !decodeJSONStrict(w, r, &req, maxRequestBodySize) {
 		return
 	}
 
@@ -181,7 +181,7 @@ func (s *Server) handleAuthRefresh(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Fallback to request body for API clients.
 		var req AuthRefreshRequest
-		if !decodeJSONStrict(w, r, &req) {
+		if !decodeJSONStrict(w, r, &req, maxRequestBodySize) {
 			return // Error already written.
 		}
 		if req.RefreshToken == "" {
