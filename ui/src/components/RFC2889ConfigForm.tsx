@@ -1,10 +1,13 @@
 /**
  * @fileoverview The Stem - RFC 2889 LAN Switch Test Configuration
  * @description Configuration form for RFC 2889 LAN Switch Benchmarking Tests.
+ *              Migrated to react-hook-form + valibot per #325.
  */
 
-import { Info, Network } from 'lucide-react';
+import { AlertTriangle, Info, Network } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { useConfigForm } from '../forms/useConfigForm';
+import { RFC2889ConfigSchema } from '../schemas/configs';
 import { CollapsibleSection } from './CollapsibleSection';
 import { HelpIcon } from './HelpIcon';
 
@@ -37,7 +40,6 @@ export const defaultRFC2889Config: RFC2889Config = {
   pattern: 0,
 };
 
-/** Standard frame sizes for RFC 2889 */
 const FRAME_SIZE_OPTIONS: Array<{ value: number; label: string }> = [
   { value: 64, label: '64 B (min)' },
   { value: 128, label: '128 B' },
@@ -48,7 +50,6 @@ const FRAME_SIZE_OPTIONS: Array<{ value: number; label: string }> = [
   { value: 1518, label: '1518 B (max)' },
 ];
 
-/** Traffic pattern options */
 const PATTERN_OPTIONS: Array<{ value: number; label: string; description: string }> = [
   { value: 0, label: 'Full Mesh', description: 'All ports to all ports' },
   { value: 1, label: 'Pair', description: 'Port pairs (1→2, 3→4, etc.)' },
@@ -61,6 +62,16 @@ interface RFC2889ConfigFormProps {
   selectedTests: string[];
 }
 
+function FieldError({ message }: { message?: string }): ReactElement | null {
+  if (!message) return null;
+  return (
+    <div className="mt-1 text-xs text-[var(--color-status-danger)] flex items-center gap-1">
+      <AlertTriangle className="w-3 h-3" />
+      {message}
+    </div>
+  );
+}
+
 export function RFC2889ConfigForm({
   config,
   setConfig,
@@ -68,13 +79,26 @@ export function RFC2889ConfigForm({
 }: RFC2889ConfigFormProps): ReactElement | null {
   const hasRFC2889Tests = selectedTests.some((t) => t.startsWith('rfc2889'));
 
+  const form = useConfigForm<RFC2889Config>({
+    schema: RFC2889ConfigSchema,
+    config,
+    setConfig,
+  });
+  const {
+    register,
+    watch,
+    formState: { errors },
+  } = form;
+
   if (!hasRFC2889Tests) {
     return null;
   }
 
-  const updateConfig = (updates: Partial<RFC2889Config>): void => {
-    setConfig({ ...config, ...updates });
-  };
+  const frameSize = watch('frameSize') ?? 0;
+  const duration = watch('duration') ?? 0;
+  const warmup = watch('warmup') ?? 0;
+  const portCount = watch('portCount') ?? 0;
+  const pattern = watch('pattern') ?? 0;
 
   const hasForwarding = selectedTests.includes('rfc2889_forwarding');
   const hasCaching = selectedTests.includes('rfc2889_caching');
@@ -93,7 +117,6 @@ export function RFC2889ConfigForm({
       defaultOpen={true}
     >
       <div className="space-y-4">
-        {/* Test Duration */}
         <div className="space-y-3">
           <div className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">
             Test Parameters
@@ -111,15 +134,11 @@ export function RFC2889ConfigForm({
               <input
                 id="rfc2889-duration"
                 type="number"
-                min={10}
-                max={3600}
                 step={1}
-                value={config.duration}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ duration: Number(e.target.value) })
-                }
+                {...register('duration', { valueAsNumber: true })}
                 className="mt-1 w-full"
               />
+              <FieldError message={errors.duration?.message} />
             </div>
 
             <div>
@@ -133,20 +152,15 @@ export function RFC2889ConfigForm({
               <input
                 id="rfc2889-warmup"
                 type="number"
-                min={0}
-                max={60}
                 step={1}
-                value={config.warmup}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ warmup: Number(e.target.value) })
-                }
+                {...register('warmup', { valueAsNumber: true })}
                 className="mt-1 w-full"
               />
+              <FieldError message={errors.warmup?.message} />
             </div>
           </div>
         </div>
 
-        {/* Frame Size */}
         <div>
           <label
             htmlFor="rfc2889-framesize"
@@ -157,10 +171,7 @@ export function RFC2889ConfigForm({
           </label>
           <select
             id="rfc2889-framesize"
-            value={config.frameSize}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>): void =>
-              updateConfig({ frameSize: Number(e.target.value) })
-            }
+            {...register('frameSize', { valueAsNumber: true })}
             className="mt-1 w-full"
           >
             {FRAME_SIZE_OPTIONS.map((opt) => (
@@ -169,9 +180,9 @@ export function RFC2889ConfigForm({
               </option>
             ))}
           </select>
+          <FieldError message={errors.frameSize?.message} />
         </div>
 
-        {/* Port and Pattern Config */}
         <div className="space-y-3">
           <div className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">
             Switch Configuration
@@ -189,15 +200,11 @@ export function RFC2889ConfigForm({
               <input
                 id="rfc2889-portcount"
                 type="number"
-                min={2}
-                max={48}
                 step={1}
-                value={config.portCount}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ portCount: Number(e.target.value) })
-                }
+                {...register('portCount', { valueAsNumber: true })}
                 className="mt-1 w-full"
               />
+              <FieldError message={errors.portCount?.message} />
             </div>
 
             <div>
@@ -210,10 +217,7 @@ export function RFC2889ConfigForm({
               </label>
               <select
                 id="rfc2889-pattern"
-                value={config.pattern}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>): void =>
-                  updateConfig({ pattern: Number(e.target.value) })
-                }
+                {...register('pattern', { valueAsNumber: true })}
                 className="mt-1 w-full"
               >
                 {PATTERN_OPTIONS.map((opt) => (
@@ -222,11 +226,11 @@ export function RFC2889ConfigForm({
                   </option>
                 ))}
               </select>
+              <FieldError message={errors.pattern?.message} />
             </div>
           </div>
         </div>
 
-        {/* Learning/Caching Config */}
         {hasCaching || hasLearning ? (
           <div>
             <label
@@ -239,19 +243,14 @@ export function RFC2889ConfigForm({
             <input
               id="rfc2889-addresscount"
               type="number"
-              min={1}
-              max={100000}
               step={1}
-              value={config.addressCount}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                updateConfig({ addressCount: Number(e.target.value) })
-              }
+              {...register('addressCount', { valueAsNumber: true })}
               className="mt-1 w-full"
             />
+            <FieldError message={errors.addressCount?.message} />
           </div>
         ) : null}
 
-        {/* Acceptable Loss */}
         <div>
           <label
             htmlFor="rfc2889-loss"
@@ -263,18 +262,13 @@ export function RFC2889ConfigForm({
           <input
             id="rfc2889-loss"
             type="number"
-            min={0}
-            max={1}
             step={0.001}
-            value={config.acceptableLoss}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-              updateConfig({ acceptableLoss: Number(e.target.value) })
-            }
+            {...register('acceptableLoss', { valueAsNumber: true })}
             className="mt-1 w-full"
           />
+          <FieldError message={errors.acceptableLoss?.message} />
         </div>
 
-        {/* Test Summary */}
         <div className="p-3 rounded-lg bg-[var(--color-surface-base)] border border-[var(--color-surface-border)]">
           <div className="flex items-center gap-2 text-sm font-medium text-[var(--color-text-primary)] mb-2">
             <Info className="w-4 h-4" />
@@ -293,13 +287,13 @@ export function RFC2889ConfigForm({
                 .filter(Boolean)
                 .join(', ')}
             </div>
-            <div>Frame size: {config.frameSize} bytes</div>
+            <div>Frame size: {frameSize} bytes</div>
             <div>
-              Ports: {config.portCount} | Pattern:{' '}
-              {PATTERN_OPTIONS.find((p) => p.value === config.pattern)?.label}
+              Ports: {portCount} | Pattern:{' '}
+              {PATTERN_OPTIONS.find((p) => p.value === pattern)?.label}
             </div>
             <div>
-              Duration: {config.duration}s + {config.warmup}s warmup
+              Duration: {duration}s + {warmup}s warmup
             </div>
           </div>
         </div>

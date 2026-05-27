@@ -1,30 +1,27 @@
 /**
  * @fileoverview The Stem - RFC 6349 TCP Throughput Test Configuration
  * @description Configuration form for RFC 6349 TCP Throughput Testing.
+ *              Migrated to react-hook-form + valibot per #325; the
+ *              cross-field rule (minRTT ≤ maxRTT) is enforced by the
+ *              schema and surfaced via the form footer.
  */
 
-import { Activity, Info } from 'lucide-react';
+import { Activity, AlertTriangle, Info } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { useConfigForm } from '../forms/useConfigForm';
+import { RFC6349ConfigSchema } from '../schemas/configs';
 import { CollapsibleSection } from './CollapsibleSection';
 import { HelpIcon } from './HelpIcon';
 
 /** RFC 6349 test configuration parameters */
 export interface RFC6349Config {
-  /** Target rate in Mbps */
   targetRateMbps: number;
-  /** Minimum RTT in milliseconds */
   minRTTMs: number;
-  /** Maximum RTT in milliseconds */
   maxRTTMs: number;
-  /** Receive window size in bytes */
   rwndSize: number;
-  /** Test duration in seconds */
   duration: number;
-  /** Number of parallel TCP streams */
   parallelStreams: number;
-  /** Maximum Segment Size */
   mss: number;
-  /** Test mode: 0=bidirectional, 1=upstream, 2=downstream */
   mode: number;
 }
 
@@ -40,14 +37,12 @@ export const defaultRFC6349Config: RFC6349Config = {
   mode: 0,
 };
 
-/** Test mode options */
 const MODE_OPTIONS: Array<{ value: number; label: string; description: string }> = [
   { value: 0, label: 'Bidirectional', description: 'Test both directions' },
   { value: 1, label: 'Upstream', description: 'Client to server only' },
   { value: 2, label: 'Downstream', description: 'Server to client only' },
 ];
 
-/** Common MSS values */
 const MSS_OPTIONS: Array<{ value: number; label: string }> = [
   { value: 536, label: '536 B (min)' },
   { value: 1220, label: '1220 B (IPv6)' },
@@ -55,7 +50,6 @@ const MSS_OPTIONS: Array<{ value: number; label: string }> = [
   { value: 8960, label: '8960 B (jumbo)' },
 ];
 
-/** Format BDP value in appropriate unit */
 function formatBDP(bdpBytes: number): string {
   if (bdpBytes >= 1048576) {
     return `${(bdpBytes / 1048576).toFixed(2)} MB`;
@@ -72,6 +66,16 @@ interface RFC6349ConfigFormProps {
   selectedTests: string[];
 }
 
+function FieldError({ message }: { message?: string }): ReactElement | null {
+  if (!message) return null;
+  return (
+    <div className="mt-1 text-xs text-[var(--color-status-danger)] flex items-center gap-1">
+      <AlertTriangle className="w-3 h-3" />
+      {message}
+    </div>
+  );
+}
+
 export function RFC6349ConfigForm({
   config,
   setConfig,
@@ -79,21 +83,44 @@ export function RFC6349ConfigForm({
 }: RFC6349ConfigFormProps): ReactElement | null {
   const hasRFC6349Tests = selectedTests.some((t) => t.startsWith('rfc6349'));
 
+  const form = useConfigForm<RFC6349Config>({
+    schema: RFC6349ConfigSchema,
+    config,
+    setConfig,
+  });
+  const {
+    register,
+    watch,
+    formState: { errors },
+  } = form;
+
   if (!hasRFC6349Tests) {
     return null;
   }
 
-  const updateConfig = (updates: Partial<RFC6349Config>): void => {
-    setConfig({ ...config, ...updates });
-  };
+  const targetRateMbps = watch('targetRateMbps') ?? 0;
+  const minRTTMs = watch('minRTTMs') ?? 0;
+  const maxRTTMs = watch('maxRTTMs') ?? 0;
+  const rwndSize = watch('rwndSize') ?? 0;
+  const duration = watch('duration') ?? 0;
+  const parallelStreams = watch('parallelStreams') ?? 0;
+  const mode = watch('mode') ?? 0;
 
   const hasThroughput = selectedTests.includes('rfc6349_throughput');
   const hasBDP = selectedTests.includes('rfc6349_bdp');
   const hasEfficiency = selectedTests.includes('rfc6349_efficiency');
 
-  // Calculate Bandwidth-Delay Product
-  const bdp = (config.targetRateMbps * 1000000 * config.maxRTTMs) / 8000;
+  const bdp = (targetRateMbps * 1000000 * maxRTTMs) / 8000;
   const bdpFormatted = formatBDP(bdp);
+
+  // Cross-field error (minRTT > maxRTT) from valibot v.check().
+  const rootErrors = errors.root;
+  const crossFieldError = rootErrors
+    ? Object.values(rootErrors).find(
+        (e): e is { message: string } =>
+          typeof e === 'object' && e !== null && 'message' in e && typeof e.message === 'string',
+      )
+    : undefined;
 
   return (
     <CollapsibleSection
@@ -106,7 +133,6 @@ export function RFC6349ConfigForm({
       defaultOpen={true}
     >
       <div className="space-y-4">
-        {/* Target Rate and RTT */}
         <div className="space-y-3">
           <div className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">
             Network Parameters
@@ -124,15 +150,11 @@ export function RFC6349ConfigForm({
               <input
                 id="rfc6349-rate"
                 type="number"
-                min={1}
-                max={100000}
                 step={1}
-                value={config.targetRateMbps}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ targetRateMbps: Number(e.target.value) })
-                }
+                {...register('targetRateMbps', { valueAsNumber: true })}
                 className="mt-1 w-full"
               />
+              <FieldError message={errors.targetRateMbps?.message} />
             </div>
 
             <div>
@@ -146,15 +168,11 @@ export function RFC6349ConfigForm({
               <input
                 id="rfc6349-minrtt"
                 type="number"
-                min={0.1}
-                max={1000}
                 step={0.1}
-                value={config.minRTTMs}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ minRTTMs: Number(e.target.value) })
-                }
+                {...register('minRTTMs', { valueAsNumber: true })}
                 className="mt-1 w-full"
               />
+              <FieldError message={errors.minRTTMs?.message} />
             </div>
 
             <div>
@@ -168,20 +186,15 @@ export function RFC6349ConfigForm({
               <input
                 id="rfc6349-maxrtt"
                 type="number"
-                min={0.1}
-                max={5000}
                 step={0.1}
-                value={config.maxRTTMs}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ maxRTTMs: Number(e.target.value) })
-                }
+                {...register('maxRTTMs', { valueAsNumber: true })}
                 className="mt-1 w-full"
               />
+              <FieldError message={errors.maxRTTMs?.message} />
             </div>
           </div>
         </div>
 
-        {/* TCP Parameters */}
         <div className="space-y-3">
           <div className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">
             TCP Parameters
@@ -199,15 +212,11 @@ export function RFC6349ConfigForm({
               <input
                 id="rfc6349-rwnd"
                 type="number"
-                min={4096}
-                max={16777216}
                 step={1024}
-                value={config.rwndSize}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ rwndSize: Number(e.target.value) })
-                }
+                {...register('rwndSize', { valueAsNumber: true })}
                 className="mt-1 w-full"
               />
+              <FieldError message={errors.rwndSize?.message} />
             </div>
 
             <div>
@@ -220,10 +229,7 @@ export function RFC6349ConfigForm({
               </label>
               <select
                 id="rfc6349-mss"
-                value={config.mss}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>): void =>
-                  updateConfig({ mss: Number(e.target.value) })
-                }
+                {...register('mss', { valueAsNumber: true })}
                 className="mt-1 w-full"
               >
                 {MSS_OPTIONS.map((opt) => (
@@ -232,6 +238,7 @@ export function RFC6349ConfigForm({
                   </option>
                 ))}
               </select>
+              <FieldError message={errors.mss?.message} />
             </div>
           </div>
 
@@ -247,15 +254,11 @@ export function RFC6349ConfigForm({
               <input
                 id="rfc6349-streams"
                 type="number"
-                min={1}
-                max={128}
                 step={1}
-                value={config.parallelStreams}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ parallelStreams: Number(e.target.value) })
-                }
+                {...register('parallelStreams', { valueAsNumber: true })}
                 className="mt-1 w-full"
               />
+              <FieldError message={errors.parallelStreams?.message} />
             </div>
 
             <div>
@@ -268,10 +271,7 @@ export function RFC6349ConfigForm({
               </label>
               <select
                 id="rfc6349-mode"
-                value={config.mode}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>): void =>
-                  updateConfig({ mode: Number(e.target.value) })
-                }
+                {...register('mode', { valueAsNumber: true })}
                 className="mt-1 w-full"
               >
                 {MODE_OPTIONS.map((opt) => (
@@ -280,11 +280,11 @@ export function RFC6349ConfigForm({
                   </option>
                 ))}
               </select>
+              <FieldError message={errors.mode?.message} />
             </div>
           </div>
         </div>
 
-        {/* Duration */}
         <div>
           <label
             htmlFor="rfc6349-duration"
@@ -296,18 +296,20 @@ export function RFC6349ConfigForm({
           <input
             id="rfc6349-duration"
             type="number"
-            min={10}
-            max={3600}
             step={1}
-            value={config.duration}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-              updateConfig({ duration: Number(e.target.value) })
-            }
+            {...register('duration', { valueAsNumber: true })}
             className="mt-1 w-full"
           />
+          <FieldError message={errors.duration?.message} />
         </div>
 
-        {/* Test Summary */}
+        {crossFieldError && (
+          <div className="p-2 rounded-lg bg-[var(--color-status-danger-subtle)] text-[var(--color-status-danger)] text-sm flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4" />
+            {crossFieldError.message}
+          </div>
+        )}
+
         <div className="p-3 rounded-lg bg-[var(--color-surface-base)] border border-[var(--color-surface-border)]">
           <div className="flex items-center gap-2 text-sm font-medium text-[var(--color-text-primary)] mb-2">
             <Info className="w-4 h-4" />
@@ -320,21 +322,20 @@ export function RFC6349ConfigForm({
                 .filter(Boolean)
                 .join(', ')}
             </div>
-            <div>Target: {config.targetRateMbps} Mbps</div>
+            <div>Target: {targetRateMbps} Mbps</div>
             <div>
-              RTT Range: {config.minRTTMs} - {config.maxRTTMs} ms
+              RTT Range: {minRTTMs} - {maxRTTMs} ms
             </div>
             <div>
               BDP (calculated): {bdpFormatted}
-              {config.rwndSize < bdp ? (
+              {rwndSize < bdp ? (
                 <span className="text-[var(--color-status-warning)] ml-2">RWND &lt; BDP</span>
               ) : null}
             </div>
             <div>
-              Mode: {MODE_OPTIONS.find((m) => m.value === config.mode)?.label} | Streams:{' '}
-              {config.parallelStreams}
+              Mode: {MODE_OPTIONS.find((m) => m.value === mode)?.label} | Streams: {parallelStreams}
             </div>
-            <div>Duration: {config.duration}s</div>
+            <div>Duration: {duration}s</div>
           </div>
         </div>
       </div>

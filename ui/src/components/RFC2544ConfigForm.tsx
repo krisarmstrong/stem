@@ -1,12 +1,14 @@
 /**
  * @fileoverview The Stem - RFC 2544 Benchmark Test Configuration
  * @description Advanced configuration form for RFC 2544 Benchmarking Tests.
- *              Allows users to configure test parameters including duration,
- *              frame sizes, resolution, loss threshold, warmup, and trials.
+ *              Migrated to react-hook-form + valibot per #325. The schema
+ *              lives at src/schemas/configs.ts (RFC2544ConfigSchema).
  */
 
 import { AlertTriangle, Info } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { useConfigForm } from '../forms/useConfigForm';
+import { RFC2544ConfigSchema } from '../schemas/configs';
 import { HelpIcon } from './HelpIcon';
 
 /** RFC 2544 test configuration parameters */
@@ -47,7 +49,6 @@ interface RFC2544ConfigFormProps {
   selectedTests: string[];
 }
 
-/** Standard Ethernet frame sizes per RFC 2544 */
 const FRAME_SIZE_OPTIONS: Array<{ value: number; label: string }> = [
   { value: 64, label: '64 B (min)' },
   { value: 128, label: '128 B' },
@@ -59,6 +60,16 @@ const FRAME_SIZE_OPTIONS: Array<{ value: number; label: string }> = [
   { value: 9000, label: '9000 B (jumbo)' },
 ];
 
+function FieldError({ message }: { message?: string }): ReactElement | null {
+  if (!message) return null;
+  return (
+    <div className="mt-1 text-xs text-[var(--color-status-danger)] flex items-center gap-1">
+      <AlertTriangle className="w-3 h-3" />
+      {message}
+    </div>
+  );
+}
+
 export function RFC2544ConfigForm({
   config,
   setConfig,
@@ -66,21 +77,47 @@ export function RFC2544ConfigForm({
 }: RFC2544ConfigFormProps): ReactElement | null {
   const hasRFC2544Tests = selectedTests.some((t) => t.startsWith('rfc2544'));
 
+  const form = useConfigForm<RFC2544Config>({
+    schema: RFC2544ConfigSchema,
+    config,
+    setConfig,
+  });
+  const {
+    register,
+    watch,
+    setValue,
+    formState: { errors },
+  } = form;
+
   if (!hasRFC2544Tests) {
     return null;
   }
 
-  const updateConfig = (updates: Partial<RFC2544Config>): void => {
-    setConfig({ ...config, ...updates });
-  };
+  const frameSizes = watch('frameSizes') ?? [];
+  const duration = watch('duration') ?? 0;
+  const warmup = watch('warmup') ?? 0;
+  const trials = watch('trials') ?? 0;
+  const resolution = watch('resolution') ?? 0;
+  const maxLoss = watch('maxLoss') ?? 0;
+  const stepSize = watch('stepSize') ?? 0;
+  const bidirectional = watch('bidirectional') ?? false;
 
   const toggleFrameSize = (size: number): void => {
-    if (config.frameSizes.includes(size)) {
-      updateConfig({ frameSizes: config.frameSizes.filter((s) => s !== size) });
+    if (frameSizes.includes(size)) {
+      setValue(
+        'frameSizes',
+        frameSizes.filter((s) => s !== size),
+        { shouldValidate: true, shouldDirty: true },
+      );
     } else {
-      updateConfig({
-        frameSizes: [...config.frameSizes, size].sort((a, b) => a - b),
-      });
+      setValue(
+        'frameSizes',
+        [...frameSizes, size].sort((a, b) => a - b),
+        {
+          shouldValidate: true,
+          shouldDirty: true,
+        },
+      );
     }
   };
 
@@ -108,15 +145,11 @@ export function RFC2544ConfigForm({
           <input
             id="rfc2544-duration"
             type="number"
-            min={10}
-            max={3600}
             step={1}
-            value={config.duration}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-              updateConfig({ duration: Number(e.target.value) })
-            }
+            {...register('duration', { valueAsNumber: true })}
             className="mt-1 w-full"
           />
+          <FieldError message={errors.duration?.message} />
         </div>
 
         <div>
@@ -125,20 +158,16 @@ export function RFC2544ConfigForm({
             className="flex items-center gap-1 text-sm font-medium text-[var(--color-text-primary)]"
           >
             Warmup Duration (s)
-            <HelpIcon tooltip="Time to stabilize traffic flow before starting measurements. Helps ensure accurate results." />
+            <HelpIcon tooltip="Time to stabilize traffic flow before starting measurements." />
           </label>
           <input
             id="rfc2544-warmup"
             type="number"
-            min={0}
-            max={60}
             step={1}
-            value={config.warmup}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-              updateConfig({ warmup: Number(e.target.value) })
-            }
+            {...register('warmup', { valueAsNumber: true })}
             className="mt-1 w-full"
           />
+          <FieldError message={errors.warmup?.message} />
         </div>
 
         <div>
@@ -152,15 +181,11 @@ export function RFC2544ConfigForm({
           <input
             id="rfc2544-trials"
             type="number"
-            min={1}
-            max={10}
             step={1}
-            value={config.trials}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-              updateConfig({ trials: Number(e.target.value) })
-            }
+            {...register('trials', { valueAsNumber: true })}
             className="mt-1 w-full"
           />
+          <FieldError message={errors.trials?.message} />
         </div>
       </div>
 
@@ -177,20 +202,16 @@ export function RFC2544ConfigForm({
               className="flex items-center gap-1 text-sm font-medium text-[var(--color-text-primary)]"
             >
               Resolution (%)
-              <HelpIcon tooltip="Binary search resolution. Lower values give more precise throughput results but take longer. Default: 0.1%" />
+              <HelpIcon tooltip="Binary search resolution. Default: 0.1%." />
             </label>
             <input
               id="rfc2544-resolution"
               type="number"
-              min={0.01}
-              max={10}
               step={0.01}
-              value={config.resolution}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                updateConfig({ resolution: Number(e.target.value) })
-              }
+              {...register('resolution', { valueAsNumber: true })}
               className="mt-1 w-full"
             />
+            <FieldError message={errors.resolution?.message} />
           </div>
 
           <div>
@@ -199,20 +220,16 @@ export function RFC2544ConfigForm({
               className="flex items-center gap-1 text-sm font-medium text-[var(--color-text-primary)]"
             >
               Max Acceptable Loss (%)
-              <HelpIcon tooltip="Maximum frame loss considered acceptable for throughput calculation. RFC 2544 specifies 0% but some implementations allow small tolerance." />
+              <HelpIcon tooltip="Maximum frame loss considered acceptable. RFC 2544 specifies 0%." />
             </label>
             <input
               id="rfc2544-maxloss"
               type="number"
-              min={0}
-              max={1}
               step={0.001}
-              value={config.maxLoss}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                updateConfig({ maxLoss: Number(e.target.value) })
-              }
+              {...register('maxLoss', { valueAsNumber: true })}
               className="mt-1 w-full"
             />
+            <FieldError message={errors.maxLoss?.message} />
           </div>
         </div>
       ) : null}
@@ -230,25 +247,21 @@ export function RFC2544ConfigForm({
               className="flex items-center gap-1 text-sm font-medium text-[var(--color-text-primary)]"
             >
               Step Size (%)
-              <HelpIcon tooltip="Load increment step for frame loss rate measurement. Smaller steps give finer granularity." />
+              <HelpIcon tooltip="Load increment step for frame loss rate measurement." />
             </label>
             <input
               id="rfc2544-stepsize"
               type="number"
-              min={1}
-              max={25}
               step={1}
-              value={config.stepSize}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                updateConfig({ stepSize: Number(e.target.value) })
-              }
+              {...register('stepSize', { valueAsNumber: true })}
               className="mt-1 w-full"
             />
+            <FieldError message={errors.stepSize?.message} />
             <div className="text-xs text-[var(--color-text-muted)] mt-1">
               Tests at:{' '}
               {Array.from(
-                { length: Math.floor(100 / config.stepSize) + 1 },
-                (_, i) => `${i * config.stepSize}%`,
+                { length: Math.floor(100 / Math.max(1, stepSize)) + 1 },
+                (_, i) => `${i * stepSize}%`,
               ).join(', ')}
             </div>
           </div>
@@ -265,12 +278,12 @@ export function RFC2544ConfigForm({
           {FRAME_SIZE_OPTIONS.map((option) => (
             <label
               key={option.value}
-              title={`Include ${option.value}-byte frames in the RFC 2544 sweep; required by RFC 2544 for full compliance reporting`}
+              title={`Include ${option.value}-byte frames in the RFC 2544 sweep`}
               className="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)] text-sm"
             >
               <input
                 type="checkbox"
-                checked={config.frameSizes.includes(option.value)}
+                checked={frameSizes.includes(option.value)}
                 onChange={() => toggleFrameSize(option.value)}
                 aria-label={`Test ${option.value}-byte frames`}
                 className="w-4 h-4 accent-[var(--color-brand-primary)]"
@@ -279,12 +292,7 @@ export function RFC2544ConfigForm({
             </label>
           ))}
         </div>
-        {config.frameSizes.length === 0 ? (
-          <div className="flex items-center gap-2 text-xs text-[var(--color-status-warning)]">
-            <AlertTriangle className="w-3 h-3" />
-            Select at least one frame size
-          </div>
-        ) : null}
+        <FieldError message={errors.frameSizes?.message} />
       </div>
 
       {/* Advanced Options */}
@@ -294,22 +302,19 @@ export function RFC2544ConfigForm({
         </div>
 
         <label
-          title="Send and measure traffic in both directions simultaneously; doubles the offered load and exercises full-duplex forwarding"
+          title="Send and measure traffic in both directions simultaneously"
           className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-[var(--color-surface-hover)]"
         >
           <input
             type="checkbox"
-            checked={config.bidirectional}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-              updateConfig({ bidirectional: e.target.checked })
-            }
+            {...register('bidirectional')}
             aria-label="Enable bidirectional testing"
             className="w-4 h-4 accent-[var(--color-brand-primary)]"
           />
           <div>
             <div className="font-medium text-sm flex items-center gap-1">
               Bidirectional Testing
-              <HelpIcon tooltip="Run tests in both directions simultaneously. Doubles traffic load but tests full-duplex capacity." />
+              <HelpIcon tooltip="Run tests in both directions simultaneously." />
             </div>
             <div className="text-xs text-[var(--color-text-muted)]">Test both TX and RX paths</div>
           </div>
@@ -336,23 +341,23 @@ export function RFC2544ConfigForm({
               .filter(Boolean)
               .join(', ')}
           </div>
-          <div>Frame sizes: {config.frameSizes.join(', ')} bytes</div>
+          <div>Frame sizes: {frameSizes.join(', ')} bytes</div>
           <div>
-            Duration: {config.duration}s × {config.trials} trials
-            {config.warmup > 0 && ` + ${config.warmup}s warmup`}
+            Duration: {duration}s × {trials} trials
+            {warmup > 0 && ` + ${warmup}s warmup`}
           </div>
           {hasThroughput ? (
             <div>
-              Throughput: {config.resolution}% resolution, ≤{config.maxLoss}% loss
+              Throughput: {resolution}% resolution, ≤{maxLoss}% loss
             </div>
           ) : null}
-          {config.bidirectional ? <div>Mode: Bidirectional</div> : null}
+          {bidirectional ? <div>Mode: Bidirectional</div> : null}
           <div className="pt-1 border-t border-[var(--color-surface-border)] mt-1">
             Estimated time: ~
             {Math.ceil(
-              ((config.duration + config.warmup) *
-                config.trials *
-                config.frameSizes.length *
+              ((duration + warmup) *
+                trials *
+                frameSizes.length *
                 selectedTests.filter((t) => t.startsWith('rfc2544')).length) /
                 60,
             )}{' '}

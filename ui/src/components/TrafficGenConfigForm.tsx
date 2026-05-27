@@ -1,38 +1,29 @@
 /**
  * @fileoverview The Stem - Traffic Generator Configuration
- * @description Configuration form for Custom Traffic Generation.
+ * @description Migrated to react-hook-form + valibot per #325. MAC fields
+ *              now validate format (or accept empty string for "auto").
  */
 
-import { Info, Radio } from 'lucide-react';
+import { AlertTriangle, Info, Radio } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { useConfigForm } from '../forms/useConfigForm';
+import { TrafficGenConfigSchema } from '../schemas/configs';
 import { CollapsibleSection } from './CollapsibleSection';
 import { HelpIcon } from './HelpIcon';
 
 /** Traffic generator configuration parameters */
 export interface TrafficGenConfig {
-  /** Frame size in bytes */
   frameSize: number;
-  /** Traffic rate as percentage of line rate */
   ratePct: number;
-  /** Traffic generation duration in seconds */
   duration: number;
-  /** Warmup duration in seconds */
   warmup: number;
-  /** Stream identifier for multi-stream tests */
   streamId: number;
-  /** Enable burst mode */
   burstMode: boolean;
-  /** Burst size in frames */
   burstSize: number;
-  /** Inter-burst gap in microseconds */
   interBurstGapUs: number;
-  /** Source MAC address (optional) */
   srcMac: string;
-  /** Destination MAC address (optional) */
   dstMac: string;
-  /** VLAN ID (0 = untagged) */
   vlanId: number;
-  /** VLAN priority (0-7) */
   vlanPriority: number;
 }
 
@@ -52,7 +43,6 @@ export const defaultTrafficGenConfig: TrafficGenConfig = {
   vlanPriority: 0,
 };
 
-/** Frame size options */
 const FRAME_SIZE_OPTIONS: Array<{ value: number; label: string }> = [
   { value: 64, label: '64 B (min)' },
   { value: 128, label: '128 B' },
@@ -64,7 +54,6 @@ const FRAME_SIZE_OPTIONS: Array<{ value: number; label: string }> = [
   { value: 9000, label: '9000 B (jumbo)' },
 ];
 
-/** Rate presets */
 const RATE_PRESETS: Array<{ value: number; label: string }> = [
   { value: 10, label: '10%' },
   { value: 25, label: '25%' },
@@ -80,6 +69,16 @@ interface TrafficGenConfigFormProps {
   selectedTests: string[];
 }
 
+function FieldError({ message }: { message?: string }): ReactElement | null {
+  if (!message) return null;
+  return (
+    <div className="mt-1 text-xs text-[var(--color-status-danger)] flex items-center gap-1">
+      <AlertTriangle className="w-3 h-3" />
+      {message}
+    </div>
+  );
+}
+
 export function TrafficGenConfigForm({
   config,
   setConfig,
@@ -89,26 +88,40 @@ export function TrafficGenConfigForm({
     (t) => t.startsWith('trafficgen_') || t === 'custom_stream',
   );
 
+  const form = useConfigForm<TrafficGenConfig>({
+    schema: TrafficGenConfigSchema,
+    config,
+    setConfig,
+  });
+  const {
+    register,
+    watch,
+    setValue,
+    formState: { errors },
+  } = form;
+
   if (!hasTrafficGenTests) {
     return null;
   }
 
-  const updateConfig = (updates: Partial<TrafficGenConfig>): void => {
-    setConfig({ ...config, ...updates });
-  };
+  const frameSize = watch('frameSize') ?? 0;
+  const ratePct = watch('ratePct') ?? 0;
+  const duration = watch('duration') ?? 0;
+  const warmup = watch('warmup') ?? 0;
+  const burstMode = watch('burstMode') ?? false;
+  const burstSize = watch('burstSize') ?? 0;
+  const interBurstGapUs = watch('interBurstGapUs') ?? 0;
+  const vlanId = watch('vlanId') ?? 0;
+  const vlanPriority = watch('vlanPriority') ?? 0;
 
   const hasCustomStream = selectedTests.includes('custom_stream');
   const hasBurst = selectedTests.includes('trafficgen_burst');
   const hasMultiStream = selectedTests.includes('trafficgen_multistream');
 
-  // Calculate approximate throughput
   const calculateThroughput = (): string => {
-    // Assume 10 Gbps line rate for calculation
     const lineRateMbps = 10000;
-    const throughputMbps = (lineRateMbps * config.ratePct) / 100;
-    if (throughputMbps >= 1000) {
-      return `${(throughputMbps / 1000).toFixed(1)} Gbps`;
-    }
+    const throughputMbps = (lineRateMbps * ratePct) / 100;
+    if (throughputMbps >= 1000) return `${(throughputMbps / 1000).toFixed(1)} Gbps`;
     return `${throughputMbps.toFixed(0)} Mbps`;
   };
 
@@ -123,12 +136,10 @@ export function TrafficGenConfigForm({
       defaultOpen={true}
     >
       <div className="space-y-4">
-        {/* Basic Parameters */}
         <div className="space-y-3">
           <div className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">
             Traffic Parameters
           </div>
-
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label
@@ -140,10 +151,7 @@ export function TrafficGenConfigForm({
               </label>
               <select
                 id="tgen-framesize"
-                value={config.frameSize}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>): void =>
-                  updateConfig({ frameSize: Number(e.target.value) })
-                }
+                {...register('frameSize', { valueAsNumber: true })}
                 className="mt-1 w-full"
               >
                 {FRAME_SIZE_OPTIONS.map((opt) => (
@@ -152,6 +160,7 @@ export function TrafficGenConfigForm({
                   </option>
                 ))}
               </select>
+              <FieldError message={errors.frameSize?.message} />
             </div>
 
             <div>
@@ -166,24 +175,25 @@ export function TrafficGenConfigForm({
                 <input
                   id="tgen-rate"
                   type="number"
-                  min={0.01}
-                  max={100}
                   step={0.01}
-                  value={config.ratePct}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                    updateConfig({ ratePct: Number(e.target.value) })
-                  }
+                  {...register('ratePct', { valueAsNumber: true })}
                   className="w-full"
                 />
               </div>
+              <FieldError message={errors.ratePct?.message} />
               <div className="mt-1 flex gap-1 flex-wrap">
                 {RATE_PRESETS.map((preset) => (
                   <button
                     key={preset.value}
                     type="button"
-                    onClick={() => updateConfig({ ratePct: preset.value })}
+                    onClick={() =>
+                      setValue('ratePct', preset.value, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      })
+                    }
                     className={`text-xs px-2 py-0.5 rounded border ${
-                      config.ratePct === preset.value
+                      ratePct === preset.value
                         ? 'bg-[var(--color-brand-primary)] text-white border-[var(--color-brand-primary)]'
                         : 'bg-[var(--color-surface-base)] border-[var(--color-surface-border)] text-[var(--color-text-muted)]'
                     }`}
@@ -207,15 +217,11 @@ export function TrafficGenConfigForm({
               <input
                 id="tgen-duration"
                 type="number"
-                min={1}
-                max={86400}
                 step={1}
-                value={config.duration}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ duration: Number(e.target.value) })
-                }
+                {...register('duration', { valueAsNumber: true })}
                 className="mt-1 w-full"
               />
+              <FieldError message={errors.duration?.message} />
             </div>
 
             <div>
@@ -229,26 +235,20 @@ export function TrafficGenConfigForm({
               <input
                 id="tgen-warmup"
                 type="number"
-                min={0}
-                max={60}
                 step={1}
-                value={config.warmup}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ warmup: Number(e.target.value) })
-                }
+                {...register('warmup', { valueAsNumber: true })}
                 className="mt-1 w-full"
               />
+              <FieldError message={errors.warmup?.message} />
             </div>
           </div>
         </div>
 
-        {/* Stream Configuration */}
         {hasMultiStream ? (
           <div className="space-y-3">
             <div className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">
               Stream Configuration
             </div>
-
             <div>
               <label
                 htmlFor="tgen-streamid"
@@ -260,34 +260,25 @@ export function TrafficGenConfigForm({
               <input
                 id="tgen-streamid"
                 type="number"
-                min={1}
-                max={65535}
                 step={1}
-                value={config.streamId}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ streamId: Number(e.target.value) })
-                }
+                {...register('streamId', { valueAsNumber: true })}
                 className="mt-1 w-full"
               />
+              <FieldError message={errors.streamId?.message} />
             </div>
           </div>
         ) : null}
 
-        {/* Burst Mode */}
         {hasBurst ? (
           <div className="space-y-3">
             <div className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">
               Burst Mode
             </div>
-
             <div className="flex items-center gap-2">
               <input
                 id="tgen-burstmode"
                 type="checkbox"
-                checked={config.burstMode}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ burstMode: e.target.checked })
-                }
+                {...register('burstMode')}
                 aria-label="Enable burst mode traffic generation"
                 className="rounded border-[var(--color-surface-border)]"
               />
@@ -300,7 +291,7 @@ export function TrafficGenConfigForm({
               </label>
             </div>
 
-            {config.burstMode ? (
+            {burstMode ? (
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label
@@ -313,17 +304,12 @@ export function TrafficGenConfigForm({
                   <input
                     id="tgen-burstsize"
                     type="number"
-                    min={1}
-                    max={10000}
                     step={1}
-                    value={config.burstSize}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                      updateConfig({ burstSize: Number(e.target.value) })
-                    }
+                    {...register('burstSize', { valueAsNumber: true })}
                     className="mt-1 w-full"
                   />
+                  <FieldError message={errors.burstSize?.message} />
                 </div>
-
                 <div>
                   <label
                     htmlFor="tgen-ibg"
@@ -335,27 +321,21 @@ export function TrafficGenConfigForm({
                   <input
                     id="tgen-ibg"
                     type="number"
-                    min={0}
-                    max={1000000}
                     step={1}
-                    value={config.interBurstGapUs}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                      updateConfig({ interBurstGapUs: Number(e.target.value) })
-                    }
+                    {...register('interBurstGapUs', { valueAsNumber: true })}
                     className="mt-1 w-full"
                   />
+                  <FieldError message={errors.interBurstGapUs?.message} />
                 </div>
               </div>
             ) : null}
           </div>
         ) : null}
 
-        {/* VLAN Configuration */}
         <div className="space-y-3">
           <div className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">
             VLAN Configuration
           </div>
-
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label
@@ -368,17 +348,12 @@ export function TrafficGenConfigForm({
               <input
                 id="tgen-vlanid"
                 type="number"
-                min={0}
-                max={4094}
                 step={1}
-                value={config.vlanId}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ vlanId: Number(e.target.value) })
-                }
+                {...register('vlanId', { valueAsNumber: true })}
                 className="mt-1 w-full"
               />
+              <FieldError message={errors.vlanId?.message} />
             </div>
-
             <div>
               <label
                 htmlFor="tgen-vlanpri"
@@ -390,26 +365,20 @@ export function TrafficGenConfigForm({
               <input
                 id="tgen-vlanpri"
                 type="number"
-                min={0}
-                max={7}
                 step={1}
-                value={config.vlanPriority}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ vlanPriority: Number(e.target.value) })
-                }
+                disabled={vlanId === 0}
+                {...register('vlanPriority', { valueAsNumber: true })}
                 className="mt-1 w-full"
-                disabled={config.vlanId === 0}
               />
+              <FieldError message={errors.vlanPriority?.message} />
             </div>
           </div>
         </div>
 
-        {/* MAC Address Configuration */}
         <div className="space-y-3">
           <div className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">
             MAC Addresses (Optional)
           </div>
-
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label
@@ -417,43 +386,37 @@ export function TrafficGenConfigForm({
                 className="flex items-center gap-1 text-sm font-medium text-[var(--color-text-primary)]"
               >
                 Source MAC
-                <HelpIcon tooltip="Source MAC address (leave empty for auto)." />
+                <HelpIcon tooltip="Source MAC address (leave empty for auto). Format: AA:BB:CC:DD:EE:FF." />
               </label>
               <input
                 id="tgen-srcmac"
                 type="text"
                 placeholder="aa:bb:cc:dd:ee:ff"
-                value={config.srcMac}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ srcMac: e.target.value })
-                }
+                {...register('srcMac')}
                 className="mt-1 w-full"
               />
+              <FieldError message={errors.srcMac?.message} />
             </div>
-
             <div>
               <label
                 htmlFor="tgen-dstmac"
                 className="flex items-center gap-1 text-sm font-medium text-[var(--color-text-primary)]"
               >
                 Destination MAC
-                <HelpIcon tooltip="Destination MAC address (leave empty for broadcast)." />
+                <HelpIcon tooltip="Destination MAC address (leave empty for broadcast). Format: AA:BB:CC:DD:EE:FF." />
               </label>
               <input
                 id="tgen-dstmac"
                 type="text"
                 placeholder="aa:bb:cc:dd:ee:ff"
-                value={config.dstMac}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ dstMac: e.target.value })
-                }
+                {...register('dstMac')}
                 className="mt-1 w-full"
               />
+              <FieldError message={errors.dstMac?.message} />
             </div>
           </div>
         </div>
 
-        {/* Test Summary */}
         <div className="p-3 rounded-lg bg-[var(--color-surface-base)] border border-[var(--color-surface-border)]">
           <div className="flex items-center gap-2 text-sm font-medium text-[var(--color-text-primary)] mb-2">
             <Info className="w-4 h-4" />
@@ -471,21 +434,20 @@ export function TrafficGenConfigForm({
                 .join(', ')}
             </div>
             <div>
-              Frame: {config.frameSize}B @ {config.ratePct}% line rate (~
-              {calculateThroughput()})
+              Frame: {frameSize}B @ {ratePct}% line rate (~{calculateThroughput()})
             </div>
-            {config.vlanId > 0 ? (
+            {vlanId > 0 ? (
               <div>
-                VLAN: {config.vlanId} (priority {config.vlanPriority})
+                VLAN: {vlanId} (priority {vlanPriority})
               </div>
             ) : null}
-            {config.burstMode ? (
+            {burstMode ? (
               <div>
-                Burst: {config.burstSize} frames, {config.interBurstGapUs}µs gap
+                Burst: {burstSize} frames, {interBurstGapUs}µs gap
               </div>
             ) : null}
             <div>
-              Duration: {config.duration}s + {config.warmup}s warmup
+              Duration: {duration}s + {warmup}s warmup
             </div>
           </div>
         </div>
