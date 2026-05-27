@@ -397,12 +397,13 @@ check_key_usage() {
     return
   fi
   # Propagate --ratchet so newly-added repos can absorb check-keys.py
-  # without an immediate cleanup burden. CI uses --ratchet via
-  # validate.sh's own --ratchet flag.
-  local args=()
-  [ "$RATCHET" -eq 1 ] && args=(--ratchet)
+  # without an immediate cleanup burden. Use a plain string instead of
+  # an array because bash 3.2 (macOS default) errors on `${empty[@]}`
+  # under `set -u`.
+  local extra=""
+  [ "$RATCHET" -eq 1 ] && extra="--ratchet"
   local out
-  if ! out=$(python3 "$script" "${args[@]}" 2>&1); then
+  if ! out=$(python3 "$script" $extra 2>&1); then
     fail "check-keys.py found t() calls referencing missing keys:"
     echo "$out" | head -40 | sed 's/^/      /'
     return
