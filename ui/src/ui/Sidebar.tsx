@@ -1,9 +1,10 @@
 /**
  * Sidebar layout shell — persistent collapsible left navigation.
  *
- * Ported from niac so the three sibling projects share the same
- * shell pattern. Theme tokens are adapted to The Stem's surface/brand
- * palette (`bg-surface-raised`, `text-brand-primary`, etc).
+ * CANONICAL SHELL — owned by stem; seed and niac sync this file via
+ * scripts/sync-shell.sh. Edits made downstream will be overwritten on
+ * next sync. All colors/spacing reference theme tokens; per-product
+ * brand identity comes from each repo's index.css token values.
  *
  * Drawer triggers (help, settings, history) call up to the host App
  * via callback props so the actual drawer components stay mounted at
@@ -24,6 +25,7 @@ import { createElement, type FC, type ReactNode, useEffect, useState } from 'rea
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { iconSizes } from '../constants/sizes';
+import { prefetchRoute } from '../utils/prefetch';
 import { safeGetItem, safeSetItem } from '../utils/storage';
 
 export interface SidebarNavItem {
@@ -57,27 +59,34 @@ interface NavItemButtonProps {
   onNavigate: (path: string) => void;
 }
 
+function badgeClass(badge: string): string {
+  if (badge === 'New') return 'bg-status-success/20 text-status-success';
+  if (badge === 'Beta') return 'bg-status-warning/20 text-status-warning';
+  return 'bg-brand-primary/20 text-brand-accent';
+}
+
 const NavItemButton: FC<NavItemButtonProps> = ({ item, active, collapsed, onNavigate }) => (
   <button
     type="button"
     onClick={() => onNavigate(item.path)}
+    onMouseEnter={() => prefetchRoute(item.path)}
     className={`group flex items-center gap-default w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
       active
-        ? 'bg-brand-primary/15 text-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]'
+        ? 'bg-gradient-to-r from-brand-primary/30 to-brand-primary/20 text-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]'
         : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
     }`}
     title={collapsed ? item.label : undefined}
   >
     {createElement(item.icon, {
       className: `${iconSizes.lg} flex-shrink-0 ${
-        active ? 'text-brand-primary' : 'text-text-muted group-hover:text-text-secondary'
+        active ? 'text-brand-accent' : 'text-text-muted group-hover:text-text-secondary'
       }`,
     })}
     {!collapsed ? (
       <>
         <span className="flex-1 text-left truncate">{item.label}</span>
         {item.badge ? (
-          <span className="px-1.5 py-0.5 text-xs rounded font-medium bg-brand-primary/20 text-brand-primary">
+          <span className={`px-1.5 py-0.5 text-xs rounded font-medium ${badgeClass(item.badge)}`}>
             {item.badge}
           </span>
         ) : null}
@@ -360,7 +369,7 @@ export const SidebarLayout: FC<SidebarLayoutProps> = ({
   );
 
   return (
-    <div className="min-h-screen text-text-primary">
+    <div className="min-h-screen text-text-primary bg-gradient-to-br from-surface-base via-surface-raised to-surface-deep">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-row focus:rounded-lg focus:bg-brand-primary focus:text-text-inverse focus:outline-none"
@@ -373,7 +382,7 @@ export const SidebarLayout: FC<SidebarLayoutProps> = ({
       {mobileOpen ? (
         <button
           type="button"
-          className="lg:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+          className="lg:hidden fixed inset-0 z-40 bg-scrim/60 backdrop-blur-sm"
           onClick={() => setMobileOpen(false)}
           aria-label="Close menu"
         />
