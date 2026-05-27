@@ -987,30 +987,6 @@ func writeJSON(w http.ResponseWriter, v any) {
 	}
 }
 
-// decodeJSONStrict decodes JSON from the request body with size limits and strict validation.
-// Returns false if decoding fails (error response already written to w).
-func decodeJSONStrict(w http.ResponseWriter, r *http.Request, v any) bool {
-	// Limit request body size.
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySize)
-
-	dec := json.NewDecoder(r.Body)
-	dec.DisallowUnknownFields()
-
-	err := dec.Decode(v)
-	if err != nil {
-		var maxBytesErr *http.MaxBytesError
-		if errors.As(err, &maxBytesErr) {
-			WriteError(w, ErrRequestTooLarge)
-			return false
-		}
-		logging.Warn("JSON decode failed", "error", err)
-		// Return sanitized error message - don't expose internal JSON parsing details.
-		WriteInvalidRequest(w, "Invalid JSON in request body")
-		return false
-	}
-	return true
-}
-
 // safeIntToUint16 safely converts an int to uint16.
 // Returns the converted value and true if in range, or 0 and false if out of range.
 func safeIntToUint16(v int) (uint16, bool) {

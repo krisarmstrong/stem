@@ -40,7 +40,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 
 	case http.MethodPost:
 		var update SettingsUpdate
-		if !decodeJSONStrict(w, r, &update) {
+		if !decodeJSONStrict(w, r, &update, maxRequestBodySize) {
 			return
 		}
 
@@ -109,7 +109,7 @@ func (s *Server) handleMode(w http.ResponseWriter, r *http.Request) {
 // budget enforced by golangci-lint.
 func (s *Server) handleModeUpdate(w http.ResponseWriter, r *http.Request) {
 	var req ModeRequest
-	if !decodeJSONStrict(w, r, &req) {
+	if !decodeJSONStrict(w, r, &req, maxRequestBodySize) {
 		return
 	}
 

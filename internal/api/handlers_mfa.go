@@ -131,7 +131,7 @@ func (s *Server) handleTOTPVerify(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req totpVerifyRequest
-	if !decodeJSONStrict(w, r, &req) {
+	if !decodeJSONStrict(w, r, &req, maxRequestBodySize) {
 		return
 	}
 
@@ -163,7 +163,7 @@ func (s *Server) handleTOTPDisable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req totpDisableRequest
-	if !decodeJSONStrict(w, r, &req) {
+	if !decodeJSONStrict(w, r, &req, maxRequestBodySize) {
 		return
 	}
 
@@ -212,7 +212,7 @@ func (s *Server) handleLoginTOTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req loginMFARequest
-	if !decodeJSONStrict(w, r, &req) {
+	if !decodeJSONStrict(w, r, &req, maxRequestBodySize) {
 		return
 	}
 
@@ -473,7 +473,7 @@ func (s *Server) loginWithMFAGate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req AuthLoginRequest
-	if !decodeJSONStrict(w, r, &req) {
+	if !decodeJSONStrict(w, r, &req, maxRequestBodySize) {
 		return
 	}
 
