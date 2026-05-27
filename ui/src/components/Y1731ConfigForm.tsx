@@ -1,35 +1,26 @@
 /**
  * @fileoverview The Stem - Y.1731 OAM Test Configuration
- * @description Configuration form for ITU-T Y.1731 Ethernet OAM Testing.
+ * @description Migrated to react-hook-form + valibot per #325.
  */
 
-import { Gauge, Info } from 'lucide-react';
-import type React from 'react';
+import { AlertTriangle, Gauge, Info } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { useConfigForm } from '../forms/useConfigForm';
+import { Y1731ConfigSchema } from '../schemas/configs';
 import { CollapsibleSection } from './CollapsibleSection';
 import { HelpIcon } from './HelpIcon';
 
 /** Y.1731 test configuration parameters */
 export interface Y1731Config {
-  /** Maintenance End Point ID */
   mepId: number;
-  /** Maintenance Entity Group Level (0-7) */
   megLevel: number;
-  /** Maintenance Entity Group ID */
   megId: string;
-  /** CCM interval in milliseconds */
   ccmInterval: number;
-  /** Frame priority (0-7) */
   priority: number;
-  /** Test duration in seconds */
   duration: number;
-  /** Measurement interval in milliseconds */
   intervalMs: number;
-  /** Number of test frames per interval */
   count: number;
-  /** Frame size in bytes */
   frameSize: number;
-  /** Whether to use priority tagging */
   priorityTagged: boolean;
 }
 
@@ -47,7 +38,6 @@ export const defaultY1731Config: Y1731Config = {
   priorityTagged: true,
 };
 
-/** Standard CCM intervals per Y.1731 */
 const CCM_INTERVAL_OPTIONS: Array<{ value: number; label: string }> = [
   { value: 3, label: '3.33 ms' },
   { value: 10, label: '10 ms' },
@@ -58,7 +48,6 @@ const CCM_INTERVAL_OPTIONS: Array<{ value: number; label: string }> = [
   { value: 600000, label: '10 min' },
 ];
 
-/** Frame size options */
 const FRAME_SIZE_OPTIONS: Array<{ value: number; label: string }> = [
   { value: 64, label: '64 B (min)' },
   { value: 128, label: '128 B' },
@@ -74,6 +63,16 @@ interface Y1731ConfigFormProps {
   selectedTests: string[];
 }
 
+function FieldError({ message }: { message?: string }): ReactElement | null {
+  if (!message) return null;
+  return (
+    <div className="mt-1 text-xs text-[var(--color-status-danger)] flex items-center gap-1">
+      <AlertTriangle className="w-3 h-3" />
+      {message}
+    </div>
+  );
+}
+
 export function Y1731ConfigForm({
   config,
   setConfig,
@@ -81,18 +80,36 @@ export function Y1731ConfigForm({
 }: Y1731ConfigFormProps): ReactElement | null {
   const hasY1731Tests = selectedTests.some((t) => t.startsWith('y1731'));
 
+  const form = useConfigForm<Y1731Config>({
+    schema: Y1731ConfigSchema,
+    config,
+    setConfig,
+  });
+  const {
+    register,
+    watch,
+    formState: { errors },
+  } = form;
+
   if (!hasY1731Tests) {
     return null;
   }
 
-  const updateConfig = (updates: Partial<Y1731Config>): void => {
-    setConfig({ ...config, ...updates });
-  };
+  const mepId = watch('mepId') ?? 0;
+  const megLevel = watch('megLevel') ?? 0;
+  const megId = watch('megId') ?? '';
+  const ccmInterval = watch('ccmInterval') ?? 0;
+  const priority = watch('priority') ?? 0;
+  const priorityTagged = watch('priorityTagged') ?? false;
+  const frameSize = watch('frameSize') ?? 0;
+  const intervalMs = watch('intervalMs') ?? 0;
+  const count = watch('count') ?? 0;
+  const duration = watch('duration') ?? 0;
 
-  const hasDelay: boolean = selectedTests.includes('y1731_delay');
-  const hasLoss: boolean = selectedTests.includes('y1731_loss');
-  const hasSLM: boolean = selectedTests.includes('y1731_slm');
-  const hasLoopback: boolean = selectedTests.includes('y1731_loopback');
+  const hasDelay = selectedTests.includes('y1731_delay');
+  const hasLoss = selectedTests.includes('y1731_loss');
+  const hasSLM = selectedTests.includes('y1731_slm');
+  const hasLoopback = selectedTests.includes('y1731_loopback');
 
   return (
     <CollapsibleSection
@@ -105,7 +122,6 @@ export function Y1731ConfigForm({
       defaultOpen={true}
     >
       <div className="space-y-4">
-        {/* MEP/MEG Configuration */}
         <div className="space-y-3">
           <div className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">
             MEP/MEG Configuration
@@ -123,15 +139,11 @@ export function Y1731ConfigForm({
               <input
                 id="y1731-mepid"
                 type="number"
-                min={1}
-                max={8191}
                 step={1}
-                value={config.mepId}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ mepId: Number(e.target.value) })
-                }
+                {...register('mepId', { valueAsNumber: true })}
                 className="mt-1 w-full"
               />
+              <FieldError message={errors.mepId?.message} />
             </div>
 
             <div>
@@ -145,15 +157,11 @@ export function Y1731ConfigForm({
               <input
                 id="y1731-meglevel"
                 type="number"
-                min={0}
-                max={7}
                 step={1}
-                value={config.megLevel}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ megLevel: Number(e.target.value) })
-                }
+                {...register('megLevel', { valueAsNumber: true })}
                 className="mt-1 w-full"
               />
+              <FieldError message={errors.megLevel?.message} />
             </div>
 
             <div>
@@ -167,18 +175,15 @@ export function Y1731ConfigForm({
               <input
                 id="y1731-megid"
                 type="text"
-                maxLength={48}
-                value={config.megId}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ megId: e.target.value })
-                }
+                maxLength={45}
+                {...register('megId')}
                 className="mt-1 w-full"
               />
+              <FieldError message={errors.megId?.message} />
             </div>
           </div>
         </div>
 
-        {/* OAM Parameters */}
         <div className="space-y-3">
           <div className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">
             OAM Parameters
@@ -195,10 +200,7 @@ export function Y1731ConfigForm({
               </label>
               <select
                 id="y1731-ccm"
-                value={config.ccmInterval}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>): void =>
-                  updateConfig({ ccmInterval: Number(e.target.value) })
-                }
+                {...register('ccmInterval', { valueAsNumber: true })}
                 className="mt-1 w-full"
               >
                 {CCM_INTERVAL_OPTIONS.map((opt) => (
@@ -207,6 +209,7 @@ export function Y1731ConfigForm({
                   </option>
                 ))}
               </select>
+              <FieldError message={errors.ccmInterval?.message} />
             </div>
 
             <div>
@@ -220,15 +223,11 @@ export function Y1731ConfigForm({
               <input
                 id="y1731-priority"
                 type="number"
-                min={0}
-                max={7}
                 step={1}
-                value={config.priority}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ priority: Number(e.target.value) })
-                }
+                {...register('priority', { valueAsNumber: true })}
                 className="mt-1 w-full"
               />
+              <FieldError message={errors.priority?.message} />
             </div>
           </div>
 
@@ -236,10 +235,7 @@ export function Y1731ConfigForm({
             <input
               id="y1731-tagged"
               type="checkbox"
-              checked={config.priorityTagged}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                updateConfig({ priorityTagged: e.target.checked })
-              }
+              {...register('priorityTagged')}
               aria-label="Use 802.1Q priority tagging on OAM frames"
               className="rounded border-[var(--color-surface-border)]"
             />
@@ -253,7 +249,6 @@ export function Y1731ConfigForm({
           </div>
         </div>
 
-        {/* Measurement Parameters */}
         <div className="space-y-3">
           <div className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">
             Measurement Parameters
@@ -270,10 +265,7 @@ export function Y1731ConfigForm({
               </label>
               <select
                 id="y1731-framesize"
-                value={config.frameSize}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>): void =>
-                  updateConfig({ frameSize: Number(e.target.value) })
-                }
+                {...register('frameSize', { valueAsNumber: true })}
                 className="mt-1 w-full"
               >
                 {FRAME_SIZE_OPTIONS.map((opt) => (
@@ -282,6 +274,7 @@ export function Y1731ConfigForm({
                   </option>
                 ))}
               </select>
+              <FieldError message={errors.frameSize?.message} />
             </div>
 
             <div>
@@ -295,15 +288,11 @@ export function Y1731ConfigForm({
               <input
                 id="y1731-interval"
                 type="number"
-                min={10}
-                max={10000}
                 step={10}
-                value={config.intervalMs}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ intervalMs: Number(e.target.value) })
-                }
+                {...register('intervalMs', { valueAsNumber: true })}
                 className="mt-1 w-full"
               />
+              <FieldError message={errors.intervalMs?.message} />
             </div>
           </div>
 
@@ -319,15 +308,11 @@ export function Y1731ConfigForm({
               <input
                 id="y1731-count"
                 type="number"
-                min={1}
-                max={1000}
                 step={1}
-                value={config.count}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ count: Number(e.target.value) })
-                }
+                {...register('count', { valueAsNumber: true })}
                 className="mt-1 w-full"
               />
+              <FieldError message={errors.count?.message} />
             </div>
 
             <div>
@@ -341,20 +326,15 @@ export function Y1731ConfigForm({
               <input
                 id="y1731-duration"
                 type="number"
-                min={10}
-                max={86400}
                 step={1}
-                value={config.duration}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
-                  updateConfig({ duration: Number(e.target.value) })
-                }
+                {...register('duration', { valueAsNumber: true })}
                 className="mt-1 w-full"
               />
+              <FieldError message={errors.duration?.message} />
             </div>
           </div>
         </div>
 
-        {/* Test Summary */}
         <div className="p-3 rounded-lg bg-[var(--color-surface-base)] border border-[var(--color-surface-border)]">
           <div className="flex items-center gap-2 text-sm font-medium text-[var(--color-text-primary)] mb-2">
             <Info className="w-4 h-4" />
@@ -373,19 +353,19 @@ export function Y1731ConfigForm({
                 .join(', ')}
             </div>
             <div>
-              MEP: {config.mepId} | Level: {config.megLevel} | MEG: {config.megId}
+              MEP: {mepId} | Level: {megLevel} | MEG: {megId}
             </div>
             <div>
               CCM:{' '}
-              {CCM_INTERVAL_OPTIONS.find((c) => c.value === config.ccmInterval)?.label ||
-                `${config.ccmInterval}ms`}{' '}
-              | Priority: {config.priority}
-              {config.priorityTagged ? ' (tagged)' : ''}
+              {CCM_INTERVAL_OPTIONS.find((c) => c.value === ccmInterval)?.label ||
+                `${ccmInterval}ms`}{' '}
+              | Priority: {priority}
+              {priorityTagged ? ' (tagged)' : ''}
             </div>
             <div>
-              Frame: {config.frameSize}B | Interval: {config.intervalMs}ms | Count: {config.count}
+              Frame: {frameSize}B | Interval: {intervalMs}ms | Count: {count}
             </div>
-            <div>Duration: {config.duration}s</div>
+            <div>Duration: {duration}s</div>
           </div>
         </div>
       </div>
