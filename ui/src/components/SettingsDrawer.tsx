@@ -122,15 +122,19 @@ export function SettingsDrawer({
         ref={drawerRef}
         role="dialog"
         aria-modal="true"
-        aria-label={t('settings:title', 'Settings')}
-        className="fixed right-0 top-0 h-full w-96 max-w-full bg-surface-raised border-l border-surface-border z-50 overflow-y-auto"
+        aria-labelledby="settings-drawer-title"
+        data-testid="settings-drawer"
+        className="fixed right-0 top-0 h-full w-96 max-w-full bg-surface-raised border-l border-surface-border z-50 overflow-y-auto animate-slide-in"
       >
         {/* Header */}
         <div className="sticky top-0 bg-surface-raised border-b border-surface-border px-4 py-row-lg flex-between">
-          <h2 className="heading-3 text-text-primary">{t('settings:title', 'Settings')}</h2>
+          <h2 id="settings-drawer-title" className="heading-3 text-text-primary">
+            {t('settings:title', 'Settings')}
+          </h2>
           <button
             type="button"
             onClick={onClose}
+            data-testid="settings-drawer-close"
             className={cn(spacing.pad.sm, 'hover:bg-surface-hover', radius.lg, 'transition-colors')}
             title={t('accessibility.closeSettings', 'Close settings')}
             aria-label={t('accessibility.closeSettings', 'Close settings')}
