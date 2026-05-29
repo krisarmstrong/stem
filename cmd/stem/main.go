@@ -215,7 +215,8 @@ COMMANDS:
     help         Get help on commands, tests, and concepts
     tutorial     Step-by-step learning guides
     glossary     Network terminology definitions
-    list-tests   Show all available test types (--by-module for module view)
+    list-tests   Show all available test types (grouped by module)
+    install-ca   Install stem's self-signed root certificate into the OS trust store
     version      Show version information
 
 REFLECT OPTIONS:
