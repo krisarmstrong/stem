@@ -65,7 +65,7 @@ interface RFC2889ConfigFormProps {
 function FieldError({ message }: { message?: string }): ReactElement | null {
   if (!message) return null;
   return (
-    <div className="mt-tight text-xs text-status-danger flex items-center gap-tight">
+    <div className="mt-tight text-xs text-status-error flex items-center gap-tight">
       <AlertTriangle className="w-3 h-3" />
       {message}
     </div>
