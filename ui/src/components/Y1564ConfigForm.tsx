@@ -88,7 +88,7 @@ const FRAME_SIZE_OPTIONS: Array<{ value: number; label: string }> = [
 function FieldError({ message }: { message?: string }): ReactElement | null {
   if (!message) return null;
   return (
-    <div className="mt-tight text-xs text-status-danger flex items-center gap-tight">
+    <div className="mt-tight text-xs text-status-error flex items-center gap-tight">
       <AlertTriangle className="w-3 h-3" />
       {message}
     </div>
@@ -448,7 +448,7 @@ export function Y1564ConfigForm({
 
         {/* Cross-field error footer */}
         {crossFieldError && (
-          <div className="pad-xs rounded-lg bg-status-danger-subtle text-status-danger text-sm flex items-center gap-compact">
+          <div className="pad-xs rounded-lg bg-status-error/10 text-status-error text-sm flex items-center gap-compact">
             <AlertTriangle className="w-4 h-4" />
             {crossFieldError.message}
           </div>
