@@ -9,14 +9,17 @@ package help
 // GetAllCommands returns help for all CLI commands.
 func GetAllCommands() map[string]CommandHelp {
 	return map[string]CommandHelp{
-		"reflect":  ReflectCommand(),
-		"test":     TestCommand(),
-		"web":      WebCommand(),
-		"license":  LicenseCommand(),
-		"version":  VersionCommand(),
-		"help":     helpCommand(),
-		"tutorial": TutorialCommand(),
-		"glossary": GlossaryCommand(),
+		"reflect":    ReflectCommand(),
+		"test":       TestCommand(),
+		"web":        WebCommand(),
+		"tui":        TUICommand(),
+		"license":    LicenseCommand(),
+		"version":    VersionCommand(),
+		"help":       helpCommand(),
+		"tutorial":   TutorialCommand(),
+		"glossary":   GlossaryCommand(),
+		"list-tests": ListTestsCommand(),
+		"install-ca": InstallCACommand(),
 	}
 }
 
@@ -455,5 +458,166 @@ definition.`,
 			},
 		},
 		SeeAlso: []string{"help", "tutorial"},
+	}
+}
+
+// ListTestsCommand documents the list-tests subcommand.
+func ListTestsCommand() CommandHelp {
+	return CommandHelp{
+		Name:    "list-tests",
+		Summary: "List every available test type, grouped by module",
+		Description: `The list-tests command prints every test type stem can run, grouped by
+module (Benchmark / ServiceTest / TrafficGen / Measure / Certify), with each
+test's standard and a one-line description.
+
+The default output is human-readable and module-grouped. Use --json for a
+machine-parseable representation suitable for piping into other tools.`,
+		Usage: "stem list-tests [flags]",
+		Flags: []FlagHelp{
+			{
+				Short:      "",
+				Long:       "--json",
+				Type:       TypeBoolean,
+				Default:    ValueFalse,
+				Required:   false,
+				TechDesc:   "Emit module + test metadata as JSON",
+				LaymanDesc: "Machine-readable output for scripts",
+			},
+		},
+		Examples: []Example{
+			{
+				Desc:    "List all tests grouped by module",
+				Command: "stem list-tests",
+				Output:  "stem - Available Test Types by Module\n=====================================\nBenchmark (RFC 2544): throughput, latency, frame_loss, ...",
+			},
+			{
+				Desc:    "Machine-readable JSON output",
+				Command: "stem list-tests --json",
+				Output:  "{ \"modules\": [...], \"count\": 5 }",
+			},
+		},
+		SeeAlso: []string{"test", "help"},
+	}
+}
+
+// InstallCACommand documents the install-ca subcommand.
+func InstallCACommand() CommandHelp {
+	return CommandHelp{
+		Name:    "install-ca",
+		Summary: "Install stem's self-signed root certificate into the OS trust store",
+		Description: `The install-ca command installs stem's self-signed root certificate into
+the operating system's trust store so browsers stop showing the "not secure"
+warning when visiting the stem WebUI over HTTPS.
+
+stem generates its self-signed root on first launch (at certs/server.crt).
+Run stem at least once before install-ca so the certificate file exists.
+
+Supported platforms:
+  macOS    System Keychain (requires sudo)
+  Linux    System CA bundle via update-ca-certificates / update-ca-trust
+  Windows  LocalMachine\Root (requires elevated shell)
+
+Verification:
+  stem install-ca --print-fingerprint
+  curl -k https://localhost:8444/__version | jq -r .tlsFingerprint
+The two values must match.`,
+		Usage: "stem install-ca [flags]",
+		Flags: []FlagHelp{
+			{
+				Short:      "",
+				Long:       "--cert",
+				Type:       TypeString,
+				Default:    "certs/server.crt",
+				Required:   false,
+				TechDesc:   "Path to the PEM-encoded certificate to install",
+				LaymanDesc: "Which certificate file to install (default is stem's)",
+			},
+			{
+				Short:      "",
+				Long:       "--uninstall",
+				Type:       TypeBoolean,
+				Default:    ValueFalse,
+				Required:   false,
+				TechDesc:   "Remove stem's certificate from the OS trust store",
+				LaymanDesc: "Undo a previous install-ca",
+			},
+			{
+				Short:      "",
+				Long:       "--print-fingerprint",
+				Type:       TypeBoolean,
+				Default:    ValueFalse,
+				Required:   false,
+				TechDesc:   "Print the SHA-256 fingerprint of the cert and exit without modifying the trust store",
+				LaymanDesc: "Just show the certificate's fingerprint for verification",
+			},
+		},
+		Examples: []Example{
+			{
+				Desc:    "Install stem's root into the OS trust store",
+				Command: "sudo stem install-ca",
+				Output:  "[ok] Installed.\nCertificate SHA-256 fingerprint:\n  AA:BB:CC:...",
+			},
+			{
+				Desc:    "Print fingerprint only (no trust-store change)",
+				Command: "stem install-ca --print-fingerprint",
+				Output:  "AA:BB:CC:DD:...",
+			},
+			{
+				Desc:    "Remove the previously installed root",
+				Command: "sudo stem install-ca --uninstall",
+				Output:  "[ok] Removed.",
+			},
+		},
+		SeeAlso: []string{"web"},
+	}
+}
+
+// TUICommand documents the tui subcommand.
+func TUICommand() CommandHelp {
+	return CommandHelp{
+		Name:    "tui",
+		Summary: "Start the terminal UI dashboard",
+		Description: `The tui command launches the interactive terminal dashboard. Two modes:
+• test     — orchestrator UI for running tests against a remote reflector
+             (the default when no mode is given).
+• reflect  — reflector UI showing live packet-reflection stats (requires
+             --interface).
+
+Keybindings are displayed in the dashboard footer. Press '?' for the
+extended help panel.`,
+		Usage: "stem tui [flags]",
+		Flags: []FlagHelp{
+			{
+				Short:      "",
+				Long:       "--mode",
+				Type:       TypeString,
+				Default:    "test",
+				Required:   false,
+				TechDesc:   "TUI mode: test (orchestrator) or reflect (reflector dashboard)",
+				LaymanDesc: "Which dashboard to launch (default: test orchestrator)",
+			},
+			{
+				Short:      "-i",
+				Long:       "--interface",
+				Type:       TypeString,
+				Default:    "",
+				Required:   false,
+				TechDesc:   "Network interface (required for reflect mode)",
+				LaymanDesc: "Which network port to use for reflect mode",
+			},
+		},
+		Examples: []Example{
+			{
+				Desc:    "Launch the test orchestrator dashboard",
+				Command: "stem tui",
+				Output:  "stem - Terminal UI (test mode)",
+			},
+			{
+				Desc:    "Launch the reflector dashboard on eth0",
+				Command: "stem tui --mode reflect -i eth0",
+				Output:  "stem - Terminal UI (reflect mode, eth0)",
+			},
+		},
+		SeeAlso: []string{"reflect", "test", "web"},
 	}
 }
