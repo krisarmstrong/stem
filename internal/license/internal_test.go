@@ -111,7 +111,7 @@ func TestFromAlphanumericEdgeCases(t *testing.T) {
 func TestValidateKeyChecksumDirect(t *testing.T) {
 	t.Parallel()
 	// Create a valid key and verify checksum validation.
-	key, err := GenerateLicenseKey("2001", "1234567", TierTestSuite)
+	key, err := GenerateLicenseKey("2001", "1234567", TierProfessional)
 	if err != nil {
 		t.Fatalf("GenerateLicenseKey error: %v", err)
 	}
@@ -387,7 +387,7 @@ func TestValidateLicenseKeyInternalEdgeCases(t *testing.T) {
 	}
 
 	// Test TestSuite tier key validation.
-	testSuiteKey, err := GenerateLicenseKey("2001", "ABCDEFG", TierTestSuite)
+	testSuiteKey, err := GenerateLicenseKey("2001", "ABCDEFG", TierProfessional)
 	if err != nil {
 		t.Fatalf("GenerateLicenseKey error: %v", err)
 	}
@@ -396,7 +396,7 @@ func TestValidateLicenseKeyInternalEdgeCases(t *testing.T) {
 	if !info.Valid {
 		t.Errorf("TestSuite key should be valid: %s", info.ErrorMsg)
 	}
-	if info.Tier != TierTestSuite {
+	if info.Tier != TierProfessional {
 		t.Errorf("Expected TestSuite tier, got %v", info.Tier)
 	}
 
@@ -743,7 +743,7 @@ func TestValidateLicenseKeyAllPaths(t *testing.T) {
 		tier    Tier
 	}{
 		{"1001", TierReflector},
-		{"2001", TierTestSuite},
+		{"2001", TierProfessional},
 		{"3001", TierEnterprise},
 	}
 
@@ -776,7 +776,7 @@ func TestSaveStateCreatesDirectory(t *testing.T) {
 	mgr.state = &ActivationState{
 		LicenseKey:      "",
 		DeviceHash:      mgr.fingerprint.Hash(),
-		Tier:            TierTestSuite,
+		Tier:            TierProfessional,
 		ActivatedAt:     time.Time{},
 		LastValidatedAt: time.Time{},
 		ExpiresAt:       time.Time{},
@@ -810,13 +810,13 @@ func TestActivateInternalEdgeCases(t *testing.T) {
 	}
 
 	// Test with valid key.
-	key, _ := GenerateLicenseKey("2001", "ABCDEFG", TierTestSuite)
+	key, _ := GenerateLicenseKey("2001", "ABCDEFG", TierProfessional)
 	result = mgr.Activate(key)
 	if !result.Success {
 		t.Errorf("Valid key should activate: %s", result.Message)
 	}
-	if result.Tier != TierTestSuite {
-		t.Errorf("Expected TierTestSuite, got %v", result.Tier)
+	if result.Tier != TierProfessional {
+		t.Errorf("Expected TierProfessional, got %v", result.Tier)
 	}
 	if result.IsTrialMode {
 		t.Error("Activation should not be trial mode")
@@ -964,7 +964,7 @@ func TestSaveStateWithReadOnlyDir(t *testing.T) {
 	mgr.state = &ActivationState{
 		LicenseKey:      "",
 		DeviceHash:      mgr.fingerprint.Hash(),
-		Tier:            TierTestSuite,
+		Tier:            TierProfessional,
 		ActivatedAt:     time.Time{},
 		LastValidatedAt: time.Time{},
 		ExpiresAt:       time.Time{},
@@ -1016,7 +1016,7 @@ func TestActivateSaveError(t *testing.T) {
 	mgr.configDir = "/nonexistent/readonly/path"
 
 	// Generate valid key.
-	key, _ := GenerateLicenseKey("2001", "1234567", TierTestSuite)
+	key, _ := GenerateLicenseKey("2001", "1234567", TierProfessional)
 
 	// Activate should fail because save fails.
 	result := mgr.Activate(key)
@@ -1079,7 +1079,7 @@ func TestValidateLicenseKeyUnknownProductCode(t *testing.T) {
 		tier    Tier
 	}{
 		{"1001", TierReflector},
-		{"2001", TierTestSuite},
+		{"2001", TierProfessional},
 		{"3001", TierEnterprise},
 	}
 
@@ -1155,7 +1155,7 @@ func TestLoadStateWithValidEncryptedState(t *testing.T) {
 	mgr1.state = &ActivationState{
 		LicenseKey:      "TESTKEY12345678",
 		DeviceHash:      mgr1.fingerprint.Hash(),
-		Tier:            TierTestSuite,
+		Tier:            TierProfessional,
 		ActivatedAt:     time.Now(),
 		LastValidatedAt: time.Now(),
 		ExpiresAt:       time.Now().AddDate(1, 0, 0),
@@ -1189,7 +1189,7 @@ func TestLoadStateWithValidEncryptedState(t *testing.T) {
 	if mgr2.state.LicenseKey != "TESTKEY12345678" {
 		t.Errorf("LicenseKey mismatch: got %s", mgr2.state.LicenseKey)
 	}
-	if mgr2.state.Tier != TierTestSuite {
+	if mgr2.state.Tier != TierProfessional {
 		t.Errorf("Tier mismatch: got %v", mgr2.state.Tier)
 	}
 }
@@ -1248,7 +1248,7 @@ func TestNewManagerLoadsExistingState(t *testing.T) {
 		t.Fatalf("First NewManager error: %v", err)
 	}
 
-	key, _ := GenerateLicenseKey("2001", "TESTKEY", TierTestSuite)
+	key, _ := GenerateLicenseKey("2001", "TESTKEY", TierProfessional)
 	result := mgr1.Activate(key)
 	if !result.Success {
 		t.Fatalf("Activate failed: %s", result.Message)
@@ -1300,7 +1300,7 @@ func TestGetPrimaryMACWithLoopback(t *testing.T) {
 func TestValidateLicenseKeyWithLowercaseKey(t *testing.T) {
 	t.Parallel()
 	// Generate a valid key.
-	key, err := GenerateLicenseKey("2001", "TESTKEY", TierTestSuite)
+	key, err := GenerateLicenseKey("2001", "TESTKEY", TierProfessional)
 	if err != nil {
 		t.Fatalf("GenerateLicenseKey error: %v", err)
 	}
@@ -1557,7 +1557,7 @@ func TestCheckInWithTrialState(t *testing.T) {
 	mgr.state = &ActivationState{
 		LicenseKey:      "",
 		DeviceHash:      mgr.fingerprint.Hash(),
-		Tier:            TierTestSuite,
+		Tier:            TierProfessional,
 		ActivatedAt:     time.Time{},
 		LastValidatedAt: time.Now().AddDate(0, 0, -40), // 40 days ago.
 		ExpiresAt:       time.Time{},
@@ -1584,7 +1584,7 @@ func TestNeedsCheckInWithTrialMode(t *testing.T) {
 	mgr.state = &ActivationState{
 		LicenseKey:      "",
 		DeviceHash:      mgr.fingerprint.Hash(),
-		Tier:            TierTestSuite,
+		Tier:            TierProfessional,
 		ActivatedAt:     time.Time{},
 		LastValidatedAt: time.Now().AddDate(0, 0, -40),
 		ExpiresAt:       time.Time{},
@@ -1611,7 +1611,7 @@ func TestNeedsCheckInRecentValidation(t *testing.T) {
 	mgr.state = &ActivationState{
 		LicenseKey:      "",
 		DeviceHash:      mgr.fingerprint.Hash(),
-		Tier:            TierTestSuite,
+		Tier:            TierProfessional,
 		ActivatedAt:     time.Time{},
 		LastValidatedAt: time.Now().AddDate(0, 0, -5), // 5 days ago.
 		ExpiresAt:       time.Time{},
@@ -1638,7 +1638,7 @@ func TestNeedsCheckInOldValidation(t *testing.T) {
 	mgr.state = &ActivationState{
 		LicenseKey:      "",
 		DeviceHash:      mgr.fingerprint.Hash(),
-		Tier:            TierTestSuite,
+		Tier:            TierProfessional,
 		ActivatedAt:     time.Time{},
 		LastValidatedAt: time.Now().AddDate(0, 0, -35), // 35 days ago.
 		ExpiresAt:       time.Time{},
@@ -1704,7 +1704,7 @@ func TestGetStateAndFingerprint(t *testing.T) {
 	testState := &ActivationState{
 		LicenseKey:      "",
 		DeviceHash:      "",
-		Tier:            TierTestSuite,
+		Tier:            TierProfessional,
 		ActivatedAt:     time.Time{},
 		LastValidatedAt: time.Time{},
 		ExpiresAt:       time.Time{},
@@ -1771,7 +1771,7 @@ func TestActivationResultFields(t *testing.T) {
 	result := &ActivationResult{
 		Success:       true,
 		Message:       "Test message",
-		Tier:          TierTestSuite,
+		Tier:          TierProfessional,
 		DaysRemaining: 30,
 		IsTrialMode:   true,
 	}
@@ -1783,7 +1783,7 @@ func TestActivationResultFields(t *testing.T) {
 	if result.Message != "Test message" {
 		t.Error("Message mismatch")
 	}
-	if result.Tier != TierTestSuite {
+	if result.Tier != TierProfessional {
 		t.Error("Tier mismatch")
 	}
 	if result.DaysRemaining != 30 {
@@ -2055,7 +2055,7 @@ func TestSaveStateCreateDirectoryError(t *testing.T) {
 func TestValidateLicenseKeyWithFormattedKey(t *testing.T) {
 	t.Parallel()
 	// Generate a valid key.
-	key, err := GenerateLicenseKey("2001", "TESTKEY", TierTestSuite)
+	key, err := GenerateLicenseKey("2001", "TESTKEY", TierProfessional)
 	if err != nil {
 		t.Fatalf("GenerateLicenseKey error: %v", err)
 	}
@@ -2074,7 +2074,7 @@ func TestValidateLicenseKeyWithFormattedKey(t *testing.T) {
 func TestValidateLicenseKeyWithSpaces(t *testing.T) {
 	t.Parallel()
 	// Generate a valid key.
-	key, err := GenerateLicenseKey("2001", "TESTKEY", TierTestSuite)
+	key, err := GenerateLicenseKey("2001", "TESTKEY", TierProfessional)
 	if err != nil {
 		t.Fatalf("GenerateLicenseKey error: %v", err)
 	}
@@ -2093,7 +2093,7 @@ func TestValidateLicenseKeyWithSpaces(t *testing.T) {
 func TestValidateLicenseKeyWithDots(t *testing.T) {
 	t.Parallel()
 	// Generate a valid key.
-	key, err := GenerateLicenseKey("2001", "TESTKEY", TierTestSuite)
+	key, err := GenerateLicenseKey("2001", "TESTKEY", TierProfessional)
 	if err != nil {
 		t.Fatalf("GenerateLicenseKey error: %v", err)
 	}
@@ -2120,7 +2120,7 @@ func TestMultipleActivationsAndDeactivations(t *testing.T) {
 
 	// Generate keys for each tier.
 	reflectorKey, _ := GenerateLicenseKey("1001", "REFKEY1", TierReflector)
-	testSuiteKey, _ := GenerateLicenseKey("2001", "TSTKEY1", TierTestSuite)
+	testSuiteKey, _ := GenerateLicenseKey("2001", "TSTKEY1", TierProfessional)
 	enterpriseKey, _ := GenerateLicenseKey("3001", "ENTKEY1", TierEnterprise)
 
 	// Activate reflector.
@@ -2143,7 +2143,7 @@ func TestMultipleActivationsAndDeactivations(t *testing.T) {
 	if !result.Success {
 		t.Errorf("TestSuite activation failed: %s", result.Message)
 	}
-	if result.Tier != TierTestSuite {
+	if result.Tier != TierProfessional {
 		t.Errorf("Expected TestSuite tier, got %v", result.Tier)
 	}
 
@@ -2177,7 +2177,7 @@ func TestInfoCanRunReflectorAndTests(t *testing.T) {
 	}
 
 	// Test suite tier.
-	testKey, _ := GenerateLicenseKey("2001", "TSTKEY1", TierTestSuite)
+	testKey, _ := GenerateLicenseKey("2001", "TSTKEY1", TierProfessional)
 	info = ValidateLicenseKey(testKey)
 	if !info.CanRunReflector() {
 		t.Error("TestSuite tier should be able to run reflector")
@@ -2220,7 +2220,7 @@ func TestInfoHasFeature(t *testing.T) {
 	}
 
 	// Test suite tier.
-	testKey, _ := GenerateLicenseKey("2001", "TSTKEY1", TierTestSuite)
+	testKey, _ := GenerateLicenseKey("2001", "TSTKEY1", TierProfessional)
 	info = ValidateLicenseKey(testKey)
 	if !info.HasFeature("reflector") {
 		t.Error("TestSuite tier should have 'reflector' feature")
@@ -2692,7 +2692,7 @@ func TestDeriveKeyIsConsistentWithSameFingerprint(t *testing.T) {
 func TestValidateLicenseKeyWithNormalization(t *testing.T) {
 	t.Parallel()
 	// Generate a valid key.
-	key, err := GenerateLicenseKey("2001", "TESTKEY", TierTestSuite)
+	key, err := GenerateLicenseKey("2001", "TESTKEY", TierProfessional)
 	if err != nil {
 		t.Fatalf("GenerateLicenseKey error: %v", err)
 	}
@@ -2809,7 +2809,7 @@ func TestCheckInUpdatesLastValidatedAt(t *testing.T) {
 	mgr.state = &ActivationState{
 		LicenseKey:      "TESTKEY",
 		DeviceHash:      mgr.fingerprint.Hash(),
-		Tier:            TierTestSuite,
+		Tier:            TierProfessional,
 		ActivatedAt:     time.Time{},
 		LastValidatedAt: oldTime,
 		ExpiresAt:       time.Time{},
@@ -2964,7 +2964,7 @@ func TestActivateWithKeyNormalization(t *testing.T) {
 	}
 
 	// Generate a valid key.
-	key, err := GenerateLicenseKey("2001", "TESTKEY", TierTestSuite)
+	key, err := GenerateLicenseKey("2001", "TESTKEY", TierProfessional)
 	if err != nil {
 		t.Fatalf("GenerateLicenseKey error: %v", err)
 	}
@@ -3024,7 +3024,7 @@ func TestIsActivatedWithExpiredLicense(t *testing.T) {
 	mgr.state = &ActivationState{
 		LicenseKey:      "TESTKEY",
 		DeviceHash:      mgr.fingerprint.Hash(),
-		Tier:            TierTestSuite,
+		Tier:            TierProfessional,
 		ActivatedAt:     time.Now().AddDate(-2, 0, 0), // 2 years ago.
 		LastValidatedAt: time.Now().AddDate(-1, 0, 0), // 1 year ago.
 		ExpiresAt:       time.Now().AddDate(-1, 0, 0), // Expired 1 year ago.
@@ -3238,7 +3238,7 @@ func TestValidateLicenseKeyAllProductCodes(t *testing.T) {
 		tier    Tier
 	}{
 		{"1001", TierReflector},
-		{"2001", TierTestSuite},
+		{"2001", TierProfessional},
 		{"3001", TierEnterprise},
 	}
 
