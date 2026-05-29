@@ -30,9 +30,7 @@ describe('HeaderBar', () => {
       expect(screen.getByRole('button', { name: /switch to dark mode/i })).toBeInTheDocument();
       // These moved to the sidebar footer / page level and logout to the
       // profile menu — the header was slimmed in #342.
-      expect(
-        screen.queryByRole('button', { name: /refresh interfaces/i }),
-      ).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /refresh interfaces/i })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /open test history/i })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /open help/i })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /open settings/i })).not.toBeInTheDocument();
