@@ -83,7 +83,7 @@ func TestGenerateLicenseKey(t *testing.T) {
 		wantErr     bool
 	}{
 		{"1001", "ABCDEFG", license.TierReflector, false},
-		{"2001", "1234567", license.TierTestSuite, false},
+		{"2001", "1234567", license.TierProfessional, false},
 		{"3001", "XYZXYZX", license.TierEnterprise, false},
 		{"100", "ABCDEFG", license.TierReflector, true}, // Invalid product code length.
 		{"1001", "ABCDEF", license.TierReflector, true}, // Invalid serial length.
@@ -239,7 +239,7 @@ func TestInfoCanRunReflector(t *testing.T) {
 			&license.Info{
 				Key:         "",
 				Valid:       true,
-				Tier:        license.TierTestSuite,
+				Tier:        license.TierProfessional,
 				ProductCode: "",
 				Serial:      "",
 				Activated:   false,
@@ -339,7 +339,7 @@ func TestInfoCanRunTests(t *testing.T) {
 			&license.Info{
 				Key:         "",
 				Valid:       true,
-				Tier:        license.TierTestSuite,
+				Tier:        license.TierProfessional,
 				ProductCode: "",
 				Serial:      "",
 				Activated:   false,
@@ -373,7 +373,7 @@ func TestInfoCanRunTests(t *testing.T) {
 			&license.Info{
 				Key:         "",
 				Valid:       false,
-				Tier:        license.TierTestSuite,
+				Tier:        license.TierProfessional,
 				ProductCode: "",
 				Serial:      "",
 				Activated:   false,
@@ -521,7 +521,7 @@ func TestValidateLicenseKeyProductCodeMismatch(t *testing.T) {
 		tier    license.Tier
 	}{
 		{"1001", license.TierReflector},
-		{"2001", license.TierTestSuite},
+		{"2001", license.TierProfessional},
 		{"3001", license.TierEnterprise},
 	}
 
@@ -805,11 +805,11 @@ func TestInfoMethods(t *testing.T) {
 	}{
 		{false, license.TierInvalid, false, false},
 		{false, license.TierReflector, false, false},
-		{false, license.TierTestSuite, false, false},
+		{false, license.TierProfessional, false, false},
 		{false, license.TierEnterprise, false, false},
 		{true, license.TierInvalid, false, false},
 		{true, license.TierReflector, true, false},
-		{true, license.TierTestSuite, true, true},
+		{true, license.TierProfessional, true, true},
 		{true, license.TierEnterprise, true, true},
 	}
 
@@ -847,7 +847,7 @@ func TestHasFeatureVariousFeatures(t *testing.T) {
 	info := &license.Info{
 		Key:         "",
 		Valid:       true,
-		Tier:        license.TierTestSuite,
+		Tier:        license.TierProfessional,
 		ProductCode: "",
 		Serial:      "",
 		Activated:   false,
@@ -1065,7 +1065,7 @@ func TestValidateLicenseKeyWithProductCodeVariants(t *testing.T) {
 		tier    license.Tier
 	}{
 		{"1001", license.TierReflector},
-		{"2001", license.TierTestSuite},
+		{"2001", license.TierProfessional},
 		{"3001", license.TierEnterprise},
 	}
 
@@ -1159,7 +1159,7 @@ func TestProductCodeTierMismatchRejection(t *testing.T) {
 	// We generate a valid key and then verify its components.
 
 	// Generate a key with TestSuite tier (2001) and Tier 2.
-	validKey, err := license.GenerateLicenseKey("2001", "ABCDEFG", license.TierTestSuite)
+	validKey, err := license.GenerateLicenseKey("2001", "ABCDEFG", license.TierProfessional)
 	if err != nil {
 		t.Fatalf("GenerateLicenseKey error: %v", err)
 	}
@@ -1173,8 +1173,8 @@ func TestProductCodeTierMismatchRejection(t *testing.T) {
 	if info.ProductCode != "2001" {
 		t.Errorf("ProductCode should be 2001, got %s", info.ProductCode)
 	}
-	if info.Tier != license.TierTestSuite {
-		t.Errorf("Tier should be TierTestSuite, got %v", info.Tier)
+	if info.Tier != license.TierProfessional {
+		t.Errorf("Tier should be TierProfessional, got %v", info.Tier)
 	}
 
 	// Now generate keys for all combinations and verify they pass validation.
@@ -1183,7 +1183,7 @@ func TestProductCodeTierMismatchRejection(t *testing.T) {
 		tier    license.Tier
 	}{
 		{"1001", license.TierReflector},
-		{"2001", license.TierTestSuite},
+		{"2001", license.TierProfessional},
 		{"3001", license.TierEnterprise},
 	}
 
@@ -1220,7 +1220,7 @@ func TestValidateLicenseKeyUnknownProduct(t *testing.T) {
 		tier license.Tier
 	}{
 		{"1001", license.TierReflector},
-		{"2001", license.TierTestSuite},
+		{"2001", license.TierProfessional},
 		{"3001", license.TierEnterprise},
 	}
 
