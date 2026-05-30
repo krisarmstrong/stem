@@ -1,69 +1,69 @@
 import { expect, test } from '@playwright/test';
+import { AUTH_STORAGE_STATE } from './helpers/auth';
 
-/**
- * Smoke Tests
- *
- * Quick sanity checks to verify the app is running:
- * - Page loads without errors
- * - No console errors
- * - Basic UI elements render
- */
+const VERSION_KEYS = ['version', 'commit', 'buildTime', 'uiBuildHash'] as const;
 
-test.describe('Smoke Tests', () => {
-  test('should load the application without errors', async ({ page }) => {
-    const errors: string[] = [];
+test.describe('smoke @ unauthenticated', { tag: '@smoke' }, () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
 
-    // Capture console errors
-    page.on('console', (msg) => {
-      if (msg.type() === 'error') {
-        errors.push(msg.text());
-      }
-    });
-
-    await page.goto('/');
-
-    // Page should have loaded something
-    await expect(page.locator('body')).not.toBeEmpty();
-
-    // Filter out expected, non-code errors. 401/Unauthorized arise pre-auth;
-    // 429 is the API rate limiter throttling the burst of calls the shell
-    // fires on first paint (transient server-side throttle, not an app bug);
-    // failed fetches + favicon are environmental in the E2E harness.
-    const criticalErrors = errors.filter(
-      (e) =>
-        !(
-          e.includes('401') ||
-          e.includes('Unauthorized') ||
-          e.includes('429') ||
-          e.includes('Failed to fetch') ||
-          e.includes('favicon')
-        ),
-    );
-
-    // No critical console errors
-    expect(criticalErrors).toHaveLength(0);
+  test('GET /__version returns canonical build metadata', async ({ request }) => {
+    const res = await request.get('/__version');
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    for (const k of VERSION_KEYS) {
+      expect(body[k], `missing ${k} in /__version`).toBeTruthy();
+      expect(typeof body[k]).toBe('string');
+    }
   });
 
-  test('should have proper page title', async ({ page }) => {
+  test('login surface renders for unauthenticated visitors', async ({ page }) => {
     await page.goto('/');
+    await expect(page.getByTestId('login-title')).toBeVisible({ timeout: 10000 });
+  });
+});
 
-    // Title should contain app name
-    await expect(page).toHaveTitle(/stem|The Stem/i);
+test.describe('smoke @ authenticated', { tag: '@smoke' }, () => {
+  test.use({ storageState: AUTH_STORAGE_STATE });
+
+  test('reflector shell renders with page-header-title', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByTestId('page-header-title')).toBeVisible({ timeout: 10000 });
   });
 
-  test('should have proper viewport and be responsive', async ({ page }) => {
+  test('theme toggle is interactive', async ({ page }) => {
     await page.goto('/');
+    await expect(page.getByTestId('page-header-title')).toBeVisible({ timeout: 10000 });
+    const toggle = page.getByTestId('header-theme-toggle');
+    await expect(toggle).toBeVisible();
+    await toggle.click();
+    await expect(toggle).toBeVisible();
+  });
 
-    // Set mobile viewport
-    await page.setViewportSize({ width: 375, height: 667 });
-    await expect(page.locator('body')).toBeVisible();
+  test('settings drawer opens and closes', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByTestId('page-header-title')).toBeVisible({ timeout: 10000 });
+    await page.getByTestId('sidebar-settings-button').click();
+    await expect(page.getByTestId('settings-drawer')).toBeVisible();
+    await page.getByTestId('settings-drawer-close').click();
+    await expect(page.getByTestId('settings-drawer')).toBeHidden();
+  });
 
-    // Set tablet viewport
-    await page.setViewportSize({ width: 768, height: 1024 });
-    await expect(page.locator('body')).toBeVisible();
+  test('help drawer opens with version badge', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByTestId('page-header-title')).toBeVisible({ timeout: 10000 });
+    await page.getByTestId('sidebar-help-button').click();
+    await expect(page.getByTestId('help-drawer')).toBeVisible();
+    await expect(page.getByTestId('help-drawer-version')).toContainText(/v\d/);
+    await page.getByTestId('help-drawer-close').click();
+    await expect(page.getByTestId('help-drawer')).toBeHidden();
+  });
 
-    // Set desktop viewport
-    await page.setViewportSize({ width: 1920, height: 1080 });
-    await expect(page.locator('body')).toBeVisible();
+  test('history drawer opens and closes', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByTestId('page-header-title')).toBeVisible({ timeout: 10000 });
+    await page.getByTestId('sidebar-history-button').click();
+    await expect(page.getByTestId('history-drawer')).toBeVisible();
+    await page.getByTestId('history-drawer-close').click();
+    await expect(page.getByTestId('history-drawer')).toBeHidden();
   });
 });
