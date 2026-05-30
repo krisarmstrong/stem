@@ -1289,6 +1289,7 @@ function AppContent(): ReactElement {
             >
               <h2
                 id="login-dialog-title"
+                data-testid="login-title"
                 className="flex items-center gap-compact heading-3 text-text-primary"
               >
                 <Lock className="w-5 h-5 text-brand-primary" />
@@ -1353,6 +1354,7 @@ function AppContent(): ReactElement {
                     </label>
                     <input
                       id="stem-login-username"
+                      data-testid="login-username"
                       type="text"
                       autoComplete="username"
                       {...loginForm.register('username')}
@@ -1373,6 +1375,7 @@ function AppContent(): ReactElement {
                     </label>
                     <input
                       id="stem-login-password"
+                      data-testid="login-password"
                       type="password"
                       autoComplete="current-password"
                       {...loginForm.register('password')}
@@ -1387,6 +1390,7 @@ function AppContent(): ReactElement {
                   {loginError ? <p className="text-xs text-status-error">{loginError}</p> : null}
                   <button
                     type="submit"
+                    data-testid="login-submit"
                     className="btn btn-primary w-full justify-center"
                     disabled={loginLoading}
                   >
