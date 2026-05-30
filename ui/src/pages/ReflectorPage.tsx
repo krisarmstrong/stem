@@ -77,11 +77,12 @@ interface StatsCardProps {
   title: string;
   value: string;
   subvalue: string;
+  testId: string;
 }
 
-function StatsCard({ icon, title, value, subvalue }: StatsCardProps): ReactElement {
+function StatsCard({ icon, title, value, subvalue, testId }: StatsCardProps): ReactElement {
   return (
-    <div className="card">
+    <div className="card" data-testid={testId}>
       <div className="card-header">
         {icon}
         {title}
@@ -334,20 +335,23 @@ export function ReflectorPage(): ReactElement {
             title="Packets Received"
             value={formatNumber(stats.packetsReceived)}
             subvalue={`${formatNumber(stats.bytesReceived)} bytes`}
+            testId="stats-packets-received"
           />
           <StatsCard
             icon={<Activity className="w-4 h-4" />}
             title="Packets Sent"
             value={formatNumber(stats.packetsSent)}
             subvalue={`${formatNumber(stats.bytesSent)} bytes`}
+            testId="stats-packets-sent"
           />
           <StatsCard
             icon={<Gauge className="w-4 h-4" />}
             title="Current Rate"
             value={`${formatNumber(stats.currentPps)} pps`}
             subvalue={`${stats.currentMbps.toFixed(2)} Mbps`}
+            testId="stats-current-rate"
           />
-          <div className="card">
+          <div className="card" data-testid="stats-uptime">
             <div className="card-header">
               <Clock className="w-4 h-4" />
               Uptime

@@ -22,10 +22,12 @@ test.describe('Dashboard', () => {
   });
 
   test('should display stats cards', async ({ page }) => {
-    await expect(page.getByText(/packets received/i)).toBeVisible();
-    await expect(page.getByText(/packets sent/i)).toBeVisible();
-    await expect(page.getByText(/current rate/i)).toBeVisible();
-    await expect(page.getByText(/uptime/i)).toBeVisible();
+    // Stable testids on each StatsCard — i18n-stable. Previously
+    // matched by /packets received/i etc., which broke on es locale.
+    await expect(page.getByTestId('stats-packets-received')).toBeVisible();
+    await expect(page.getByTestId('stats-packets-sent')).toBeVisible();
+    await expect(page.getByTestId('stats-current-rate')).toBeVisible();
+    await expect(page.getByTestId('stats-uptime')).toBeVisible();
   });
 
   test('should display interface selector', async ({ page }) => {
