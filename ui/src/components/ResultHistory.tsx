@@ -298,6 +298,7 @@ export function ResultHistory({
         role="dialog"
         aria-modal="true"
         aria-label="Test History"
+        data-testid="history-drawer"
         className="relative h-full w-full max-w-lg bg-surface-raised shadow-xl overflow-hidden flex flex-col"
       >
         {/* Header */}
@@ -323,6 +324,7 @@ export function ResultHistory({
             <button
               type="button"
               onClick={onClose}
+              data-testid="history-drawer-close"
               className="btn btn-ghost"
               title="Close the test history drawer and return to the main view"
               aria-label="Close test history"

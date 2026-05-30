@@ -188,12 +188,20 @@ interface FullWidthDrawerButtonProps {
   icon: LucideIcon;
   label: string;
   title: string;
+  'data-testid'?: string;
 }
 
-const FullWidthDrawerButton: FC<FullWidthDrawerButtonProps> = ({ onClick, icon, label, title }) => (
+const FullWidthDrawerButton: FC<FullWidthDrawerButtonProps> = ({
+  onClick,
+  icon,
+  label,
+  title,
+  'data-testid': dataTestId,
+}) => (
   <button
     type="button"
     onClick={onClick}
+    data-testid={dataTestId}
     className="w-full mb-heading flex items-center gap-compact px-3 py-row rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors text-sm font-medium"
     title={title}
     aria-label={title}
@@ -240,6 +248,7 @@ const SidebarFooter: FC<SidebarFooterProps> = ({
         icon={History}
         label="History"
         title="Open test history"
+        data-testid="sidebar-history-button"
       />
     ) : null}
 

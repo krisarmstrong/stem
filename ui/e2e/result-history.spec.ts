@@ -16,21 +16,19 @@ test.describe('Result History', () => {
     await page.goto('/');
   });
 
-  test('should have history button in header', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /open test history/i })).toBeVisible();
+  test('should have history button in sidebar', async ({ page }) => {
+    await expect(page.getByTestId('sidebar-history-button')).toBeVisible();
   });
 
   test('should open history drawer when clicking history button', async ({ page }) => {
-    await page.getByRole('button', { name: /open test history/i }).click();
-
-    const drawer = page.getByRole('dialog', { name: /test history/i });
-    await expect(drawer).toBeVisible();
+    await page.getByTestId('sidebar-history-button').click();
+    await expect(page.getByTestId('history-drawer')).toBeVisible();
   });
 
   test('should display content in history drawer', async ({ page }) => {
-    await page.getByRole('button', { name: /open test history/i }).click();
+    await page.getByTestId('sidebar-history-button').click();
 
-    const drawer = page.getByRole('dialog', { name: /test history/i });
+    const drawer = page.getByTestId('history-drawer');
     await expect(drawer).toBeVisible();
 
     const text = await drawer.textContent();
@@ -38,15 +36,12 @@ test.describe('Result History', () => {
   });
 
   test('should close history drawer', async ({ page }) => {
-    await page.getByRole('button', { name: /open test history/i }).click();
+    await page.getByTestId('sidebar-history-button').click();
 
-    const drawer = page.getByRole('dialog', { name: /test history/i });
+    const drawer = page.getByTestId('history-drawer');
     await expect(drawer).toBeVisible();
 
-    await page
-      .getByRole('button', { name: /close history drawer|close test history/i })
-      .first()
-      .click();
+    await page.getByTestId('history-drawer-close').click();
     await expect(drawer).not.toBeVisible();
   });
 });
